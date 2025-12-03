@@ -16,6 +16,7 @@ import {
   parseAndFormatApiError,
   createAgentRuntimeState,
   DEFAULT_AGENT_ID,
+  DEFAULT_GUI_EDITOR,
   type AnsiOutput,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -452,8 +453,9 @@ export class Task {
       outputUpdateHandler: this._schedulerOutputUpdate.bind(this),
       onAllToolCallsComplete: this._schedulerAllToolCallsComplete.bind(this),
       onToolCallsUpdate: this._schedulerToolCallsUpdate.bind(this),
-      getPreferredEditor: () => 'vscode',
+      getPreferredEditor: () => DEFAULT_GUI_EDITOR,
       onEditorClose: () => {},
+      config: this.config,
     });
   }
 

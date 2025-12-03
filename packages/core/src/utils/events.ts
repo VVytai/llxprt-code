@@ -59,6 +59,7 @@ export enum CoreEvent {
   ModelChanged = 'model-changed',
   ConsoleLog = 'console-log',
   Output = 'output',
+  ExternalEditorClosed = 'external-editor-closed',
 }
 
 export class CoreEventEmitter extends EventEmitter {
