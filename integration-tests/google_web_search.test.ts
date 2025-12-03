@@ -16,7 +16,9 @@ const skipInCI =
 describe('google_web_search', () => {
   it.skipIf(skipInCI)('should be able to search the web', async () => {
     const rig = new TestRig();
-    await rig.setup('should be able to search the web');
+    await rig.setup('should be able to search the web', {
+      settings: { tools: { core: [WEB_SEARCH_TOOL_NAME] } },
+    });
 
     let result;
     try {

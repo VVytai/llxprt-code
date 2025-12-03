@@ -59,7 +59,9 @@ const conditionalDescribe = skipBomE2ETests ? describe.skip : describe;
 conditionalDescribe('BOM end-to-end integration', () => {
   beforeAll(async () => {
     rig = new TestRig();
-    await rig.setup('bom-integration');
+    await rig.setup('bom-integration', {
+      settings: { tools: { core: ['read_file'] } },
+    });
     dir = rig.testDir!;
   });
 
