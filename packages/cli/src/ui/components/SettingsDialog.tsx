@@ -743,7 +743,7 @@ export function SettingsDialog({
           } else if (newIndex >= scrollOffset + maxItemsToShow) {
             setScrollOffset(newIndex - maxItemsToShow + 1);
           }
-        } else if (keyMatchers[Command.RETURN](key) || name === 'space') {
+        } else if (keyMatchers[Command.RETURN](key)) {
           const currentItem = items[activeSettingIndex];
           const currentDefinition = getSettingDefinition(
             currentItem?.value || '',
