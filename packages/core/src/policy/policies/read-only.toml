@@ -61,6 +61,11 @@ decision = "allow"
 priority = 50
 
 [[rule]]
+toolName = "codebase_investigator"
+decision = "allow"
+priority = 50
+
+[[rule]]
 toolName = "exa_web_search"
 decision = "allow"
 priority = 50
