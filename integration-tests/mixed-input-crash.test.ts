@@ -23,9 +23,8 @@ describe('mixed input crash prevention', () => {
     const stdinContent = "say '1'.";
 
     try {
-      // This test validates CLI error handling, not LLM functionality.
-      // Use runCommand to bypass profile loading and test the raw CLI behavior.
-      await rig.runCommand(['--prompt-interactive', "say '2'.", "say '3'."], {
+      await rig.run({
+        args: ['--prompt-interactive', "say '2'.", "say '3'."],
         stdin: stdinContent,
       });
       throw new Error('Expected the command to fail, but it succeeded');
@@ -33,13 +32,7 @@ describe('mixed input crash prevention', () => {
       expect(error).toBeInstanceOf(Error);
       const err = error as Error;
 
-      // ExitCodes.FATAL_INPUT_ERROR is 42.
-      // Windows may exit with 3221226505 (0xC0000409 STATUS_STACK_BUFFER_OVERRUN)
-      // due to libuv async.c assertion failure when process exits
-      expect(
-        err.message.includes('Process exited with code 42') ||
-          err.message.includes('Process exited with code 3221226505'),
-      ).toBe(true);
+      expect(err.message).toContain('Process exited with code 42');
       expect(err.message).toContain(
         '--prompt-interactive flag cannot be used when input is piped',
       );
@@ -55,9 +48,8 @@ describe('mixed input crash prevention', () => {
     rig.setup('should provide clear error message for mixed input');
 
     try {
-      // This test validates CLI error handling, not LLM functionality.
-      // Use runCommand to bypass profile loading and test the raw CLI behavior.
-      await rig.runCommand(['--prompt-interactive', 'test prompt'], {
+      await rig.run({
+        args: ['--prompt-interactive', 'test prompt'],
         stdin: 'test input',
       });
       throw new Error('Expected the command to fail, but it succeeded');

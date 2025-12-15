@@ -7,6 +7,7 @@
 import { expect, describe, it, beforeEach, afterEach } from 'vitest';
 import { TestRig } from './test-helper.js';
 import { join } from 'node:path';
+import { ExitCodes } from '@google/gemini-cli-core/src/index.js';
 
 describe('JSON output', () => {
   let rig: TestRig;
@@ -21,11 +22,9 @@ describe('JSON output', () => {
   });
 
   it('should return a valid JSON with response and stats', async () => {
-    const result = await rig.run(
-      'What is the capital of France?',
-      '--output-format',
-      'json',
-    );
+    const result = await rig.run({
+      args: ['What is the capital of France?', '--output-format', 'json'],
+    });
     const parsed = JSON.parse(result);
 
     expect(parsed).toHaveProperty('response');
@@ -36,32 +35,87 @@ describe('JSON output', () => {
     expect(typeof parsed.stats).toBe('object');
   });
 
-  it('should include session_id in JSON output', async () => {
-    const result = await rig.run('Say hello', '--output-format', 'json');
+  it('should return a valid JSON with a session ID', async () => {
+    const result = await rig.run({
+      args: ['Hello', '--output-format', 'json'],
+    });
     const parsed = JSON.parse(result);
 
     expect(parsed).toHaveProperty('session_id');
     expect(typeof parsed.session_id).toBe('string');
-    expect(parsed.session_id).toBeTruthy();
+    expect(parsed.session_id).not.toBe('');
   });
 
-  // REMOVED (issue #443): Enforced auth type mismatch test removed.
-  // The enforced auth type checking was vestigial code that caused
-  // more problems than it solved. Providers now handle auth internally.
+  it('should return a JSON error for sd auth mismatch before running', async () => {
+    process.env['GOOGLE_GENAI_USE_GCA'] = 'true';
+    await rig.setup('json-output-auth-mismatch', {
+      settings: {
+        security: {
+          auth: { enforcedType: 'gemini-api-key', selectedType: '' },
+        },
+      },
+    });
+
+    let thrown: Error | undefined;
+    try {
+      await rig.run({ args: ['Hello', '--output-format', 'json'] });
+      expect.fail('Expected process to exit with error');
+    } catch (e) {
+      thrown = e as Error;
+    } finally {
+      delete process.env['GOOGLE_GENAI_USE_GCA'];
+    }
+
+    expect(thrown).toBeDefined();
+    const message = (thrown as Error).message;
+
+    // Use a regex to find the first complete JSON object in the string
+    const jsonMatch = message.match(/{[\s\S]*}/);
+
+    // Fail if no JSON-like text was found
+    expect(
+      jsonMatch,
+      'Expected to find a JSON object in the error output',
+    ).toBeTruthy();
+
+    let payload;
+    try {
+      // Parse the matched JSON string
+      payload = JSON.parse(jsonMatch![0]);
+    } catch (parseError) {
+      console.error('Failed to parse the following JSON:', jsonMatch![0]);
+      throw new Error(
+        `Test failed: Could not parse JSON from error message. Details: ${parseError}`,
+      );
+    }
+
+    expect(payload.error).toBeDefined();
+    expect(payload.error.type).toBe('Error');
+    expect(payload.error.code).toBe(ExitCodes.FATAL_AUTHENTICATION_ERROR);
+    expect(payload.error.message).toContain(
+      "enforced authentication type is 'gemini-api-key'",
+    );
+    expect(payload.error.message).toContain("current type is 'oauth-personal'");
+    expect(payload).toHaveProperty('session_id');
+    expect(typeof payload.session_id).toBe('string');
+    expect(payload.session_id).not.toBe('');
+  });
 
   it('should not exit on tool errors and allow model to self-correct in JSON mode', async () => {
     rig.setup('json-output-error', {
       fakeResponsesPath: join(
         import.meta.dirname,
-        'json-output.error.responses.jsonl',
+        'json-output.error.responses',
       ),
     });
-    const result = await rig.run(
-      `Read the contents of ${rig.testDir}/path/to/nonexistent/file.txt and tell me what it says. ` +
-        'On error, respond to the user with exactly the text "File not found".',
-      '--output-format',
-      'json',
-    );
+    const result = await rig.run({
+      args: [
+        `Read the contents of ${rig.testDir}/path/to/nonexistent/file.txt and tell me what it says. ` +
+          'On error, respond to the user with exactly the text "File not found".',
+        '--output-format',
+        'json',
+      ],
+    });
 
     const parsed = JSON.parse(result);
 
@@ -89,5 +143,9 @@ describe('JSON output', () => {
 
     // Should NOT have an error field at the top level
     expect(parsed.error).toBeUndefined();
+
+    expect(parsed).toHaveProperty('session_id');
+    expect(typeof parsed.session_id).toBe('string');
+    expect(parsed.session_id).not.toBe('');
   });
 });
