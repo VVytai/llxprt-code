@@ -247,6 +247,9 @@ export class TestRig {
   _lastRunStdout?: string;
   _interactiveOutput: string = '';
   fakeResponsesPath?: string;
+  // Original fake responses file path for rewriting goldens in record mode.
+  originalFakeResponsesPath?: string;
+  private _interactiveRuns: InteractiveRun[] = [];
 
   constructor() {
     this.bundlePath = join(__dirname, '..', 'bundle/llxprt.js');
@@ -790,6 +793,24 @@ ${stderr}`),
   }
 
   async cleanup() {
+    // Kill any interactive runs that are still active
+    for (const run of this._interactiveRuns) {
+      try {
+        await run.kill();
+      } catch (error) {
+        if (env['VERBOSE'] === 'true') {
+          console.warn('Failed to kill interactive run during cleanup:', error);
+        }
+      }
+    }
+    this._interactiveRuns = [];
+
+    if (
+      process.env['REGENERATE_MODEL_GOLDENS'] === 'true' &&
+      this.fakeResponsesPath
+    ) {
+      fs.copyFileSync(this.fakeResponsesPath, this.originalFakeResponsesPath!);
+    }
     // Clean up test directory
     if (this.testDir && !env['KEEP_OUTPUT']) {
       try {
@@ -1358,16 +1379,9 @@ ${stderr}`),
     const ptyProcess = pty.spawn(command, initialArgs, options);
 
     const run = new InteractiveRun(ptyProcess);
-    // Wait for the app to be ready (input prompt rendered).
-    await run.expectAnyText(
-      [
-        'Type your message or @path/to/file',
-        'Type your message, @path/to/file or +path/to/file',
-        'Create LLXPRT.md files to customize your interactions',
-        'Create GEMINI.md files to customize your interactions',
-      ],
-      60000,
-    );
+    this._interactiveRuns.push(run);
+    // Wait for the app to be ready
+    await run.expectText('  Type your message or @path/to/file', 30000);
     return run;
   }
 }

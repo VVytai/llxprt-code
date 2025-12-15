@@ -4,18 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect } from 'vitest';
+import { WEB_SEARCH_TOOL_NAME } from '../packages/core/src/tools/tool-names.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TestRig, printDebugInfo, validateModelOutput } from './test-helper.js';
 import { GOOGLE_WEB_SEARCH_TOOL } from '../packages/core/src/tools/tool-names.js';
 
-// Skip web search tests in CI unless explicitly enabled via RUN_WEB_TESTS=true
-// We do not run this in CI because it depends on Gemini-backed server tools.
-const skipInCI =
-  process.env.CI === 'true' && process.env.RUN_WEB_TESTS !== 'true';
+describe('web search tool', () => {
+  let rig: TestRig;
 
-describe('google_web_search', () => {
-  it.skipIf(skipInCI)('should be able to search the web', async () => {
-    const rig = new TestRig();
+  beforeEach(() => {
+    rig = new TestRig();
+  });
+
+  afterEach(async () => await rig.cleanup());
+
+  it('should be able to search the web', async () => {
     await rig.setup('should be able to search the web', {
       settings: { tools: { core: [GOOGLE_WEB_SEARCH_TOOL] } },
     });
