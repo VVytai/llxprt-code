@@ -39,6 +39,7 @@ export interface ModelMetrics {
     totalLatencyMs: number;
   };
   tokens: {
+    input: number;
     prompt: number;
     candidates: number;
     total: number;
@@ -89,6 +90,7 @@ const createInitialModelMetrics = (): ModelMetrics => ({
     totalLatencyMs: 0,
   },
   tokens: {
+    input: 0,
     prompt: 0,
     candidates: 0,
     total: 0,
@@ -213,6 +215,10 @@ export class UiTelemetryService extends EventEmitter {
     modelMetrics.tokens.cached += event.cached_content_token_count;
     modelMetrics.tokens.thoughts += event.thoughts_token_count;
     modelMetrics.tokens.tool += event.tool_token_count;
+    modelMetrics.tokens.input = Math.max(
+      0,
+      modelMetrics.tokens.prompt - modelMetrics.tokens.cached,
+    );
   }
 
   private processApiError(event: ApiErrorEvent) {

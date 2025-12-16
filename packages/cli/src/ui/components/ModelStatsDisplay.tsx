@@ -177,8 +177,8 @@ export const ModelStatsDisplay: React.FC = () => {
         title="Input"
         isSubtle
         values={getModelValues((m) => (
-          <Text color={Colors.Foreground}>
-            {Math.max(0, m.tokens.prompt - m.tokens.cached).toLocaleString()}
+          <Text color={theme.text.primary}>
+            {m.tokens.input.toLocaleString()}
           </Text>
         ))}
       />
