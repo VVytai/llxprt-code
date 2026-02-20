@@ -103,6 +103,13 @@ export class HookRegistry {
    * Enable or disable a specific hook
    */
   setHookEnabled(hookName: string, enabled: boolean): void {
+    this.setHookEnabledByName(hookName, enabled);
+  }
+
+  /**
+   * Internal method to enable or disable a hook by name
+   */
+  private setHookEnabledByName(hookName: string, enabled: boolean): void {
     const updated = this.entries.filter((entry) => {
       const name = this.getHookName(entry);
       if (name === hookName) {
@@ -122,9 +129,9 @@ export class HookRegistry {
   }
 
   /**
-   * Get hook name for display purposes
+   * Get hook name for display purposes (public for external use)
    */
-  private getHookName(entry: HookRegistryEntry): string {
+  getHookName(entry: HookRegistryEntry): string {
     return entry.config.command || 'unknown-command';
   }
 
@@ -198,19 +205,26 @@ export class HookRegistry {
       return;
     }
 
+    const disabledHooks = this.config.getDisabledHooks() || [];
+
     for (const hookConfig of definition.hooks) {
       if (
         hookConfig &&
         typeof hookConfig === 'object' &&
         this.validateHookConfig(hookConfig, eventName, source)
       ) {
+        const hookName = this.getHookName({
+          config: hookConfig,
+        } as HookRegistryEntry);
+        const isDisabled = disabledHooks.includes(hookName);
+
         this.entries.push({
           config: hookConfig,
           source,
           eventName,
           matcher: definition.matcher,
           sequential: definition.sequential,
-          enabled: true,
+          enabled: !isDisabled,
         });
       } else {
         // Invalid hooks are logged and discarded here, they won't reach HookRunner

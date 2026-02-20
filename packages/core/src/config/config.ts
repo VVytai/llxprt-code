@@ -648,6 +648,7 @@ export class Config {
   private readonly hooks:
     | { [K in HookEventName]?: HookDefinition[] }
     | undefined;
+  private disabledHooks: string[] = [];
   /**
    * @plan:PLAN-20260216-HOOKSYSTEMREWRITE.P03
    * @requirement:HOOK-001,HOOK-002
@@ -2408,6 +2409,23 @@ ${trimmed}
    */
   getHooks(): { [K in HookEventName]?: HookDefinition[] } | undefined {
     return this.hooks;
+  }
+
+  /**
+   * Get disabled hooks list
+   */
+  getDisabledHooks(): string[] {
+    return this.disabledHooks;
+  }
+
+  /**
+   * Set disabled hooks list
+   * Updates both in-memory state and persists to settings
+   */
+  setDisabledHooks(hooks: string[]): void {
+    this.disabledHooks = hooks;
+    // Persist to settings service
+    this.settingsService.set('hooks.disabled', hooks);
   }
 
   /**

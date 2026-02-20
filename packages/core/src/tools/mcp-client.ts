@@ -695,7 +695,7 @@ function createSSETransportWithAuth(
   if (accessToken) {
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
-  const url = config.url!;
+  const url = config.httpUrl || config.url!;
   return new SSEClientTransport(new URL(url), {
     requestInit: { headers },
   });
@@ -768,7 +768,7 @@ async function retryWithOAuth(
   // Try HTTP first
   try {
     const httpTransport = new StreamableHTTPClientTransport(
-      new URL(config.url!),
+      new URL(config.httpUrl || config.url!),
       {
         requestInit: {
           headers: {

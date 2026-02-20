@@ -13,7 +13,6 @@ import { AuthProviderType, type Config } from '../config/config.js';
 import { GoogleCredentialProvider } from '../mcp/google-auth-provider.js';
 import { MCPOAuthProvider } from '../mcp/oauth-provider.js';
 import { MCPOAuthTokenStorage } from '../mcp/oauth-token-storage.js';
-import { OAuthUtils } from '../mcp/oauth-utils.js';
 import type { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 
@@ -1343,21 +1342,12 @@ describe('connectToMcpServer with OAuth', () => {
     vi.clearAllMocks();
   });
 
-  it('should handle automatic OAuth flow on 401 with www-authenticate header', async () => {
+  it('should handle automatic OAuth flow on 401 with stored token', async () => {
     const serverUrl = 'http://test-server.com/';
-    const authUrl = 'http://auth.example.com/auth';
-    const tokenUrl = 'http://auth.example.com/token';
-    const wwwAuthHeader = `Bearer realm="test", resource_metadata="http://test-server.com/.well-known/oauth-protected-resource"`;
 
     vi.mocked(mockedClient.connect).mockRejectedValueOnce(
-      new Error(`401 Unauthorized\nwww-authenticate: ${wwwAuthHeader}`),
+      new Error('401 Unauthorized'),
     );
-
-    vi.mocked(OAuthUtils.discoverOAuthConfig).mockResolvedValue({
-      authorizationUrl: authUrl,
-      tokenUrl,
-      scopes: ['test-scope'],
-    });
 
     // We need this to be an any type because we dig into its private state.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1377,59 +1367,37 @@ describe('connectToMcpServer with OAuth', () => {
     );
 
     expect(client).toBe(mockedClient);
+    // First connect rejects with 401, second connect succeeds with stored token
     expect(mockedClient.connect).toHaveBeenCalledTimes(2);
-    // connectToMcpServer calls static MCPOAuthProvider.authenticate
-    expect(MCPOAuthProvider.authenticate).toHaveBeenCalledOnce();
+    // With stored token available, retryWithOAuth uses stored token directly
+    expect(MCPOAuthProvider.getValidToken).toHaveBeenCalled();
 
     const authHeader =
       capturedTransport._requestInit?.headers?.['Authorization'];
     expect(authHeader).toBe('Bearer test-access-token');
   });
 
-  it('should discover oauth config if not in www-authenticate header', async () => {
+  it('should show auth required message on 401 when no stored token exists', async () => {
     const serverUrl = 'http://test-server.com';
-    const authUrl = 'http://auth.example.com/auth';
-    const tokenUrl = 'http://auth.example.com/token';
+
+    // Mock no stored credentials so getStoredOAuthToken returns null
+    mockTokenStorage.getCredentials = vi.fn().mockResolvedValue(null);
 
     vi.mocked(mockedClient.connect).mockRejectedValueOnce(
       new Error('401 Unauthorized'),
     );
 
-    vi.mocked(OAuthUtils.discoverOAuthConfig).mockResolvedValue({
-      authorizationUrl: authUrl,
-      tokenUrl,
-      scopes: ['test-scope'],
-    });
-    vi.spyOn(MCPOAuthProvider, 'getValidToken').mockResolvedValue(
-      'test-access-token-from-discovery',
-    );
+    await expect(
+      connectToMcpServer(
+        'test-server',
+        { httpUrl: serverUrl },
+        false,
+        workspaceContext,
+      ),
+    ).rejects.toThrow(/requires OAuth authentication/);
 
-    // We need this to be an any type because we dig into its private state.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let capturedTransport: any;
-    vi.mocked(mockedClient.connect).mockImplementationOnce(
-      async (transport) => {
-        capturedTransport = transport;
-        return Promise.resolve();
-      },
-    );
-
-    const client = await connectToMcpServer(
-      'test-server',
-      { httpUrl: serverUrl },
-      false,
-      workspaceContext,
-    );
-
-    expect(client).toBe(mockedClient);
-    expect(mockedClient.connect).toHaveBeenCalledTimes(2);
-    // connectToMcpServer calls static MCPOAuthProvider.authenticate
-    expect(MCPOAuthProvider.authenticate).toHaveBeenCalledOnce();
-    expect(OAuthUtils.discoverOAuthConfig).toHaveBeenCalledWith(serverUrl);
-
-    const authHeader =
-      capturedTransport._requestInit?.headers?.['Authorization'];
-    expect(authHeader).toBe('Bearer test-access-token-from-discovery');
+    // Only initial connect is attempted
+    expect(mockedClient.connect).toHaveBeenCalledTimes(1);
   });
 
   describe('getInstructions', () => {

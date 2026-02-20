@@ -52,6 +52,7 @@ describe('HookRegistry', () => {
       storage: mockStorage,
       getExtensions: vi.fn().mockReturnValue([]),
       getHooks: vi.fn().mockReturnValue({}),
+      getDisabledHooks: vi.fn().mockReturnValue([]),
     } as unknown as Config;
 
     hookRegistry = new HookRegistry(mockConfig);
@@ -317,6 +318,72 @@ describe('HookRegistry', () => {
       expect(mockDebugLogger.warn).toHaveBeenCalledWith(
         'No hooks found matching "non-existent-hook"',
       );
+    });
+  });
+
+  describe('disabled hooks from config', () => {
+    it('should apply disabled hooks list from config during initialization', async () => {
+      const mockHooksConfig = {
+        BeforeTool: [
+          {
+            hooks: [
+              {
+                type: 'command',
+                command: './hooks/enabled.sh',
+              },
+              {
+                type: 'command',
+                command: './hooks/disabled.sh',
+              },
+            ],
+          },
+        ],
+      };
+
+      // Mock config with disabled hooks
+      vi.mocked(mockConfig.getHooks).mockReturnValue(
+        mockHooksConfig as unknown as {
+          [K in HookEventName]?: HookDefinition[];
+        },
+      );
+      vi.mocked(mockConfig.getDisabledHooks).mockReturnValue([
+        './hooks/disabled.sh',
+      ]);
+
+      const newRegistry = new HookRegistry(mockConfig);
+      await newRegistry.initialize();
+
+      const hooks = newRegistry.getHooksForEvent(HookEventName.BeforeTool);
+      expect(hooks).toHaveLength(1);
+      expect(hooks[0].config.command).toBe('./hooks/enabled.sh');
+    });
+
+    it('should handle empty disabled hooks list', async () => {
+      const mockHooksConfig = {
+        BeforeTool: [
+          {
+            hooks: [
+              {
+                type: 'command',
+                command: './hooks/test.sh',
+              },
+            ],
+          },
+        ],
+      };
+
+      vi.mocked(mockConfig.getHooks).mockReturnValue(
+        mockHooksConfig as unknown as {
+          [K in HookEventName]?: HookDefinition[];
+        },
+      );
+      vi.mocked(mockConfig.getDisabledHooks).mockReturnValue([]);
+
+      const newRegistry = new HookRegistry(mockConfig);
+      await newRegistry.initialize();
+
+      const hooks = newRegistry.getHooksForEvent(HookEventName.BeforeTool);
+      expect(hooks).toHaveLength(1);
     });
   });
 
