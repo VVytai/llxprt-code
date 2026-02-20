@@ -4,12 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Config } from '@vybestack/llxprt-code-core';
+import type { Config, GitService } from '@vybestack/llxprt-code-core';
 
 export interface CommandArgument {
   readonly name: string;
   readonly description: string;
   readonly isRequired?: boolean;
+}
+
+export interface CommandContext {
+  config: Config;
+  git?: GitService;
 }
 
 export interface Command {
@@ -18,8 +23,9 @@ export interface Command {
   readonly arguments?: CommandArgument[];
   readonly subCommands?: Command[];
   readonly topLevel?: boolean;
+  readonly requiresWorkspace?: boolean;
 
-  execute(config: Config, args: string[]): Promise<CommandExecutionResponse>;
+  execute(context: CommandContext, args: string[]): Promise<CommandExecutionResponse>;
 }
 
 export interface CommandExecutionResponse {

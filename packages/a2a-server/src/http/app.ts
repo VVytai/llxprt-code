@@ -160,7 +160,7 @@ export async function createApp() {
             .json({ error: `Command not found: ${command}` });
         }
 
-        const result = await commandToExecute.execute(config, args ?? []);
+        const result = await commandToExecute.execute({ config }, args ?? []);
         return res.status(200).json(result);
       } catch (e) {
         logger.error('Error executing /executeCommand:', e);

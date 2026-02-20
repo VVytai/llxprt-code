@@ -46,7 +46,7 @@ describe('ExtensionsCommand', () => {
     const mockExtensions = [{ name: 'ext1' }];
     mockListExtensions.mockReturnValue(mockExtensions);
 
-    const result = await command.execute(mockConfig, []);
+    const result = await command.execute({ config: mockConfig }, []);
 
     expect(result).toEqual({ name: 'extensions list', data: mockExtensions });
     expect(mockListExtensions).toHaveBeenCalledWith(mockConfig);
@@ -65,7 +65,7 @@ describe('ListExtensionsCommand', () => {
     const mockExtensions = [{ name: 'ext1' }];
     mockListExtensions.mockReturnValue(mockExtensions);
 
-    const result = await command.execute(mockConfig, []);
+    const result = await command.execute({ config: mockConfig }, []);
 
     expect(result).toEqual({ name: 'extensions list', data: mockExtensions });
     expect(mockListExtensions).toHaveBeenCalledWith(mockConfig);
@@ -76,7 +76,7 @@ describe('ListExtensionsCommand', () => {
     const mockConfig = {} as Config;
     mockListExtensions.mockReturnValue([]);
 
-    const result = await command.execute(mockConfig, []);
+    const result = await command.execute({ config: mockConfig }, []);
 
     expect(result).toEqual({
       name: 'extensions list',
