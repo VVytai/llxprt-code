@@ -717,7 +717,6 @@ export class ShellExecutionService {
           resolve(resultValue);
         };
 
-
         const renderFn = () => {
           activePtyEntry.renderTimeout = undefined;
 

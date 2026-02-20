@@ -6,10 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '../../test-utils/render.js';
-import type {
-  Config,
-  CodeAssistServer,
-} from '@vybestack/llxprt-code-core';
+import type { Config, CodeAssistServer } from '@vybestack/llxprt-code-core';
 import { UserTierId } from '@vybestack/llxprt-code-core';
 import { usePrivacySettings } from './usePrivacySettings.js';
 

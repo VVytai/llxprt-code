@@ -30,7 +30,6 @@ import type { ToolRegistry } from './tool-registry.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { coreEvents } from '../utils/events.js';
 
 vi.mock('@modelcontextprotocol/sdk/client/stdio.js');

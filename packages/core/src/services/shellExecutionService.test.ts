@@ -21,7 +21,6 @@ import type {
   ShellExecutionConfig,
 } from './shellExecutionService.js';
 import { ShellExecutionService } from './shellExecutionService.js';
-import type { AnsiOutput, AnsiToken } from '../utils/terminalSerializer.js';
 
 // Hoisted Mocks
 const mockPtySpawn = vi.hoisted(() => vi.fn());
@@ -80,43 +79,7 @@ const shellExecutionConfig: ShellExecutionConfig = {
   disableDynamicLineTrimming: true,
 };
 
-const createMockSerializeTerminalToObjectReturnValue = (
-  text: string | string[],
-): AnsiOutput => {
-  const lines = Array.isArray(text) ? text : text.split('\n');
-  const len = (shellExecutionConfig.terminalHeight ?? 24) as number;
-  const expected: AnsiOutput = Array.from({ length: len }, (_, i) => [
-    {
-      text: (lines[i] || '').trim(),
-      bold: false,
-      italic: false,
-      underline: false,
-      dim: false,
-      inverse: false,
-      fg: '#ffffff',
-      bg: '#000000',
-    },
-  ]);
-  return expected;
-};
 
-const createExpectedAnsiOutput = (text: string | string[]): AnsiOutput => {
-  const lines = Array.isArray(text) ? text : text.split('\n');
-  const len = (shellExecutionConfig.terminalHeight ?? 24) as number;
-  const expected: AnsiOutput = Array.from({ length: len }, (_, i) => [
-    {
-      text: expect.stringMatching((lines[i] || '').trim()),
-      bold: false,
-      italic: false,
-      underline: false,
-      dim: false,
-      inverse: false,
-      fg: '',
-      bg: '',
-    } as AnsiToken,
-  ]);
-  return expected;
-};
 
 describe('ShellExecutionService', () => {
   let mockPtyProcess: EventEmitter & {
