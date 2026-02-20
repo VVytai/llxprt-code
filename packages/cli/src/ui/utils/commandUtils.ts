@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { debugLogger } from '@vybestack/llxprt-code-core';
+import { DebugLogger } from '@vybestack/llxprt-code-core';
+
+const debugLogger = new DebugLogger('llxprt:commandUtils');
 import clipboardy from 'clipboardy';
 import type { SlashCommand } from '../commands/types.js';
 import fs from 'node:fs';

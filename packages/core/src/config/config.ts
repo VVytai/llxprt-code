@@ -447,7 +447,6 @@ export interface ConfigParameters {
   enableShellOutputEfficiency?: boolean;
   continueSession?: boolean | string;
   disableYoloMode?: boolean;
-  enableMessageBusIntegration?: boolean;
   enableHooks?: boolean;
   hooks?: {
     [K in HookEventName]?: HookDefinition[];
@@ -826,23 +825,7 @@ export class Config {
     this.enableHooks = params.enableHooks ?? false;
     this.jitContextEnabled = params.jitContextEnabled ?? true;
 
-    // Enable MessageBus integration if:
-    // 1. Explicitly enabled via setting, OR
-    // 2. Hooks are enabled and hooks are configured
-    const hasHooks = params.hooks && Object.keys(params.hooks).length > 0;
-    const hooksNeedMessageBus = this.enableHooks && hasHooks;
-    const messageBusEnabled =
-      params.enableMessageBusIntegration ??
-      (hooksNeedMessageBus ? true : false);
-    // Update messageBus initialization to consider hooks
-    if (messageBusEnabled && !this.messageBus) {
-      // MessageBus is already initialized in constructor, just log that hooks may use it
-      const debugLogger = new DebugLogger('llxprt:config');
-      debugLogger.debug(
-        () =>
-          `MessageBus enabled for hooks (enableHooks=${this.enableHooks}, hasHooks=${hasHooks})`,
-      );
-    }
+    // MessageBus is always enabled; constructed unconditionally above.
     this.hooks = params.hooks;
 
     if (params.contextFileName) {

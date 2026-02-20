@@ -47,10 +47,55 @@ Added to "Features Completely Removed" section:
 
 ## Batch Notes
 
-### Batch 1
-*(pending)*
+### Batch 1 - COMPLETED
+- Applied 4 commits (1 skipped - f588219bb already covered by existing code)
+- Required post-cherry-pick fixes:
+  - Added ExternalEditorClosed emit overload to events.ts
+  - Added optional onEditorClose parameter to openDiff function
+  - Removed invalid config property from SchedulerCallbacks
 
-### Batch 2
-*(pending)*
+### Batch 2 - COMPLETED
+- Applied 4 commits (1 skipped - 48e8c12476b6 SettingsDialog conflicts, R2 will handle)
+- Required branding fix: @google/gemini-cli-core → @vybestack/llxprt-code-core in commandUtils.ts
+
+### Batch 3-B8 - BLOCKED / RECLASSIFIED TO REIMPLEMENT
+**Reason:** GeminiClient API has diverged significantly between upstream and LLxprt.
+
+Cherry-pick of b27cf0b0a (Move key restore logic to core) introduced:
+- 9 conflicting files
+- Missing methods on GeminiClient: restoreHistory, hasChatInitialized, getHistoryService, getContentGenerator, clearTools, dispose, generateDirectMessage
+- Module mismatches: nextSpeakerChecker.js, chatRecordingService.js, chatCompressionService.js, clientHookTriggers.js
+
+**Recommendation:** B3-B8 commits should be reclassified from PICK to REIMPLEMENT. The upstream commits assume a refactored GeminiClient that LLxprt has not adopted.
+
+### Applied Commits (so far):
+1. 528584f31 - Restrict integration tests tools
+2. 19d68e6f2 - refactor(editor): use const assertion for editor types
+3. 5cfd694c4 - fix(security): Fix npm audit vulnerabilities
+4. 99f6abfd2 - Add new enterprise instructions
+5. 6494221b1 - fix: post-B1 cherry-pick type fixes (LLxprt fix commit)
+6. c8935861c - feat(cli): support /copy in remote sessions using OSC52
+7. 2dd23e068 - fix(cli): Fix word navigation for CJK characters
+8. 7ca51cc2f - do not toggle the setting item when entering space
+9. d19f6d6a2 - feat(mcp): add --type alias for --transport flag
+
+### Skipped Commits:
+1. f588219bb - Bundle default policies (already covered)
+2. 48e8c12476b6 - remove unused isSearching field (R2 will implement)
+
+### R1 - MessageBus Always Enabled (533a3fb3) - CODE COMPLETE
+**Status:** Implementation complete, lint/typecheck verified, awaiting commit
+
+**Changes made:**
+- `packages/core/src/config/config.ts` - Removed `enableMessageBusIntegration` field from ConfigParameters interface, removed dead conditional block (was never executed since MessageBus already constructed unconditionally at line 822)
+- `packages/core/src/core/coreToolScheduler.test.ts` - Removed 3 stale `getEnableMessageBusIntegration` mock methods
+- `packages/a2a-server/src/utils/testing_utils.ts` - Removed 1 stale mock method
+
+**Additional B2 type fixes included:**
+- `packages/cli/src/ui/components/shared/text-buffer.ts` - Fixed @google import to @vybestack
+- `packages/cli/src/ui/utils/commandUtils.ts` - Fixed DebugLogger import (debugLogger → new DebugLogger())
+- `packages/cli/src/ui/contexts/KeypressContext.tsx` - Added optional `insertable` property to Key interface for CJK word navigation support
+
+**Deviation from upstream:** Upstream added `enableMessageBusIntegration` as a configurable option. LLxprt makes MessageBus always-on with no option to disable (simpler, hooks always work).
 
 ...

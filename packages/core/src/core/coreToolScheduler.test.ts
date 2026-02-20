@@ -549,7 +549,6 @@ describe('CoreToolScheduler', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
-      getEnableMessageBusIntegration: () => false,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1116,7 +1115,6 @@ describe('CoreToolScheduler with payload', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
-      getEnableMessageBusIntegration: () => false,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2145,7 +2143,6 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
-      getEnableMessageBusIntegration: () => false,
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
