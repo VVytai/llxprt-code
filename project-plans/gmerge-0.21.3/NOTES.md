@@ -110,4 +110,36 @@ Cherry-pick of b27cf0b0a (Move key restore logic to core) introduced:
 
 **Documentation updated:** Added compression and restore notes to dev-docs/cherrypicking.md
 
+### B4 Evaluation
+| SHA | Subject | Decision | Reason |
+|-----|---------|----------|--------|
+| 0c7ae22f5def | Disable flaky extension test | SKIP | No integration-tests dir |
+| 5f60281d2528 | MCP dynamic tool update | CHERRY-PICK | Files exist |
+| ae8694b30 | Privacy screen fix | CHERRY-PICK | Bug fix |
+| 7db5abdecfdf | API error fix | CHERRY-PICK | Runtime crash fix |
+| d284fa66c | shellExecutionService fix | CHERRY-PICK | Critical bug fix |
+
+### B5 Evaluation
+| SHA | Subject | Decision | Reason |
+|-----|---------|----------|--------|
+| 934b309b4cc6 | Terminal wrapping fix | CHERRY-PICK | Bug fix |
+| 616d6f666705 | Session summary | REIMPLEMENT (R19) | New infrastructure |
+| 996cbcb680fd | Model routing docs | SKIP | Per policy |
+| bdd15e8911ba | Autoupgrade detach | CHERRY-PICK | Process fix |
+| 025e450ac247 | Floating promises lint | CHERRY-PICK | Code quality |
+
+### B6 Evaluation
+MCP Resources (560550f5d): REIMPLEMENT (R20) - 20 files, 1146 lines
+Other B6 commits: SKIP (not found or already done)
+
+### B7 Evaluation
+OSC52, deps, A2A types: SKIP (already implemented or managed separately)
+
+### B8 Evaluation
+| SHA | Subject | Decision | Reason |
+|-----|---------|----------|--------|
+| b27cf0b0a | Restore to core | REIMPLEMENT (R17) | Already classified |
+| 1f813f6a0 | A2A restore | CHERRY-PICK | After R17 |
+| 299cc9beb | A2A init | CHERRY-PICK | After 1f813f6a0 |
+
 ...
