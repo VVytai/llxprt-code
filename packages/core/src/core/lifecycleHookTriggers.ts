@@ -21,6 +21,8 @@ import {
   SessionEndHookOutput,
   BeforeAgentHookOutput,
   AfterAgentHookOutput,
+  PreCompressTrigger,
+  PreCompressOutput,
 } from '../hooks/types.js';
 import { DebugLogger } from '../debug/index.js';
 
@@ -212,6 +214,54 @@ export async function triggerAfterAgentHook(
   } catch (error) {
     // Hook failures must NOT block agent execution
     debugLogger.warn('AfterAgent hook failed (non-blocking):', error);
+    return undefined;
+  }
+}
+
+/**
+ * Trigger PreCompress hook before chat compression
+ *
+ * @plan PLAN-20250219-GMERGE021.R4.P02
+ * @requirement REQ-P02-1
+ *
+ * @param config - Configuration object with hook system access
+ * @param trigger - The trigger type (manual or auto)
+ * @returns PreCompressOutput if hooks execute, undefined otherwise
+ */
+export async function triggerPreCompressHook(
+  config: Config,
+  trigger: PreCompressTrigger,
+): Promise<PreCompressOutput | undefined> {
+  // Check if hooks are enabled
+  if (!config.getEnableHooks?.()) {
+    return undefined;
+  }
+
+  // Get the HookSystem singleton
+  const hookSystem = config.getHookSystem?.();
+  if (!hookSystem) {
+    return undefined;
+  }
+
+  try {
+    // Initialize hook system if needed
+    await hookSystem.initialize();
+
+    // Get the event handler and fire the event
+    const eventHandler = hookSystem.getEventHandler();
+    const result = await eventHandler.firePreCompressEvent({ trigger });
+
+    debugLogger.debug('PreCompress hook executed', { trigger });
+
+    // Return PreCompressOutput from aggregated result
+    if (result.finalOutput) {
+      return result.finalOutput as PreCompressOutput;
+    }
+
+    return undefined;
+  } catch (error) {
+    // Hook failures must NOT block compression
+    debugLogger.warn('PreCompress hook failed (non-blocking):', error);
     return undefined;
   }
 }

@@ -332,4 +332,75 @@ describe('HookEventHandler', () => {
       ).resolves.toBeDefined();
     });
   });
+
+  /**
+   * @plan PLAN-20250219-GMERGE021.R4.P01
+   * @requirement REQ-P01-1
+   */
+  describe('firePreCompressEvent', () => {
+    it('should dispatch with hookEventName: PreCompress', async () => {
+      await eventHandler.firePreCompressEvent({ trigger: 'manual' as const });
+
+      expect(mockPlanner.createExecutionPlan).toHaveBeenCalledWith(
+        'PreCompress',
+        undefined,
+      );
+    });
+
+    it('should pass trigger: manual when Manual is given', async () => {
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'test-hook' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+      vi.mocked(mockRunner.executeHooksParallel).mockResolvedValue([
+        { success: true, output: {} },
+      ]);
+
+      await eventHandler.firePreCompressEvent({ trigger: 'manual' as const });
+
+      // The trigger is passed in the input context, not to the planner
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalled();
+      const callArgs = vi.mocked(mockRunner.executeHooksParallel).mock.calls[0];
+      const input = callArgs[2]; // third arg is the input
+      expect(input).toMatchObject({ trigger: 'manual' });
+    });
+
+    it('should pass trigger: auto when Auto is given', async () => {
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'test-hook' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+      vi.mocked(mockRunner.executeHooksParallel).mockResolvedValue([
+        { success: true, output: {} },
+      ]);
+
+      await eventHandler.firePreCompressEvent({ trigger: 'auto' as const });
+
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalled();
+      const callArgs = vi.mocked(mockRunner.executeHooksParallel).mock.calls[0];
+      const input = callArgs[2];
+      expect(input).toMatchObject({ trigger: 'auto' });
+    });
+
+    it('should return failure envelope (not throw) on hook runner error', async () => {
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'test-hook' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+      vi.mocked(mockRunner.executeHooksParallel).mockRejectedValue(
+        new Error('Hook runner error'),
+      );
+
+      const result = await eventHandler.firePreCompressEvent({
+        trigger: 'auto' as const,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBeDefined();
+      expect(result.errors.length).toBeGreaterThan(0);
+    });
+  });
 });

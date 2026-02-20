@@ -22,6 +22,7 @@ import type {
   DefaultHookOutput,
   SessionStartSource,
   SessionEndReason,
+  PreCompressTrigger,
   HookExecutionResult,
 } from './types.js';
 import { HookEventName, NotificationType } from './types.js';
@@ -305,6 +306,27 @@ export class HookEventHandler {
     } catch (error) {
       return this.buildFailureEnvelope(error, 'fireSessionEndEvent', {
         eventName: HookEventName.SessionEnd,
+      });
+    }
+  }
+
+  /**
+   * Fire PreCompress event
+   *
+   * @plan PLAN-20250219-GMERGE021.R4.P01
+   * @requirement REQ-P01-1
+   */
+  async firePreCompressEvent(context: {
+    trigger: PreCompressTrigger;
+  }): Promise<AggregatedHookResult> {
+    try {
+      return await this.executeEventWithFullResult(
+        HookEventName.PreCompress,
+        context as unknown as Record<string, unknown>,
+      );
+    } catch (error) {
+      return this.buildFailureEnvelope(error, 'firePreCompressEvent', {
+        eventName: HookEventName.PreCompress,
       });
     }
   }
