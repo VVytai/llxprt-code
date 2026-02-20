@@ -535,6 +535,7 @@ export async function runNonInteractive({
         } else if (jsonOutput) {
           const payload = JSON.stringify(
             {
+              session_id: config.getSessionId(),
               response: jsonResponseText.trimEnd(),
               stats: uiTelemetryService.getMetrics(),
             },
