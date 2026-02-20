@@ -69,7 +69,7 @@
 | 674494e80b66 | PICK | | a2a final:true |
 | 364b12e2fae5 | PICK | | Express 5.2.0 |
 | 6e51bbc21570 | PICK | | a2a prompt_id |
-| d591140f62ff | PICK | | Prompt and chat code fix |
+| d591140f62ff | NO_OP (policy) | - | Preview fallback-oriented prompt/chat changes rejected; LLxprt keeps explicit user-controlled model selection/fallback |
 | 9b571d42b10d | SKIP | - | "skyhawk" codename |
 | 17bf02b90183 | SKIP | - | ModelDialog diverged |
 | 86a777865f5b | SKIP | - | Gemini 3 banner |
@@ -80,8 +80,8 @@
 
 ## Summary
 
-- **PICK:** 35 commits
+- **PICK:** 34 commits
 - **SKIP:** 68 commits  
 - **REIMPLEMENT:** 18 commits
-- **NO_OP (out-of-range):** 1 commit
+- **NO_OP:** 2 commits (1 out-of-range + 1 policy-driven)
 - **Total:** 122 commits

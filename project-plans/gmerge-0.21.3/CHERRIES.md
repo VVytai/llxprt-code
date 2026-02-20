@@ -84,7 +84,7 @@ After subagent and manual verification:
 | 30 | 560550f5df78 | 2025-12-09 | mcp | **Major MCP feature** | feat: Add support for MCP Resources |
 | 31 | afd4829f1096 | 2025-12-09 | clipboard | Fix | fix: use Gemini API supported image formats for clipboard |
 | 32 | 364b12e2fae5 | 2025-12-09 | deps | Dependency update | chore(deps): bump express from 5.1.0 to 5.2.0 |
-| 34 | d591140f62ff | 2025-12-16 | core | Fix | Fix prompt and chat code |
+| 34 | d591140f62ff | 2025-12-16 | core | NO_OP (policy) | Preview fallback-oriented prompt/chat logic conflicts with LLxprt model-selection policy |
 | 35 | 6e51bbc21570 | 2025-12-08 | a2a | **Moved from SKIP** - a2a not excluded | Add prompt_id propagation in a2a-server task |
 | 36 | 674494e80b66 | 2025-12-09 | a2a | **Moved from SKIP** - a2a not excluded | allow final:true to be returned on a2a server edit calls |
 | 37 | 1f813f6a060e | 2025-12-09 | a2a | **Moved from SKIP** - a2a not excluded | feat(a2a): Introduce restore command for a2a server |

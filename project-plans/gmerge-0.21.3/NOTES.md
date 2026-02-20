@@ -201,6 +201,12 @@ OSC52, deps, A2A types: SKIP (already implemented or managed separately)
 - Updated settingsSchema.ts with hooks.disabled
 - Fixed R3 OAuth test compatibility
 
+
+### d591140f62ff - NO_OP (policy)
+- Attempted cherry-pick surfaced broad conflicts in `prompts.ts`/`geminiChat.ts` because upstream commit assumes preview-model fallback flow.
+- LLxprt policy: users explicitly select model/fallback behavior; we do not reintroduce implicit preview fallback toggles.
+- Decision: mark as NO_OP (policy-driven) rather than force-porting mismatched behavior.
+
 ### R2+R11 - Fuzzy Search in Settings - COMMITTED
 - Added fzf-based fuzzy search filtering
 - Added TextInput search box (always visible)
