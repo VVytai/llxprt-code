@@ -6,12 +6,13 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text } from 'ink';
+import { AsyncFzf } from 'fzf';
 import { Colors } from '../colors.js';
 import {
-  LoadedSettings,
   SettingScope,
-  Settings,
-  ToolEnabledState,
+  type LoadedSettings,
+  type Settings,
+  type ToolEnabledState,
 } from '../../config/settings.js';
 import {
   getScopeItems,
@@ -42,12 +43,61 @@ import type { Config } from '@vybestack/llxprt-code-core';
 import { SettingDefinition } from '../../config/settingsSchema.js';
 import { generateDynamicToolSettings } from '../../utils/dynamicSettings.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
+import { useUIState } from '../contexts/UIStateContext.js';
+import { useTextBuffer } from './shared/text-buffer.js';
+
+interface FzfResult {
+  item: string;
+  start: number;
+  end: number;
+  score: number;
+  positions?: number[];
+}
 
 interface SettingsDialogProps {
   settings: LoadedSettings;
   onSelect: (settingName: string | undefined, scope: SettingScope) => void;
   onRestartRequest?: () => void;
   config?: Config;
+}
+
+interface TextInputProps {
+  focus: boolean;
+  buffer: ReturnType<typeof useTextBuffer>;
+  placeholder?: string;
+}
+
+/**
+ * Simple text input component for search.
+ */
+function TextInput({ focus, buffer, placeholder }: TextInputProps) {
+  const displayText = buffer.text;
+  const showPlaceholder = !displayText && placeholder;
+
+  if (showPlaceholder) {
+    return <Text color={Colors.Gray}>{placeholder}</Text>;
+  }
+
+  const [cursorRow, cursorCol] = buffer.cursor;
+
+  // Simple single-line display with cursor
+  const text = buffer.lines[cursorRow] || '';
+  const beforeCursor = text.slice(0, cursorCol);
+  const atCursor = text[cursorCol] || ' ';
+  const afterCursor = text.slice(cursorCol + 1);
+
+  return (
+    <>
+      <Text color={Colors.Foreground}>{beforeCursor}</Text>
+      {focus && (
+        <Text backgroundColor={Colors.AccentCyan} color={Colors.Background}>
+          {atCursor}
+        </Text>
+      )}
+      {!focus && <Text color={Colors.Foreground}>{atCursor}</Text>}
+      <Text color={Colors.Foreground}>{afterCursor}</Text>
+    </>
+  );
 }
 
 const maxItemsToShow = 8;
@@ -130,6 +180,62 @@ export function SettingsDialog({
   // Scroll offset for settings
   const [scrollOffset, setScrollOffset] = useState(0);
   const [showRestartPrompt, setShowRestartPrompt] = useState(false);
+
+  // Search state
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredKeys, setFilteredKeys] = useState<string[]>(() =>
+    getDialogSettingKeys(),
+  );
+  const { fzfInstance, searchMap } = useMemo(() => {
+    const keys = getDialogSettingKeys();
+    const map = new Map<string, string>();
+    const searchItems: string[] = [];
+
+    keys.forEach((key) => {
+      const def = getSettingDefinition(key);
+      if (def?.label) {
+        searchItems.push(def.label);
+        map.set(def.label.toLowerCase(), key);
+      }
+    });
+
+    const fzf = new AsyncFzf(searchItems, {
+      fuzzy: 'v2',
+      casing: 'case-insensitive',
+    });
+    return { fzfInstance: fzf, searchMap: map };
+  }, []);
+
+  // Perform search
+  useEffect(() => {
+    let active = true;
+    if (!searchQuery.trim() || !fzfInstance) {
+      setFilteredKeys(getDialogSettingKeys());
+      return;
+    }
+
+    const doSearch = async () => {
+      const results = await fzfInstance.find(searchQuery);
+
+      if (!active) return;
+
+      const matchedKeys = new Set<string>();
+      results.forEach((res: FzfResult) => {
+        const key = searchMap.get(res.item.toLowerCase());
+        if (key) matchedKeys.add(key);
+      });
+      setFilteredKeys(Array.from(matchedKeys));
+      setActiveSettingIndex(0); // Reset cursor
+      setScrollOffset(0);
+    };
+
+    void doSearch();
+
+    return () => {
+      active = false;
+    };
+  }, [searchQuery, fzfInstance, searchMap]);
 
   // Local pending settings state for the selected scope
   const [pendingSettings, setPendingSettings] = useState<Settings>(() =>
@@ -370,7 +476,8 @@ export function SettingsDialog({
   };
 
   const generateNormalSettingsItems = () => {
-    const settingKeys = getDialogSettingKeys();
+    const settingKeys =
+      isSearching || searchQuery ? filteredKeys : getDialogSettingKeys();
 
     return settingKeys.map((key: string) => {
       const definition = getSettingDefinition(key);
@@ -587,6 +694,9 @@ export function SettingsDialog({
     setFocusSection('settings');
   }, []);
 
+  // Always show scope selection for now (dynamic layout TBD)
+  const showScopeSelection = true;
+
   // Scroll logic for settings
   const visibleItems = items.slice(scrollOffset, scrollOffset + maxItemsToShow);
   // Always show arrows for consistent UI and to indicate circular navigation
@@ -621,6 +731,34 @@ export function SettingsDialog({
   useKeypress(
     (key) => {
       const { name } = key;
+
+      if (isSearching) {
+        if (keyMatchers[Command.ESCAPE](key)) {
+          setIsSearching(false);
+          setSearchQuery('');
+          return;
+        }
+        if (keyMatchers[Command.RETURN](key)) {
+          setIsSearching(false);
+          return;
+        }
+        if (name === 'backspace') {
+          setSearchQuery((prev) => prev.slice(0, -1));
+          return;
+        }
+        if (
+          key.sequence &&
+          key.sequence.length === 1 &&
+          !key.ctrl &&
+          !key.meta &&
+          !keyMatchers[Command.DIALOG_NAVIGATION_UP](key) &&
+          !keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)
+        ) {
+          setSearchQuery((prev) => prev + key.sequence);
+          return;
+        }
+      }
+
       if (name === 'tab') {
         setFocusSection((prev) => (prev === 'settings' ? 'scope' : 'settings'));
       }
@@ -1041,6 +1179,21 @@ export function SettingsDialog({
     { isActive: true },
   );
 
+  const { mainAreaWidth } = useUIState();
+  const viewportWidth = mainAreaWidth - 8;
+
+  const buffer = useTextBuffer({
+    initialText: '',
+    initialCursorOffset: 0,
+    viewport: {
+      width: viewportWidth,
+      height: 1,
+    },
+    isValidPath: () => false,
+    singleLine: true,
+    onChange: (text) => setSearchQuery(text),
+  });
+
   return (
     <Box
       borderStyle="round"
@@ -1051,220 +1204,280 @@ export function SettingsDialog({
       height="100%"
     >
       <Box flexDirection="column" flexGrow={1}>
-        <Text bold color={Colors.AccentBlue}>
-          {subSettingsMode.isActive
-            ? `${subSettingsMode.parentLabel} > Settings`
-            : 'Settings'}
-        </Text>
-        <Box height={1} />
-        {showScrollUp && <Text color={Colors.Gray}>▲</Text>}
-        {visibleItems.map((item, idx) => {
-          const isActive =
-            focusSection === 'settings' &&
-            activeSettingIndex === idx + scrollOffset;
-
-          const scopeSettings = settings.forScope(selectedScope).settings;
-          const mergedSettings = settings.merged;
-
-          let displayValue: string;
-          if (editingKey === item.value) {
-            // Show edit buffer with advanced cursor highlighting
-            if (cursorVisible && editCursorPos < cpLen(editBuffer)) {
-              // Cursor is in the middle or at start of text
-              const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
-              const atCursor = cpSlice(
-                editBuffer,
-                editCursorPos,
-                editCursorPos + 1,
-              );
-              const afterCursor = cpSlice(editBuffer, editCursorPos + 1);
-              displayValue =
-                beforeCursor + chalk.inverse(atCursor) + afterCursor;
-            } else if (cursorVisible && editCursorPos >= cpLen(editBuffer)) {
-              // Cursor is at the end - show inverted space
-              displayValue = editBuffer + chalk.inverse(' ');
-            } else {
-              // Cursor not visible
-              displayValue = editBuffer;
-            }
-          } else if (item.type === 'number' || item.type === 'string') {
-            // For numbers/strings, get the actual current value from pending settings
-            const path = item.value.split('.');
-            const currentValue = getNestedValue(pendingSettings, path);
-
-            const defaultValue = getDefaultValue(item.value);
-
-            if (currentValue !== undefined && currentValue !== null) {
-              displayValue = String(currentValue);
-            } else {
-              displayValue =
-                defaultValue !== undefined && defaultValue !== null
-                  ? String(defaultValue)
-                  : '';
-            }
-
-            // Add * if value differs from default OR if currently being modified
-            const isModified = modifiedSettings.has(item.value);
-            const effectiveCurrentValue =
-              currentValue !== undefined && currentValue !== null
-                ? currentValue
-                : defaultValue;
-            const isDifferentFromDefault =
-              effectiveCurrentValue !== defaultValue;
-
-            if (isDifferentFromDefault || isModified) {
-              displayValue += '*';
-            }
-          } else if (getSettingDefinition(item.value)?.type === 'enum') {
-            // Handle enum types - check multiple sources for the current value
-            const path = item.value.split('.');
-            let currentValue = getNestedValue(pendingSettings, path);
-
-            // Check globalPendingChanges for the most recent value (priority #1)
-            if (globalPendingChanges.has(item.value)) {
-              currentValue = globalPendingChanges.get(item.value);
-            }
-
-            // Check combined value (use with || fallback to prioritize)
-            const mergedValue = getNestedValue(settings.merged, path);
-            if (currentValue === undefined) {
-              currentValue = mergedValue;
-            }
-
-            // If still undefined, use the default value
-            if (currentValue === undefined) {
-              currentValue = getDefaultValue(item.value);
-            }
-
-            displayValue = String(currentValue);
-
-            // Add * if value differs from default OR if it's been modified
-            const isModified = modifiedSettings.has(item.value);
-            const defaultValue = getDefaultValue(item.value);
-            const isDifferentFromDefault = currentValue !== defaultValue;
-
-            if (isDifferentFromDefault || isModified) {
-              displayValue += '*';
-            }
-          } else if (
-            subSettingsMode.isActive &&
-            subSettingsMode.parentKey === 'coreToolSettings'
-          ) {
-            // For core tools, show actual enabled/disabled state based on excludeTools
-            const toolName = item.value.replace('coreToolSettings.', '');
-
-            // Check pending settings first for excludeTools
-            let excludeTools = (pendingSettings.excludeTools as string[]) || [];
-            // If not in pending, fall back to merged settings (handled by getToolCurrentState but we want pending awareness)
-            if (!pendingSettings.excludeTools) {
-              excludeTools = (settings.merged.excludeTools as string[]) || [];
-            }
-
-            const currentState = getToolCurrentState(
-              toolName,
-              settings,
-              excludeTools,
-            );
-            const isEnabled = currentState === 'enabled';
-            displayValue = isEnabled ? 'Enabled' : 'Disabled';
-
-            // Check if this differs from default (default is enabled)
-            const isModified = !isEnabled;
-            if (isModified) {
-              displayValue += '*';
-            }
-          } else if (
-            !subSettingsMode.isActive &&
-            item.value === 'coreToolSettings'
-          ) {
-            displayValue = 'Enter';
-          } else {
-            // For booleans and other types, use existing logic
-            displayValue = getDisplayValue(
-              item.value,
-              scopeSettings,
-              mergedSettings,
-              modifiedSettings,
-              pendingSettings,
-            );
-          }
-          const shouldBeGreyedOut = isDefaultValue(item.value, scopeSettings);
-
-          // Generate scope message for this setting
-          const scopeMessage = getScopeMessageForSetting(
-            item.value,
-            selectedScope,
-            settings,
-          );
-
-          return (
-            <React.Fragment key={item.value}>
-              <Box flexDirection="row" alignItems="center">
-                <Box minWidth={2} flexShrink={0}>
-                  <Text color={isActive ? Colors.AccentGreen : Colors.Gray}>
-                    {isActive ? '●' : ''}
-                  </Text>
-                </Box>
-                <Box minWidth={50}>
-                  <Text
-                    color={isActive ? Colors.AccentGreen : Colors.Foreground}
-                  >
-                    {item.label}
-                    {scopeMessage && (
-                      <Text color={Colors.Gray}> {scopeMessage}</Text>
-                    )}
-                  </Text>
-                </Box>
-                <Box minWidth={3} />
-                <Text
-                  color={
-                    isActive
-                      ? Colors.AccentGreen
-                      : shouldBeGreyedOut
-                        ? Colors.Gray
-                        : Colors.Foreground
-                  }
-                >
-                  {displayValue}
-                </Text>
-              </Box>
-              <Box height={1} />
-            </React.Fragment>
-          );
-        })}
-        {showScrollDown && <Text color={Colors.Gray}>▼</Text>}
-
-        <Box height={1} />
-
-        <Box marginTop={1} flexDirection="column">
+        <Box marginX={1}>
           <Text
-            bold={focusSection === 'scope'}
+            bold={focusSection === 'settings' && !editingKey}
+            color={Colors.AccentBlue}
             wrap="truncate"
-            color={Colors.Foreground}
           >
-            {focusSection === 'scope' ? '> ' : '  '}Apply To
+            {focusSection === 'settings' ? '> ' : '  '}
+            {subSettingsMode.isActive
+              ? `${subSettingsMode.parentLabel} > Settings`
+              : 'Settings'}{' '}
           </Text>
-          <RadioButtonSelect
-            items={scopeItems}
-            initialIndex={scopeItems.findIndex(
-              (item) => item.value === selectedScope,
-            )}
-            onSelect={handleScopeSelect}
-            onHighlight={handleScopeHighlight}
-            isFocused={focusSection === 'scope'}
-            showNumbers={focusSection === 'scope'}
+        </Box>
+        <Box
+          borderStyle="round"
+          borderColor={
+            editingKey
+              ? Colors.Gray
+              : focusSection === 'settings'
+                ? Colors.AccentGreen
+                : Colors.Gray
+          }
+          paddingX={1}
+          height={3}
+          marginTop={1}
+        >
+          <TextInput
+            focus={focusSection === 'settings' && !editingKey}
+            buffer={buffer}
+            placeholder="Search to filter"
           />
         </Box>
+        <Box height={1} />
+        {searchQuery && visibleItems.length === 0 ? (
+          <Box marginX={1} height={1} flexDirection="column">
+            <Text color={Colors.Gray}>No matches found.</Text>
+          </Box>
+        ) : (
+          <>
+            {showScrollUp && (
+              <Box marginX={1}>
+                <Text color={Colors.Gray}>▲</Text>
+              </Box>
+            )}
+            {visibleItems.map((item, idx) => {
+              const isActive =
+                focusSection === 'settings' &&
+                activeSettingIndex === idx + scrollOffset;
+
+              const scopeSettings = settings.forScope(selectedScope).settings;
+              const mergedSettings = settings.merged;
+
+              let displayValue: string;
+              if (editingKey === item.value) {
+                // Show edit buffer with advanced cursor highlighting
+                if (cursorVisible && editCursorPos < cpLen(editBuffer)) {
+                  // Cursor is in the middle or at start of text
+                  const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
+                  const atCursor = cpSlice(
+                    editBuffer,
+                    editCursorPos,
+                    editCursorPos + 1,
+                  );
+                  const afterCursor = cpSlice(editBuffer, editCursorPos + 1);
+                  displayValue =
+                    beforeCursor + chalk.inverse(atCursor) + afterCursor;
+                } else if (
+                  cursorVisible &&
+                  editCursorPos >= cpLen(editBuffer)
+                ) {
+                  // Cursor is at the end - show inverted space
+                  displayValue = editBuffer + chalk.inverse(' ');
+                } else {
+                  // Cursor not visible
+                  displayValue = editBuffer;
+                }
+              } else if (item.type === 'number' || item.type === 'string') {
+                // For numbers/strings, get the actual current value from pending settings
+                const path = item.value.split('.');
+                const currentValue = getNestedValue(pendingSettings, path);
+
+                const defaultValue = getDefaultValue(item.value);
+
+                if (currentValue !== undefined && currentValue !== null) {
+                  displayValue = String(currentValue);
+                } else {
+                  displayValue =
+                    defaultValue !== undefined && defaultValue !== null
+                      ? String(defaultValue)
+                      : '';
+                }
+
+                // Add * if value differs from default OR if currently being modified
+                const isModified = modifiedSettings.has(item.value);
+                const effectiveCurrentValue =
+                  currentValue !== undefined && currentValue !== null
+                    ? currentValue
+                    : defaultValue;
+                const isDifferentFromDefault =
+                  effectiveCurrentValue !== defaultValue;
+
+                if (isDifferentFromDefault || isModified) {
+                  displayValue += '*';
+                }
+              } else if (getSettingDefinition(item.value)?.type === 'enum') {
+                // Handle enum types - check multiple sources for the current value
+                const path = item.value.split('.');
+                let currentValue = getNestedValue(pendingSettings, path);
+
+                // Check globalPendingChanges for the most recent value (priority #1)
+                if (globalPendingChanges.has(item.value)) {
+                  currentValue = globalPendingChanges.get(item.value);
+                }
+
+                // Check combined value (use with || fallback to prioritize)
+                const mergedValue = getNestedValue(settings.merged, path);
+                if (currentValue === undefined) {
+                  currentValue = mergedValue;
+                }
+
+                // If still undefined, use the default value
+                if (currentValue === undefined) {
+                  currentValue = getDefaultValue(item.value);
+                }
+
+                displayValue = String(currentValue);
+
+                // Add * if value differs from default OR if it's been modified
+                const isModified = modifiedSettings.has(item.value);
+                const defaultValue = getDefaultValue(item.value);
+                const isDifferentFromDefault = currentValue !== defaultValue;
+
+                if (isDifferentFromDefault || isModified) {
+                  displayValue += '*';
+                }
+              } else if (
+                subSettingsMode.isActive &&
+                subSettingsMode.parentKey === 'coreToolSettings'
+              ) {
+                // For core tools, show actual enabled/disabled state based on excludeTools
+                const toolName = item.value.replace('coreToolSettings.', '');
+
+                // Check pending settings first for excludeTools
+                let excludeTools =
+                  (pendingSettings.excludeTools as string[]) || [];
+                // If not in pending, fall back to merged settings (handled by getToolCurrentState but we want pending awareness)
+                if (!pendingSettings.excludeTools) {
+                  excludeTools =
+                    (settings.merged.excludeTools as string[]) || [];
+                }
+
+                const currentState = getToolCurrentState(
+                  toolName,
+                  settings,
+                  excludeTools,
+                );
+                const isEnabled = currentState === 'enabled';
+                displayValue = isEnabled ? 'Enabled' : 'Disabled';
+
+                // Check if this differs from default (default is enabled)
+                const isModified = !isEnabled;
+                if (isModified) {
+                  displayValue += '*';
+                }
+              } else if (
+                !subSettingsMode.isActive &&
+                item.value === 'coreToolSettings'
+              ) {
+                displayValue = 'Enter';
+              } else {
+                // For booleans and other types, use existing logic
+                displayValue = getDisplayValue(
+                  item.value,
+                  scopeSettings,
+                  mergedSettings,
+                  modifiedSettings,
+                  pendingSettings,
+                );
+              }
+              const shouldBeGreyedOut = isDefaultValue(
+                item.value,
+                scopeSettings,
+              );
+
+              // Generate scope message for this setting
+              const scopeMessage = getScopeMessageForSetting(
+                item.value,
+                selectedScope,
+                settings,
+              );
+
+              return (
+                <React.Fragment key={item.value}>
+                  <Box marginX={1} flexDirection="row" alignItems="center">
+                    <Box minWidth={2} flexShrink={0}>
+                      <Text color={isActive ? Colors.AccentGreen : Colors.Gray}>
+                        {isActive ? '●' : ''}
+                      </Text>
+                    </Box>
+                    <Box minWidth={50}>
+                      <Text
+                        color={
+                          isActive ? Colors.AccentGreen : Colors.Foreground
+                        }
+                      >
+                        {item.label}
+                        {scopeMessage && (
+                          <Text color={Colors.Gray}> {scopeMessage}</Text>
+                        )}
+                      </Text>
+                    </Box>
+                    <Box minWidth={3} />
+                    <Text
+                      color={
+                        isActive
+                          ? Colors.AccentGreen
+                          : shouldBeGreyedOut
+                            ? Colors.Gray
+                            : Colors.Foreground
+                      }
+                    >
+                      {displayValue}
+                    </Text>
+                  </Box>
+                  <Box height={1} />
+                </React.Fragment>
+              );
+            })}
+            {showScrollDown && (
+              <Box marginX={1}>
+                <Text color={Colors.Gray}>▼</Text>
+              </Box>
+            )}
+          </>
+        )}
 
         <Box height={1} />
-        <Text color={Colors.Gray}>
-          (Use Enter to select, Tab to change focus, Esc to close)
-        </Text>
-        {showRestartPrompt && (
-          <Text color={Colors.AccentYellow}>
-            To see changes, LLxprt Code must be restarted. Press r to exit and
-            apply changes now.
+
+        {/* Scope Selection - conditionally visible based on height constraints */}
+        {showScopeSelection && (
+          <Box marginX={1} flexDirection="column">
+            <Text
+              bold={focusSection === 'scope'}
+              wrap="truncate"
+              color={Colors.Foreground}
+            >
+              {focusSection === 'scope' ? '> ' : '  '}Apply To
+            </Text>
+            <RadioButtonSelect
+              items={scopeItems}
+              initialIndex={scopeItems.findIndex(
+                (item) => item.value === selectedScope,
+              )}
+              onSelect={handleScopeSelect}
+              onHighlight={handleScopeHighlight}
+              isFocused={focusSection === 'scope'}
+              showNumbers={focusSection === 'scope'}
+            />
+          </Box>
+        )}
+
+        <Box height={1} />
+        <Box marginX={1}>
+          <Text color={Colors.Gray}>
+            (Use Enter to select
+            {showScopeSelection ? ', Tab to change focus' : ''}, Esc to close)
           </Text>
+        </Box>
+        {showRestartPrompt && (
+          <Box marginX={1}>
+            <Text color={Colors.AccentYellow}>
+              To see changes, LLxprt Code must be restarted. Press r to exit and
+              apply changes now.
+            </Text>
+          </Box>
         )}
       </Box>
     </Box>
