@@ -120,3 +120,47 @@ function parseResponseData(error: GaxiosError): ResponseData {
   }
   return error.response?.data as ResponseData;
 }
+
+/**
+ * Checks if an error is a 401 authentication error.
+ * Uses structured error properties from MCP SDK errors first.
+ * 
+ * @plan PLAN-20250219-GMERGE021.R3.P03
+ * @requirement REQ-GMERGE021-R3-002
+ */
+export function isAuthenticationError(error: unknown): boolean {
+  if (error == null || typeof error !== 'object') {
+    return false;
+  }
+
+  // MCP SDK errors (SseError, StreamableHTTPError) carry numeric 'code'
+  if ('code' in error) {
+    const errorCode = (error as { code: unknown }).code;
+    if (errorCode === 401) {
+      return true;
+    }
+  }
+
+  // Class identity check
+  if (error instanceof UnauthorizedError) {
+    return true;
+  }
+
+  // Cross-realm duck-typing (check both constructor name and error name)
+  if (error instanceof Error) {
+    if (
+      error.constructor.name === 'UnauthorizedError' ||
+      error.name === 'UnauthorizedError'
+    ) {
+      return true;
+    }
+  }
+
+  // Anchored message pattern — must not match '401' appearing in model names, IDs, etc.
+  const message = getErrorMessage(error);
+  if (/\bHTTP 401\b/.test(message) || /\bstatus 401\b/i.test(message)) {
+    return true;
+  }
+
+  return false;
+}

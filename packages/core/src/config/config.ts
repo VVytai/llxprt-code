@@ -293,6 +293,18 @@ export class MCPServerConfig {
     readonly headers?: Record<string, string>,
     // For websocket transport
     readonly tcp?: string,
+    /**
+     * Transport type for URL-based servers.
+     * When set, disables automatic HTTP→SSE fallback.
+     * - 'http' → StreamableHTTPClientTransport
+     * - 'sse'  → SSEClientTransport
+     * - omitted → defaults to HTTP with SSE fallback (deprecated; add type explicitly)
+     * 
+     * Note: 'httpUrl' is deprecated; use 'url' + 'type: "http"' instead.
+     * @plan PLAN-20250219-GMERGE021.R3.P03
+     * @requirement REQ-GMERGE021-R3-001
+     */
+    readonly type?: 'sse' | 'http',
     // Common
     readonly timeout?: number,
     readonly trust?: boolean,
