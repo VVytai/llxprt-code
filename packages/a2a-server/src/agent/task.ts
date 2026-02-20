@@ -17,6 +17,8 @@ import {
   createAgentRuntimeState,
   DEFAULT_AGENT_ID,
   DEFAULT_GUI_EDITOR,
+  EDIT_TOOL_NAMES,
+  processRestorableToolCalls,
   type AnsiOutput,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -45,6 +47,7 @@ import type {
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { CoderAgentEvent } from '../types.js';
 import type {
@@ -603,6 +606,77 @@ export class Task {
       kind: CoderAgentEvent.StateChangeEvent,
     };
     this.setTaskStateAndPublishUpdate('working', stateChange);
+
+    // Create checkpoints for restorable tool calls before scheduling
+    if (this.config.getCheckpointingEnabled()) {
+      try {
+        const restorableRequests = updatedRequests.filter((r) =>
+          EDIT_TOOL_NAMES.has(r.name),
+        );
+
+        if (restorableRequests.length > 0) {
+          logger.info(
+            `[Task] Creating checkpoints for ${restorableRequests.length} restorable tool calls.`,
+          );
+
+          const gitService = await this.config.getGitService();
+          const { checkpointsToWrite, toolCallToCheckpointMap, errors } =
+            await processRestorableToolCalls(
+              restorableRequests,
+              gitService,
+              this.geminiClient,
+            );
+
+          if (errors.length > 0) {
+            logger.warn(
+              `[Task] Checkpoint creation had ${errors.length} errors: ${errors.join(', ')}`,
+            );
+          }
+
+          if (checkpointsToWrite.size > 0) {
+            const checkpointDir =
+              this.config.storage.getProjectTempCheckpointsDir();
+
+            await fs.promises.mkdir(checkpointDir, { recursive: true });
+
+            for (const [filename, content] of checkpointsToWrite.entries()) {
+              const checkpointPath = path.join(checkpointDir, filename);
+              const tmpPath = `${checkpointPath}.tmp`;
+
+              try {
+                await fs.promises.writeFile(tmpPath, content, 'utf8');
+                await fs.promises.rename(tmpPath, checkpointPath);
+
+                // Set checkpoint on the matching request
+                const callId = Array.from(
+                  toolCallToCheckpointMap.entries(),
+                ).find(([, fname]) => fname === filename)?.[0];
+
+                if (callId) {
+                  const request = updatedRequests.find(
+                    (req) => req.callId === callId,
+                  );
+                  if (request) {
+                    request.checkpoint = checkpointPath;
+                    logger.info(
+                      `[Task] Checkpoint created for callId ${callId}: ${checkpointPath}`,
+                    );
+                  }
+                }
+              } catch (writeError) {
+                logger.warn(
+                  `[Task] Failed to write checkpoint ${filename}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+                );
+              }
+            }
+          }
+        }
+      } catch (checkpointError) {
+        logger.warn(
+          `[Task] Checkpoint creation failed, continuing with tool execution: ${checkpointError instanceof Error ? checkpointError.message : String(checkpointError)}`,
+        );
+      }
+    }
 
     if (!this.scheduler) {
       throw new Error('Scheduler not initialized');

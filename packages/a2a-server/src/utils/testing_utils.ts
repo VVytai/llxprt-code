@@ -68,6 +68,17 @@ export function createMockConfig(
     getPolicyEngine: vi.fn(),
     getEnableExtensionReloading: vi.fn().mockReturnValue(false),
     disposeScheduler: vi.fn(),
+    getCheckpointingEnabled: vi.fn().mockReturnValue(false),
+    getGitService: vi.fn().mockResolvedValue({
+      restoreProjectFromSnapshot: vi.fn().mockResolvedValue(undefined),
+      createFileSnapshot: vi.fn().mockResolvedValue('mock-snapshot-hash'),
+      getCurrentCommitHash: vi.fn().mockResolvedValue('mock-commit-hash'),
+    }),
+    storage: {
+      getProjectTempCheckpointsDir: vi
+        .fn()
+        .mockReturnValue('/tmp/test-checkpoints'),
+    } as unknown as Config['storage'],
     getOrCreateScheduler: vi
       .fn()
       .mockImplementation(

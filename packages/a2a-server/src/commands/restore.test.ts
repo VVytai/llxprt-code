@@ -87,12 +87,12 @@ describe('ListCheckpointsCommand', () => {
     const command = new ListCheckpointsCommand();
     vi.mocked(mockConfig.getCheckpointingEnabled).mockReturnValue(true);
     // readdir returns string[] when called without options
-    vi.mocked(fs.readdir).mockResolvedValue(
-      ['checkpoint1.json', 'checkpoint2.json', 'other.txt'] as never,
-    );
-    mockFormatCheckpointDisplayList.mockReturnValue(
-      'checkpoint1\ncheckpoint2',
-    );
+    vi.mocked(fs.readdir).mockResolvedValue([
+      'checkpoint1.json',
+      'checkpoint2.json',
+      'other.txt',
+    ] as never);
+    mockFormatCheckpointDisplayList.mockReturnValue('checkpoint1\ncheckpoint2');
 
     const result = await command.execute(context, []);
 
