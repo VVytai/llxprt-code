@@ -10,7 +10,9 @@ import { updateEventEmitter } from './updateEventEmitter.js';
 import { UpdateObject } from '../ui/utils/updateCheck.js';
 import { LoadedSettings } from '../config/settings.js';
 import EventEmitter from 'node:events';
-import { handleAutoUpdate } from './handleAutoUpdate.js';
+import type { ChildProcess } from 'node:child_process';
+import { handleAutoUpdate, setUpdateHandler } from './handleAutoUpdate.js';
+import { MessageType } from '../ui/types.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -60,14 +62,6 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
-interface MockChildProcess extends EventEmitter {
-  stdin: EventEmitter & {
-    write: Mock;
-    end: Mock;
-  };
-  stderr: EventEmitter;
-}
-
 const mockGetInstallationInfo = vi.mocked(getInstallationInfo);
 const mockUpdateEventEmitter = vi.mocked(updateEventEmitter);
 const mockExistsSync = vi.mocked(fs.existsSync);
@@ -86,7 +80,7 @@ describe('handleAutoUpdate', () => {
   let mockSpawn: Mock;
   let mockUpdateInfo: UpdateObject;
   let mockSettings: LoadedSettings;
-  let mockChildProcess: MockChildProcess;
+  let mockChildProcess: ChildProcess;
 
   beforeEach(() => {
     mockSpawn = vi.fn();
@@ -112,8 +106,8 @@ describe('handleAutoUpdate', () => {
         write: vi.fn(),
         end: vi.fn(),
       }),
-      stderr: new EventEmitter(),
-    }) as MockChildProcess;
+      unref: vi.fn(),
+    }) as unknown as ChildProcess;
 
     mockSpawn.mockReturnValue(
       mockChildProcess as unknown as ReturnType<typeof mockSpawn>,
@@ -251,7 +245,6 @@ describe('handleAutoUpdate', () => {
 
       // Simulate failed execution
       setTimeout(() => {
-        mockChildProcess.stderr.emit('data', 'An error occurred');
         mockChildProcess.emit('close', 1);
         resolve();
       }, 0);
@@ -261,7 +254,7 @@ describe('handleAutoUpdate', () => {
 
     expect(mockUpdateEventEmitter.emit).toHaveBeenCalledWith('update-failed', {
       message:
-        'Automatic update failed. Please try updating manually. (command: npm i -g @vybestack/llxprt-code@2.0.0, stderr: An error occurred)',
+        'Automatic update failed. Please try updating manually. (command: npm i -g @vybestack/llxprt-code@2.0.0)',
     });
   });
 
@@ -304,7 +297,8 @@ describe('handleAutoUpdate', () => {
       'npm i -g @vybestack/llxprt-code@nightly',
       {
         shell: true,
-        stdio: 'pipe',
+        stdio: 'ignore',
+        detached: true,
       },
     );
   });
