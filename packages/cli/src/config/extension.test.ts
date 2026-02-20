@@ -826,7 +826,7 @@ describe('extension tests', () => {
           { source: sourceExtDir, type: 'local' },
           async (_) => true,
         ),
-      ).rejects.toThrow('Invalid configuration');
+      ).rejects.toThrow('Invalid extension');
     });
 
     it('should install an extension from a git URL', async () => {

@@ -17,6 +17,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'node:crypto';
 import type { ExtensionSetting } from './extensionSettings.js';
 import { SecureStore } from '@vybestack/llxprt-code-core';
 
@@ -30,10 +31,33 @@ export function getSettingsEnvFilePath(extensionDir: string): string {
 /**
  * Returns the keychain service name for an extension.
  * Sanitizes the extension name and limits length to 255 characters.
+ * For workspace scope, includes the workspace directory in the service name.
+ *
+ * @param extensionName - Extension name
+ * @param extensionDir - Extension directory (used to detect scope)
+ * @returns Keychain service name
  */
-export function getKeychainServiceName(extensionName: string): string {
+export function getKeychainServiceName(
+  extensionName: string,
+  extensionDir?: string,
+): string {
   // Remove special characters, keeping only alphanumeric, dash, and underscore
   const sanitized = extensionName.replace(/[^a-zA-Z0-9-_]/g, '');
+
+  // Check if this is a workspace-scoped path
+  const isWorkspaceScope =
+    extensionDir && extensionDir.includes('.llxprt/extensions');
+
+  if (isWorkspaceScope) {
+    // Include workspace identifier for workspace scope
+    const workspaceHash = crypto
+      .createHash('md5')
+      .update(process.cwd())
+      .digest('hex')
+      .substring(0, 8);
+    const serviceName = `LLxprt Code Extension ${sanitized} Workspace ${workspaceHash}`;
+    return serviceName.substring(0, 255);
+  }
 
   // Format: "LLxprt Code Extension {name}"
   const serviceName = `LLxprt Code Extension ${sanitized}`;
@@ -108,7 +132,9 @@ export class ExtensionSettingsStorage {
 
   constructor(extensionName: string, extensionDir: string) {
     this.extensionDir = extensionDir;
-    this.store = new SecureStore(getKeychainServiceName(extensionName));
+    this.store = new SecureStore(
+      getKeychainServiceName(extensionName, extensionDir),
+    );
   }
 
   /**

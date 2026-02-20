@@ -329,7 +329,7 @@ export async function downloadFromGitHubRelease(
     const releaseData = await fetchReleaseFromGithub(owner, repo, ref);
     if (!releaseData) {
       throw new Error(
-        `No release data found for ${owner}/${repo} at tag ${ref}`,
+        `No release data found for ${owner}/${repo}${ref ? ` at tag ${ref}` : ''}`,
       );
     }
 

@@ -6,6 +6,8 @@
 
 import { type VariableSchema, VARIABLE_SCHEMA } from './variableSchema.js';
 
+export const EXTENSION_SETTINGS_FILENAME = '.env';
+
 export type JsonObject = { [key: string]: JsonValue };
 export type JsonArray = JsonValue[];
 export type JsonValue =

@@ -12,6 +12,7 @@ import {
   getEnvContents,
   updateSetting,
   loadExtensionSettingsFromManifest,
+  ExtensionSettingScope,
 } from './settingsIntegration.js';
 import type { ExtensionSetting } from './extensionSettings.js';
 
@@ -344,6 +345,184 @@ describe('settingsIntegration', () => {
       const envPath = path.join(tempDir, '.env');
       const envContent = await fs.promises.readFile(envPath, 'utf-8');
       expect(envContent).toContain('DISPLAY_NAME="My Cool Extension"');
+    });
+  });
+
+  describe('scoped settings', () => {
+    it('should support user-scoped settings', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'User Setting',
+            envVar: 'USER_SETTING',
+            sensitive: false,
+          },
+        ],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('user-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'User Setting',
+        mockPrompt,
+        ExtensionSettingScope.USER,
+      );
+
+      const userEnvPath = path.join(tempDir, '.env');
+      expect(fs.existsSync(userEnvPath)).toBe(true);
+      const envContent = await fs.promises.readFile(userEnvPath, 'utf-8');
+      expect(envContent).toContain('USER_SETTING=user-value');
+    });
+
+    it('should support workspace-scoped settings', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Workspace Setting',
+            envVar: 'WORKSPACE_SETTING',
+            sensitive: false,
+          },
+        ],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('workspace-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Workspace Setting',
+        mockPrompt,
+        ExtensionSettingScope.WORKSPACE,
+      );
+
+      const workspaceEnvPath = path.join(
+        process.cwd(),
+        '.llxprt',
+        'extensions',
+        'test-extension',
+        '.env',
+      );
+      expect(fs.existsSync(workspaceEnvPath)).toBe(true);
+      const envContent = await fs.promises.readFile(workspaceEnvPath, 'utf-8');
+      expect(envContent).toContain('WORKSPACE_SETTING=workspace-value');
+
+      // Clean up
+      await fs.promises.rm(
+        path.join(process.cwd(), '.llxprt', 'extensions', 'test-extension'),
+        { recursive: true, force: true },
+      );
+    });
+
+    it('should merge user and workspace scopes with workspace override', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Shared Setting',
+            envVar: 'SHARED_SETTING',
+            sensitive: false,
+          },
+        ],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      // Set user-level setting
+      const mockPromptUser = vi.fn().mockResolvedValue('user-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Shared Setting',
+        mockPromptUser,
+        ExtensionSettingScope.USER,
+      );
+
+      // Set workspace-level setting (should override)
+      const mockPromptWorkspace = vi.fn().mockResolvedValue('workspace-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Shared Setting',
+        mockPromptWorkspace,
+        ExtensionSettingScope.WORKSPACE,
+      );
+
+      // Get merged contents
+      const contents = await getEnvContents('test-extension', tempDir);
+
+      const sharedSetting = contents.find((s) => s.name === 'Shared Setting');
+      expect(sharedSetting?.value).toBe('workspace-value');
+
+      // Clean up
+      await fs.promises.rm(
+        path.join(process.cwd(), '.llxprt', 'extensions', 'test-extension'),
+        { recursive: true, force: true },
+      );
+    });
+
+    it('should list settings for specific scope', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Setting',
+            envVar: 'SETTING',
+            sensitive: false,
+          },
+        ],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      // Set user-level setting
+      const mockPromptUser = vi.fn().mockResolvedValue('user-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Setting',
+        mockPromptUser,
+        ExtensionSettingScope.USER,
+      );
+
+      // Get user scope contents
+      const userContents = await getEnvContents(
+        'test-extension',
+        tempDir,
+        ExtensionSettingScope.USER,
+      );
+
+      expect(userContents).toHaveLength(1);
+      expect(userContents[0].value).toBe('user-value');
     });
   });
 });

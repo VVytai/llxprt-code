@@ -10,6 +10,7 @@ import { getExtensionAndConfig } from './utils.js';
 import {
   getEnvContents,
   updateSetting,
+  ExtensionSettingScope,
 } from '../../config/extensions/settingsIntegration.js';
 import { exitCli } from '../utils.js';
 
@@ -18,10 +19,12 @@ const debugLogger = DebugLogger.getLogger('llxprt:extensions:settings');
 interface SetArgs {
   name: string;
   setting: string;
+  scope?: string;
 }
 
 interface ListArgs {
   name: string;
+  scope?: string;
 }
 
 /**
@@ -89,11 +92,18 @@ async function handleSet(args: SetArgs): Promise<void> {
     return;
   }
 
+  // Parse scope argument
+  const scope =
+    args.scope === 'workspace'
+      ? ExtensionSettingScope.WORKSPACE
+      : ExtensionSettingScope.USER;
+
   await updateSetting(
     extensionConfig.name,
     extension.path,
     args.setting,
     promptForSetting,
+    scope,
   );
 }
 
@@ -107,14 +117,27 @@ async function handleList(args: ListArgs): Promise<void> {
     return;
   }
 
-  const contents = await getEnvContents(extensionConfig.name, extension.path);
+  // Parse scope argument
+  const scope =
+    args.scope === 'workspace'
+      ? ExtensionSettingScope.WORKSPACE
+      : args.scope === 'user'
+        ? ExtensionSettingScope.USER
+        : undefined; // undefined means merge both scopes
+
+  const contents = await getEnvContents(
+    extensionConfig.name,
+    extension.path,
+    scope,
+  );
 
   if (contents.length === 0) {
     debugLogger.log(`Extension "${args.name}" has no settings.`);
     return;
   }
 
-  debugLogger.log(`Settings for extension "${args.name}":`);
+  const scopeLabel = scope ? ` (${scope} scope)` : ' (merged user + workspace)';
+  debugLogger.log(`Settings for extension "${args.name}"${scopeLabel}:`);
   for (const { name, value } of contents) {
     debugLogger.log(`  ${name}: ${value}`);
   }
@@ -134,11 +157,18 @@ export const setCommand: CommandModule = {
         describe: 'The name or environment variable of the setting to update.',
         type: 'string',
         demandOption: true,
+      })
+      .option('scope', {
+        describe: 'Setting scope: user (default) or workspace',
+        type: 'string',
+        choices: ['user', 'workspace'],
+        default: 'user',
       }),
   handler: async (argv) => {
     await handleSet({
       name: argv['name'] as string,
       setting: argv['setting'] as string,
+      scope: argv['scope'] as string | undefined,
     });
     await exitCli();
   },
@@ -148,14 +178,21 @@ export const listCommand: CommandModule = {
   command: 'list <name>',
   describe: 'Lists all settings for an extension.',
   builder: (yargs) =>
-    yargs.positional('name', {
-      describe: 'The name of the extension.',
-      type: 'string',
-      demandOption: true,
-    }),
+    yargs
+      .positional('name', {
+        describe: 'The name of the extension.',
+        type: 'string',
+        demandOption: true,
+      })
+      .option('scope', {
+        describe: 'Setting scope: user, workspace, or omit to merge both',
+        type: 'string',
+        choices: ['user', 'workspace'],
+      }),
   handler: async (argv) => {
     await handleList({
       name: argv['name'] as string,
+      scope: argv['scope'] as string | undefined,
     });
     await exitCli();
   },

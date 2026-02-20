@@ -31,6 +31,7 @@ import chalk from 'chalk';
 import { ExtensionEnablementManager } from './extensions/extensionEnablement.js';
 import type { ConfirmationRequest } from '../ui/types.js';
 import { escapeAnsiCtrlCodes } from '../ui/utils/textUtils.js';
+import { requestHookConsent } from './extensions/consent.js';
 
 export { ExtensionEnablementManager } from './extensions/extensionEnablement.js';
 export const EXTENSIONS_DIRECTORY_NAME = '.llxprt/extensions';
@@ -52,6 +53,7 @@ interface ExtensionConfig {
   mcpServers?: Record<string, MCPServerConfig>;
   contextFileName?: string | string[];
   excludeTools?: string[];
+  hooks?: Record<string, unknown>; // Hook definitions (structure TBD)
 }
 
 export interface ExtensionInstallMetadata {
@@ -236,8 +238,8 @@ export function loadExtension(
     );
   }
   if (!fs.existsSync(configFilePath)) {
-    console.error(
-      `Warning: extension directory ${effectiveExtensionPath} does not contain a config file (${EXTENSIONS_CONFIG_FILENAME} or ${EXTENSIONS_CONFIG_FILENAME_FALLBACK}).`,
+    console.warn(
+      `Extension directory ${effectiveExtensionPath} does not contain a valid config file (${EXTENSIONS_CONFIG_FILENAME} or ${EXTENSIONS_CONFIG_FILENAME_FALLBACK}). Skipping.`,
     );
     return null;
   }
@@ -631,6 +633,14 @@ function extensionConsentString(extensionConfig: ExtensionConfig): string {
       output.push(`  * ${key} (${isLocal ? 'local' : 'remote'}): ${source}`);
     }
   }
+  if (sanitizedConfig.hooks && Object.keys(sanitizedConfig.hooks).length > 0) {
+    output.push(
+      `This extension will register hooks: ${Object.keys(sanitizedConfig.hooks).join(', ')}`,
+    );
+    output.push(
+      'Note: Hooks can intercept and modify LLxprt Code behavior. Additional consent will be requested.',
+    );
+  }
   if (sanitizedConfig.contextFileName) {
     output.push(
       `This extension will append info to your LLXPRT.md context using ${sanitizedConfig.contextFileName}`,
@@ -679,6 +689,20 @@ async function maybeRequestConsentOrFail(
   if (!(await requestConsent(extensionConsent))) {
     throw new Error(`Installation cancelled for "${extensionConfig.name}".`);
   }
+
+  // Check for hook consent if extension defines hooks
+  if (extensionConfig.hooks && Object.keys(extensionConfig.hooks).length > 0) {
+    const hookNames = Object.keys(extensionConfig.hooks);
+    const hookConsent = await requestHookConsent(
+      extensionConfig.name,
+      hookNames,
+    );
+    if (!hookConsent) {
+      throw new Error(
+        `Hook registration declined for extension "${extensionConfig.name}". Installation cancelled.`,
+      );
+    }
+  }
 }
 
 export async function loadExtensionConfig(
@@ -694,15 +718,19 @@ export async function loadExtensionConfig(
     );
   }
   if (!fs.existsSync(configFilePath)) {
+    console.warn(
+      `Extension config file not found at ${extensionDir}. Expected ${EXTENSIONS_CONFIG_FILENAME} or ${EXTENSIONS_CONFIG_FILENAME_FALLBACK}.`,
+    );
     return null;
   }
   try {
     const configContent = fs.readFileSync(configFilePath, 'utf-8');
     const rawConfig = JSON.parse(configContent) as ExtensionConfig;
     if (!rawConfig.name || !rawConfig.version) {
-      throw new Error(
-        `Invalid configuration in ${configFilePath}: missing ${!rawConfig.name ? '"name"' : '"version"'}`,
+      console.warn(
+        `Invalid extension configuration in ${configFilePath}: missing ${!rawConfig.name ? '"name"' : '"version"'}`,
       );
+      return null;
     }
     const installDir = new ExtensionStorage(rawConfig.name).getExtensionDir();
     const config = recursivelyHydrateStrings(
@@ -726,6 +754,9 @@ export async function loadExtensionConfig(
     ) {
       throw e;
     }
+    console.warn(
+      `Failed to load extension config from ${configFilePath}: ${e instanceof Error ? e.message : String(e)}`,
+    );
     return null;
   }
 }
