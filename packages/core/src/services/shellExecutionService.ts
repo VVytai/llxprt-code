@@ -142,6 +142,23 @@ function isIgnorablePtyExitError(e: unknown): boolean {
   );
 }
 
+const getFullBufferText = (terminal: pkg.Terminal): string => {
+  const buffer = terminal.buffer.active;
+  const lines: string[] = [];
+  for (let i = 0; i < buffer.length; i++) {
+    const line = buffer.getLine(i);
+    const lineContent = line ? line.translateToString(true) : '';
+    lines.push(lineContent);
+  }
+
+  // Remove trailing empty lines
+  while (lines.length > 0 && lines[lines.length - 1] === '') {
+    lines.pop();
+  }
+
+  return lines.join('\n');
+};
+
 /**
  * Safely tears down a PTY process, preferring destroy() (which closes the
  * underlying FD/socket) when available at runtime, with a kill() fallback.
@@ -680,42 +697,6 @@ export class ShellExecutionService {
           resolve(resultValue);
         };
 
-        const getFullBufferText = (terminal: pkg.Terminal): string => {
-          const buffer = terminal.buffer.active;
-          const lines: string[] = [];
-          for (let i = 0; i < buffer.length; i++) {
-            const line = buffer.getLine(i);
-            if (!line) {
-              continue;
-            }
-            // If the NEXT line is wrapped, it means it's a continuation of THIS line.
-            // We should not trim the right side of this line because trailing spaces
-            // might be significant parts of the wrapped content.
-            // If it's not wrapped, we trim normally.
-            let trimRight = true;
-            if (i + 1 < buffer.length) {
-              const nextLine = buffer.getLine(i + 1);
-              if (nextLine?.isWrapped) {
-                trimRight = false;
-              }
-            }
-
-            const lineContent = line.translateToString(trimRight);
-
-            if (line.isWrapped && lines.length > 0) {
-              lines[lines.length - 1] += lineContent;
-            } else {
-              lines.push(lineContent);
-            }
-          }
-
-          // Remove trailing empty lines
-          while (lines.length > 0 && lines[lines.length - 1] === '') {
-            lines.pop();
-          }
-
-          return lines.join('\n');
-        };
 
         const renderFn = () => {
           activePtyEntry.renderTimeout = undefined;
