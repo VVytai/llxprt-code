@@ -24,7 +24,10 @@ The LLxprt Code provides a comprehensive suite of tools for interacting with the
 
 ## 2. `read_file` (ReadFile)
 
-`read_file` reads and returns the content of a specified file. This tool handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), and PDF files. For text files, it can read specific line ranges. Other binary file types are generally skipped.
+`read_file` reads and returns the content of a specified file. This tool handles
+text, images (PNG, JPG, GIF, WEBP, SVG, BMP), audio files (MP3, WAV, AIFF, AAC,
+OGG, FLAC), and PDF files. For text files, it can read specific line ranges.
+Other binary file types are generally skipped.
 
 - **Tool name:** `read_file`
 - **Display name:** ReadFile
@@ -57,12 +60,12 @@ The LLxprt Code provides a comprehensive suite of tools for interacting with the
 
     Legend: `░` unchanged, `N` new, `M` modified, `D` deletion after line.
 
-  - For image and PDF files: Returns the file content as a base64-encoded data structure suitable for model consumption.
+  - For image, audio, and PDF files: Returns the file content as a base64-encoded data structure suitable for model consumption.
   - For other binary files: Attempts to identify and skip them, returning a message indicating it's a generic binary file.
 
 - **Output:** (`llmContent`):
   - For text files: The file content, potentially prefixed with a truncation message (e.g., `[File content truncated: showing lines 1-100 of 500 total lines...]\nActual file content...`).
-  - For image/PDF files: An object containing `inlineData` with `mimeType` and base64 `data` (e.g., `{ inlineData: { mimeType: 'image/png', data: 'base64encodedstring' } }`).
+  - For image/audio/PDF files: An object containing `inlineData` with `mimeType` and base64 `data` (e.g., `{ inlineData: { mimeType: 'image/png', data: 'base64encodedstring' } }`).
   - For other binary files: A message like `Cannot display content of binary file: /path/to/data.bin`.
 - **Confirmation:** No.
 
