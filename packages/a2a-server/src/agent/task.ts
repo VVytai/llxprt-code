@@ -861,12 +861,23 @@ export class Task {
         // only after the follow-up confirmation completes.
         if (confirmationDetails.type === 'edit') {
           this.skipFinalTrueAfterInlineEdit = payload.newContent !== undefined;
+          try {
+            await confirmationDetails.onConfirm(
+              confirmationOutcome,
+              hasPayload ? payload : undefined,
+            );
+          } finally {
+            // Once confirmationDetails.onConfirm finishes (or fails) with a payload,
+            // reset skipFinalTrueAfterInlineEdit so that external callers receive
+            // their call has been completed.
+            this.skipFinalTrueAfterInlineEdit = false;
+          }
+        } else {
+          await confirmationDetails.onConfirm(
+            confirmationOutcome,
+            hasPayload ? payload : undefined,
+          );
         }
-
-        await confirmationDetails.onConfirm(
-          confirmationOutcome,
-          hasPayload ? payload : undefined,
-        );
       } finally {
         if (gcpProject) {
           process.env['GOOGLE_CLOUD_PROJECT'] = gcpProject;
