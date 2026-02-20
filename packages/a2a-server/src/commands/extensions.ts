@@ -5,7 +5,11 @@
  */
 
 import { listExtensions } from '@vybestack/llxprt-code-core';
-import type { Command, CommandContext, CommandExecutionResponse } from './types.js';
+import type {
+  Command,
+  CommandContext,
+  CommandExecutionResponse,
+} from './types.js';
 
 export class ExtensionsCommand implements Command {
   readonly name = 'extensions';
