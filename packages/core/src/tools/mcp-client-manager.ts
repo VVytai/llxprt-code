@@ -160,7 +160,7 @@ export class McpClientManager {
     }
 
     const currentDiscoveryPromise = new Promise<void>((resolve, _reject) => {
-      (async () => {
+      void (async () => {
         try {
           if (existing) {
             await existing.disconnect();
@@ -227,7 +227,7 @@ export class McpClientManager {
     }
     this.eventEmitter?.emit('mcp-client-update', this.clients);
     const currentPromise = this.discoveryPromise;
-    currentPromise.then((_) => {
+    void currentPromise.then((_) => {
       // If we are the last recorded discoveryPromise, then we are done, reset
       // the world.
       if (currentPromise === this.discoveryPromise) {

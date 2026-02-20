@@ -793,6 +793,7 @@ export const AppContainer = (props: AppContainerProps) => {
     };
 
     // Update immediately
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     updateModel();
 
     // Also listen for any changes if SettingsService is available
@@ -1077,6 +1078,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const openToolsDialog = useCallback(
     (action: 'enable' | 'disable') => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       openToolsDialogRaw(action);
     },
     [openToolsDialogRaw],
@@ -1483,6 +1485,7 @@ export const AppContainer = (props: AppContainerProps) => {
         lastSubmittedPromptRef.current = trimmedValue;
         // Add to independent input history
         inputHistoryStore.addInput(trimmedValue);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         submitQuery(trimmedValue);
       }
     },
@@ -1500,8 +1503,10 @@ export const AppContainer = (props: AppContainerProps) => {
     (result: IdeIntegrationNudgeResult) => {
       if (result.userSelection === 'yes') {
         if (result.isExtensionPreInstalled) {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           handleSlashCommand('/ide enable');
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           handleSlashCommand('/ide install');
         }
         settings.setValue(
@@ -1546,6 +1551,7 @@ export const AppContainer = (props: AppContainerProps) => {
           clearTimeout(timerRef.current);
         }
         // Directly invoke the central command handler.
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleSlashCommand('/quit');
       } else {
         setPressedOnce(true);
@@ -1559,6 +1565,7 @@ export const AppContainer = (props: AppContainerProps) => {
   );
 
   const handleSettingsRestart = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     handleSlashCommand('/quit');
   }, [handleSlashCommand]);
 
@@ -1631,6 +1638,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
         const mcpServers = config.getMcpServers();
         if (Object.keys(mcpServers || {}).length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           handleSlashCommand(newValue ? '/mcp desc' : '/mcp nodesc');
         }
       } else if (keyMatchers[Command.TOGGLE_MARKDOWN](key)) {
@@ -1646,6 +1654,7 @@ export const AppContainer = (props: AppContainerProps) => {
         ideContextState
       ) {
         // Show IDE status when in IDE mode and context is available.
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleSlashCommand('/ide status');
       } else if (keyMatchers[Command.TOGGLE_TODO_DIALOG](key)) {
         // Toggle todo panel collapsed/expanded state
@@ -1708,7 +1717,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   useEffect(() => {
     if (config) {
-      setLlxprtMdFileCount(config.getLlxprtMdFileCount());
+      void setLlxprtMdFileCount(config.getLlxprtMdFileCount());
     }
   }, [config, config.getLlxprtMdFileCount]);
 
@@ -1716,7 +1725,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   // Initialize independent input history from logger
   useEffect(() => {
-    inputHistoryStore.initializeFromLogger(logger);
+    void inputHistoryStore.initializeFromLogger(logger);
   }, [logger, inputHistoryStore]);
 
   // Handle process exit when quit command is issued
@@ -1990,6 +1999,7 @@ export const AppContainer = (props: AppContainerProps) => {
       !isWelcomeDialogOpen &&
       geminiClient
     ) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       submitQuery(initialPrompt);
       initialPromptSubmitted.current = true;
     }

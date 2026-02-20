@@ -33,6 +33,7 @@ export function WorkspaceMigrationDialog(props: {
   const handleSelect = useCallback(
     (value: string) => {
       if (value === 'migrate') {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         onMigrate();
       } else {
         onClose();

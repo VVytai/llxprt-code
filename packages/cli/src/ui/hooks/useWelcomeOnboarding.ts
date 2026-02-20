@@ -138,7 +138,7 @@ export const useWelcomeOnboarding = (
       }
     };
 
-    loadModels();
+    void loadModels();
   }, [runtime, state.selectedProvider]);
 
   const startSetup = useCallback(() => {

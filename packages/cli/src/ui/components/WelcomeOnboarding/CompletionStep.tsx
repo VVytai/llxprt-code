@@ -58,6 +58,7 @@ export const CompletionStep: React.FC<CompletionStepProps> = ({
     (key) => {
       if (key.name === 'return') {
         if (showProfilePrompt && !saving) {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           handleProfileSubmit();
         } else if (!showProfilePrompt) {
           onDismiss();

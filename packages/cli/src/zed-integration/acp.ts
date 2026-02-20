@@ -167,7 +167,7 @@ class Connection {
     this.#handler = handler;
     this.#peerInput = peerInput;
     this.#textEncoder = new TextEncoder();
-    this.#receive(peerOutput);
+    void this.#receive(peerOutput);
   }
 
   async #receive(output: ReadableStream<Uint8Array>) {
@@ -185,7 +185,7 @@ class Connection {
 
         if (trimmedLine) {
           const message = JSON.parse(trimmedLine);
-          this.#processMessage(message);
+          void this.#processMessage(message);
         }
       }
     }

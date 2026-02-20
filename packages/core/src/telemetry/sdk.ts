@@ -121,10 +121,10 @@ export function initializeTelemetry(config: Config): void {
   }
 
   process.on('SIGTERM', () => {
-    shutdownTelemetry(config);
+    void shutdownTelemetry(config);
   });
   process.on('SIGINT', () => {
-    shutdownTelemetry(config);
+    void shutdownTelemetry(config);
   });
 }
 

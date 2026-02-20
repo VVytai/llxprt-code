@@ -1700,11 +1700,11 @@ export class Config {
   }
 
   setIdeClientDisconnected(): void {
-    this.ideClient?.disconnect();
+    void this.ideClient?.disconnect();
   }
 
   setIdeClientConnected(): void {
-    this.ideClient?.connect();
+    void this.ideClient?.connect();
   }
 
   getComplexityAnalyzerSettings(): ComplexityAnalyzerSettings {

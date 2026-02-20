@@ -187,6 +187,7 @@ export default tseslint.config(
       'prefer-const': ['error', { destructuring: 'all' }],
       radix: 'error',
       'default-case': 'error',
+      '@typescript-eslint/no-floating-promises': ['error'],
 
       // Additional React-specific rules to prevent infinite loops
       'react-hooks/exhaustive-deps': [

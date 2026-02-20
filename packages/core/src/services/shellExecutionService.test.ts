@@ -79,8 +79,6 @@ const shellExecutionConfig: ShellExecutionConfig = {
   disableDynamicLineTrimming: true,
 };
 
-
-
 describe('ShellExecutionService', () => {
   let mockPtyProcess: EventEmitter & {
     pid: number;

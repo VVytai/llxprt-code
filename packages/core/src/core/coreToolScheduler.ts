@@ -731,7 +731,7 @@ export class CoreToolScheduler {
       }
     });
     this.notifyToolCallsUpdate();
-    this.checkAndNotifyCompletion();
+    void this.checkAndNotifyCompletion();
   }
 
   private setArgsInternal(targetCallId: string, args: unknown): void {
@@ -1039,16 +1039,16 @@ export class CoreToolScheduler {
               confirmationDetails.type === 'edit' &&
               confirmationDetails.ideConfirmation
             ) {
-              confirmationDetails.ideConfirmation.then((resolution) => {
+              void confirmationDetails.ideConfirmation.then((resolution) => {
                 if (resolution.status === 'accepted') {
-                  this.handleConfirmationResponse(
+                  void this.handleConfirmationResponse(
                     reqInfo.callId,
                     confirmationDetails.onConfirm,
                     ToolConfirmationOutcome.ProceedOnce,
                     signal,
                   );
                 } else {
-                  this.handleConfirmationResponse(
+                  void this.handleConfirmationResponse(
                     reqInfo.callId,
                     confirmationDetails.onConfirm,
                     ToolConfirmationOutcome.Cancel,
@@ -2134,6 +2134,6 @@ ${appendText}`,
     });
 
     this.notifyToolCallsUpdate();
-    this.checkAndNotifyCompletion();
+    void this.checkAndNotifyCompletion();
   }
 }

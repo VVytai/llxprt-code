@@ -91,7 +91,7 @@ export const useExtensionUpdates = (
       return !currentState || currentState === ExtensionUpdateState.UNKNOWN;
     });
     if (extensionsToCheck.length === 0) return;
-    checkForAllExtensionUpdates(
+    void checkForAllExtensionUpdates(
       extensionsToCheck,
       dispatchExtensionStateUpdate,
       cwd,
@@ -197,7 +197,7 @@ export const useExtensionUpdates = (
       );
     }
     if (scheduledUpdate) {
-      Promise.allSettled(updatePromises).then((results) => {
+      void Promise.allSettled(updatePromises).then((results) => {
         const nonNullResults = results
           .filter(
             (result) => result.status === 'fulfilled' && result.value != null,

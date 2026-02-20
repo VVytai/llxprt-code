@@ -93,7 +93,7 @@ async function createTestSession(
   svc.recordContent(makeContent('hello'));
   await svc.flush();
   const filePath = svc.getFilePath()!;
-  svc.dispose();
+  void svc.dispose();
   return { filePath, sessionId };
 }
 

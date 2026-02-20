@@ -1064,7 +1064,7 @@ describe('useGeminiStream', () => {
 
       // Start a query
       await act(async () => {
-        result.current.submitQuery('test query');
+        await result.current.submitQuery('test query');
       });
 
       // Wait for the first part of the response
@@ -1123,7 +1123,7 @@ describe('useGeminiStream', () => {
 
       // Start a query
       await act(async () => {
-        result.current.submitQuery('test query');
+        await result.current.submitQuery('test query');
       });
 
       simulateEscapeKeyPress();
@@ -1165,7 +1165,7 @@ describe('useGeminiStream', () => {
 
       // Start a query
       await act(async () => {
-        result.current.submitQuery('test query');
+        await result.current.submitQuery('test query');
       });
 
       simulateEscapeKeyPress();
@@ -1206,7 +1206,7 @@ describe('useGeminiStream', () => {
       const { result } = renderTestHook();
 
       await act(async () => {
-        result.current.submitQuery('long running query');
+        await result.current.submitQuery('long running query');
       });
 
       await waitFor(() => {

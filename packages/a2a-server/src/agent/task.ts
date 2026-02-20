@@ -404,7 +404,9 @@ export class Task {
       logger.info('[Task] YOLO mode enabled. Auto-approving all tool calls.');
       toolCalls.forEach((tc: ToolCall) => {
         if (tc.status === 'awaiting_approval' && tc.confirmationDetails) {
-          tc.confirmationDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+          void tc.confirmationDetails.onConfirm(
+            ToolConfirmationOutcome.ProceedOnce,
+          );
           this.pendingToolConfirmationDetails.delete(tc.request.callId);
         }
       });
@@ -857,7 +859,7 @@ export class Task {
       } else {
         parts = [response];
       }
-      this.geminiClient.addHistory({
+      void this.geminiClient.addHistory({
         role: 'user',
         parts,
       });

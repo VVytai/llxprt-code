@@ -375,12 +375,14 @@ export const useSlashCommandProcessor = (
       reloadCommands();
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     (async () => {
       const ideClient = await IdeClient.getInstance();
       ideClient.addStatusChangeListener(listener);
     })();
 
     return () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       (async () => {
         const ideClient = await IdeClient.getInstance();
         ideClient.removeStatusChangeListener(listener);
@@ -643,6 +645,7 @@ export const useSlashCommandProcessor = (
                     }
                   }
                 case 'load_history': {
+                  // eslint-disable-next-line @typescript-eslint/no-floating-promises
                   config?.getGeminiClient()?.setHistory(result.clientHistory);
                   fullCommandContext.ui.clear();
                   result.history.forEach((item, index) => {

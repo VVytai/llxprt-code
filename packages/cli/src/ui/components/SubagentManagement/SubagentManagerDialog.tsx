@@ -111,6 +111,7 @@ export const SubagentManagerDialog: React.FC<SubagentManagerDialogProps> = ({
   }, [subagentManager, profileManager, initialSubagentName, initialView]);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     loadData();
   }, [loadData]);
 

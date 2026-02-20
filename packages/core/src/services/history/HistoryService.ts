@@ -307,7 +307,7 @@ export class HistoryService
       this.emit('contentAdded', content);
 
       // Update token count asynchronously but atomically
-      this.updateTokenCount(content, modelName);
+      void this.updateTokenCount(content, modelName);
     } else {
       this.logger.debug('Content rejected - invalid speaker:', content.speaker);
     }
@@ -866,7 +866,7 @@ export class HistoryService
     if (removed) {
       // Recalculate tokens since we removed content
       // This is less efficient but ensures accuracy
-      this.recalculateTokens();
+      void this.recalculateTokens();
     }
     return removed;
   }

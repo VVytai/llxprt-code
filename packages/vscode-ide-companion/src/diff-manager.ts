@@ -62,10 +62,10 @@ export class DiffManager {
   ) {
     this.subscriptions.push(
       vscode.window.onDidChangeActiveTextEditor((editor) => {
-        this.onActiveEditorChange(editor);
+        void this.onActiveEditorChange(editor);
       }),
     );
-    this.onActiveEditorChange(vscode.window.activeTextEditor);
+    void this.onActiveEditorChange(vscode.window.activeTextEditor);
   }
 
   dispose() {

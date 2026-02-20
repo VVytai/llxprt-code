@@ -229,9 +229,9 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
     };
 
     if (state.status === AtCompletionStatus.INITIALIZING) {
-      initialize();
+      void initialize();
     } else if (state.status === AtCompletionStatus.SEARCHING) {
-      search();
+      void search();
     }
 
     return () => {

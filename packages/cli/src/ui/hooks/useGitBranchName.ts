@@ -70,7 +70,7 @@ export function useGitBranchName(cwd: string): string | undefined {
       }
     };
 
-    setupWatcher();
+    void setupWatcher();
 
     return () => {
       cancelled = true;

@@ -191,7 +191,7 @@ export function usePromptCompletion({
       lastSelectedTextRef.current = '';
     }
 
-    generatePromptSuggestions();
+    void generatePromptSuggestions();
   }, [
     buffer.text,
     generatePromptSuggestions,

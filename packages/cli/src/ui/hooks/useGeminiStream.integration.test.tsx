@@ -180,7 +180,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], activeTodos);
 
     await act(async () => {
-      result.current.submitQuery('What should I work on?');
+      await result.current.submitQuery('What should I work on?');
     });
 
     await waitFor(() => {
@@ -448,7 +448,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
 
     // Submit a query that will complete without tool calls
     await act(async () => {
-      result.current.submitQuery('What should I work on?');
+      await result.current.submitQuery('What should I work on?');
     });
 
     // Wait for the stream to complete
@@ -503,7 +503,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], activeTodos);
 
     await act(async () => {
-      result.current.submitQuery('Continue working on auth');
+      await result.current.submitQuery('Continue working on auth');
     });
 
     // Wait for the stream to complete
@@ -550,7 +550,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     });
 
     await act(async () => {
-      result.current.submitQuery('What next?');
+      await result.current.submitQuery('What next?');
     });
 
     await waitFor(() => {
@@ -596,7 +596,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], activeTodos);
 
     await act(async () => {
-      result.current.submitQuery('Analyze the task');
+      await result.current.submitQuery('Analyze the task');
     });
 
     await waitFor(() => {
@@ -661,7 +661,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], activeTodos);
 
     await act(async () => {
-      result.current.submitQuery('What tools are available?');
+      await result.current.submitQuery('What tools are available?');
     });
 
     // Verify tool registry includes todo_pause
@@ -709,7 +709,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], mixedStatusTodos);
 
     await act(async () => {
-      result.current.submitQuery('Show me todos');
+      await result.current.submitQuery('Show me todos');
     });
 
     await waitFor(() => {
@@ -759,7 +759,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], prioritizedTodos);
 
     await act(async () => {
-      result.current.submitQuery('Check task status');
+      await result.current.submitQuery('Check task status');
     });
 
     await waitFor(() => {
@@ -804,7 +804,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], completedTodos);
 
     await act(async () => {
-      result.current.submitQuery('How are we doing?');
+      await result.current.submitQuery('How are we doing?');
     });
 
     await waitFor(() => {
@@ -841,7 +841,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result, client } = renderTestHook([], activeTodos);
 
     await act(async () => {
-      result.current.submitQuery('Continue task');
+      await result.current.submitQuery('Continue task');
     });
 
     await waitFor(() => {
@@ -890,11 +890,11 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
 
     // Rapidly submit multiple queries
     await act(async () => {
-      result.current.submitQuery('Query 1');
+      await result.current.submitQuery('Query 1');
     });
 
     await act(async () => {
-      result.current.submitQuery('Query 2');
+      await result.current.submitQuery('Query 2');
     });
 
     await waitFor(() => {
@@ -1039,7 +1039,7 @@ describe('Todo Continuation Integration - useGeminiStream', () => {
     const { result } = renderTestHook([], activeTodos);
 
     await act(async () => {
-      result.current.submitQuery('Test query');
+      await result.current.submitQuery('Test query');
     });
 
     await waitFor(() => {

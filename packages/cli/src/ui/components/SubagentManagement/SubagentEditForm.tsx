@@ -166,6 +166,7 @@ export const SubagentEditForm: React.FC<SubagentEditFormProps> = ({
 
       if (focusTarget === 'actions') {
         if (selectedAction === 'save') {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           handleSave();
         } else {
           onCancel();

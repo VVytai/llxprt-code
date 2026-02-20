@@ -56,6 +56,7 @@ export const Notifications = ({
         setHasSeenScreenReaderNudge(false);
       }
     };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     checkScreenReaderNudge();
   }, []);
 
@@ -75,6 +76,7 @@ export const Notifications = ({
         }
       }
     };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     writeScreenReaderNudgeFile();
   }, [showScreenReaderNudge]);
 

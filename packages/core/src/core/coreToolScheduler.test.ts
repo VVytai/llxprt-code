@@ -1924,7 +1924,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
     };
 
     // Schedule the first call, which will pause execution.
-    scheduler.schedule([request1], abortController.signal);
+    void scheduler.schedule([request1], abortController.signal);
 
     // Wait for the first call to be in the 'executing' state.
     await waitForStatus(onToolCallsUpdate, 'executing');

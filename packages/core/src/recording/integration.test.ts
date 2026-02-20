@@ -218,7 +218,7 @@ describe('integration: full session recording lifecycle', () => {
     svc2.recordContent(makeContent('turn5-h', 'human'));
     svc2.recordContent(makeContent('turn5-a', 'ai'));
     await svc2.flush();
-    svc2.dispose();
+    void svc2.dispose();
 
     const replay2 = await replaySession(filePath, PROJECT_HASH);
     expect(replay2.ok).toBe(true);
@@ -254,7 +254,7 @@ describe('integration: full session recording lifecycle', () => {
     svc2.recordContent(makeContent('m4', 'human'));
     svc2.recordContent(makeContent('m5', 'ai'));
     await svc2.flush();
-    svc2.dispose();
+    void svc2.dispose();
 
     const lines = await readJsonlLines(filePath);
     const seqs = lines.map((l) => l.seq);
@@ -457,7 +457,7 @@ describe('integration: full session recording lifecycle', () => {
     // Should be the most recently created session
     expect(result.metadata.sessionId).toBe(sessions[2].sessionId);
     expect(result.history).toHaveLength(2);
-    result.recording.dispose();
+    void result.recording.dispose();
   });
 
   // =========================================================================
@@ -482,7 +482,7 @@ describe('integration: full session recording lifecycle', () => {
     expect((result.history[0].blocks[0] as { text: string }).text).toBe(
       'first-session',
     );
-    result.recording.dispose();
+    void result.recording.dispose();
   });
 
   // =========================================================================
@@ -526,7 +526,7 @@ describe('integration: full session recording lifecycle', () => {
     if (result2.ok) return;
     expect(result2.error).toContain('in use');
 
-    result1.recording.dispose();
+    void result1.recording.dispose();
   });
 
   // =========================================================================
@@ -643,7 +643,7 @@ describe('integration: full session recording lifecycle', () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.history).toHaveLength(turnCount * 2);
-      result.recording.dispose();
+      void result.recording.dispose();
     },
   );
 
@@ -898,7 +898,7 @@ describe('integration: full session recording lifecycle', () => {
         );
       }
       await svc2.flush();
-      svc2.dispose();
+      void svc2.dispose();
 
       const replay2 = await replaySession(filePath, PROJECT_HASH);
       expect(replay2.ok).toBe(true);
@@ -1098,7 +1098,7 @@ describe('integration: full session recording lifecycle', () => {
     // Tool was mid-execution — no tool result committed
     await svc1.flush();
     const fp = svc1.getFilePath()!;
-    svc1.dispose();
+    await svc1.dispose();
 
     // Resume: replays the partial turn
     const replay = await replaySession(fp, PROJECT_HASH);
@@ -1116,7 +1116,7 @@ describe('integration: full session recording lifecycle', () => {
     svc2.recordContent(makeContent('new message after resume', 'human'));
     svc2.recordContent(makeContent('new response', 'ai'));
     await svc2.flush();
-    svc2.dispose();
+    void svc2.dispose();
 
     // Re-replay to verify continuation
     const replay2 = await replaySession(fp, PROJECT_HASH);
@@ -1240,7 +1240,7 @@ describe('integration: full session recording lifecycle', () => {
     interactiveSvc.recordContent(makeContent('world', 'ai'));
     await interactiveSvc.flush();
     const interactivePath = interactiveSvc.getFilePath()!;
-    interactiveSvc.dispose();
+    void interactiveSvc.dispose();
 
     // "--prompt" path: same content through same service (different instance)
     const promptSvc = new SessionRecordingService(
@@ -1254,7 +1254,7 @@ describe('integration: full session recording lifecycle', () => {
     promptSvc.recordContent(makeContent('world', 'ai'));
     await promptSvc.flush();
     const promptPath = promptSvc.getFilePath()!;
-    promptSvc.dispose();
+    void promptSvc.dispose();
 
     // Both should replay identically
     const replay1 = await replaySession(interactivePath, PROJECT_HASH);

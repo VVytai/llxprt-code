@@ -614,7 +614,7 @@ export class Session {
               if (filterResult.blocked) {
                 // In error mode: inject error feedback to model for retry
                 hasStreamedAgentContent = true;
-                this.sendUpdate({
+                void this.sendUpdate({
                   sessionUpdate: 'agent_message_chunk',
                   content: {
                     type: 'text',
@@ -642,7 +642,7 @@ export class Session {
                 text: filteredText,
               };
 
-              this.sendUpdate({
+              void this.sendUpdate({
                 sessionUpdate: part.thought
                   ? 'agent_thought_chunk'
                   : 'agent_message_chunk',

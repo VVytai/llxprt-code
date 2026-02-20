@@ -577,7 +577,7 @@ describe('useSelectionList', () => {
       expect(mockOnSelect).toHaveBeenCalledWith('Item 10');
     });
 
-    it('should clear the initial "0" input after timeout', () => {
+    it('should clear the initial "0" input after timeout', async () => {
       renderHook(() =>
         useSelectionList({
           items: longList,
@@ -587,12 +587,12 @@ describe('useSelectionList', () => {
       );
 
       pressNumber('0');
-      act(() => vi.advanceTimersByTime(1000)); // Timeout the '0' input
+      await act(() => vi.advanceTimersByTime(1000)); // Timeout the '0' input
 
       pressNumber('1');
       expect(mockOnSelect).not.toHaveBeenCalled(); // Should be waiting for second digit
 
-      act(() => vi.advanceTimersByTime(1000)); // Timeout '1'
+      await act(() => vi.advanceTimersByTime(1000)); // Timeout '1'
       expect(mockOnSelect).toHaveBeenCalledWith('Item 1');
     });
 

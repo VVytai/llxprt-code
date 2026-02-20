@@ -63,6 +63,7 @@ export const ToolConfirmationMessage: React.FC<
           setIsDiffingEnabled(client?.isDiffingEnabled() ?? false);
         }
       };
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       getIdeClient();
     }
     return () => {
@@ -93,6 +94,7 @@ export const ToolConfirmationMessage: React.FC<
         }
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       onConfirm(outcome);
     },
     [confirmationDetails, config, isDiffingEnabled, ideClient, onConfirm],
@@ -101,6 +103,7 @@ export const ToolConfirmationMessage: React.FC<
   const handleEditSubmit = useCallback(() => {
     const trimmed = editedCommand.trim();
     if (trimmed.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       onConfirm(ToolConfirmationOutcome.SuggestEdit, {
         editedCommand: trimmed,
       });
@@ -121,6 +124,7 @@ export const ToolConfirmationMessage: React.FC<
         if (isEditingCommand) {
           handleEditCancel();
         } else {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           handleConfirm(ToolConfirmationOutcome.Cancel);
         }
       }

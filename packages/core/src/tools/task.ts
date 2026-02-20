@@ -824,7 +824,7 @@ class TaskToolInvocation extends BaseToolInvocation<
       }
 
       if (dispose) {
-        dispose();
+        void dispose();
       }
 
       return this.createErrorResult(
@@ -916,7 +916,7 @@ class TaskToolInvocation extends BaseToolInvocation<
     emitClosingSubagentTag?: () => void,
   ): void {
     // Use IIFE to avoid returning promise
-    (async () => {
+    void (async () => {
       try {
         // Use the SAME execution path as sync tasks:
         // - Interactive environment → runInteractive() (tool calls go through shared scheduler/UI)

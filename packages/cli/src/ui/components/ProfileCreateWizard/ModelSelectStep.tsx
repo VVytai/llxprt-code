@@ -104,6 +104,7 @@ export const ModelSelectStep: React.FC<ModelSelectStepProps> = ({
       }
       setIsLoading(false);
     };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     loadModels();
   }, [runtime, state.config.provider]);
 

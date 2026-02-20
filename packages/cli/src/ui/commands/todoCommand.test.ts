@@ -626,6 +626,7 @@ describe('todoCommand', () => {
               (cmd) => cmd.name === 'remove',
             );
 
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             removeSubcommand!.action!(ctx, `${start}-${end}`);
 
             if (ctx.todoContext?.updateTodos) {
@@ -1172,6 +1173,7 @@ describe('todoCommand', () => {
               (cmd) => cmd.name === 'set',
             );
 
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             setSubcommand!.action!(ctx, position.toString());
 
             expect(ctx.todoContext?.updateTodos).toHaveBeenCalled();
@@ -1503,6 +1505,7 @@ describe('todoCommand', () => {
             );
 
             // Add a todo at last position
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             addSubcommand!.action!(ctx, 'last New task');
 
             expect(ctx.todoContext?.updateTodos).toHaveBeenCalled();
@@ -1518,6 +1521,7 @@ describe('todoCommand', () => {
             ).mockClear();
 
             // Remove the last todo
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             removeSubcommand!.action!(ctx, todosAfterAdd.length.toString());
 
             expect(ctx.todoContext?.updateTodos).toHaveBeenCalled();

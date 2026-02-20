@@ -798,7 +798,7 @@ export class GeminiChat {
 
     // @plan PLAN-20251027-STATELESS5.P10
     // @requirement REQ-STAT5-004.1
-    this._logApiRequest(
+    void this._logApiRequest(
       ContentConverters.toGeminiContents(iContents),
       this.runtimeState.model,
       prompt_id,

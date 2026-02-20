@@ -194,6 +194,7 @@ export const ModelsDialog: React.FC<ModelsDialogProps> = ({
     };
 
     setState((prev) => ({ ...prev, isLoading: true }));
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     loadModels();
 
     return () => {
