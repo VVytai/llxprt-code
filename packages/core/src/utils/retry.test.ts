@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiError } from '@google/genai';
 import type { HttpError } from './retry.js';
-import { retryWithBackoff } from './retry.js';
+import { retryWithBackoff, isRetryableError } from './retry.js';
 import { setSimulate429 } from './testUtils.js';
 
 // Helper to create a mock function that fails a certain number of times
@@ -368,7 +368,7 @@ describe('retryWithBackoff', () => {
       expect(mockFn).toHaveBeenCalledTimes(2);
     });
 
-    it('should retry on fetch failed error', async () => {
+    it('should retry on fetch failed error when retryFetchErrors=true', async () => {
       let attempts = 0;
       const mockFn = vi.fn(async () => {
         attempts++;
@@ -381,6 +381,7 @@ describe('retryWithBackoff', () => {
       const promise = retryWithBackoff(mockFn, {
         maxAttempts: 3,
         initialDelayMs: 10,
+        retryFetchErrors: true,
       });
 
       await vi.runAllTimersAsync();
@@ -390,7 +391,7 @@ describe('retryWithBackoff', () => {
       expect(mockFn).toHaveBeenCalledTimes(2);
     });
 
-    it('should retry on "fetch failed sending request" error', async () => {
+    it('should retry on "fetch failed sending request" error when retryFetchErrors=true', async () => {
       let attempts = 0;
       const mockFn = vi.fn(async () => {
         attempts++;
@@ -405,6 +406,7 @@ describe('retryWithBackoff', () => {
       const promise = retryWithBackoff(mockFn, {
         maxAttempts: 3,
         initialDelayMs: 10,
+        retryFetchErrors: true,
       });
 
       await vi.runAllTimersAsync();
@@ -892,5 +894,97 @@ describe('retryWithBackoff', () => {
       expect.objectContaining({ name: 'AbortError' }),
     );
     expect(mockFn).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * @plan PLAN-20250219-GMERGE021.R13.P02
+ * @requirement REQ-R13-003 Unit tests for retry precedence
+ */
+describe('isRetryableError', () => {
+  it('should retry network error code regardless of retryFetchErrors=false', () => {
+    const error = Object.assign(new Error('Connection timeout'), {
+      code: 'ETIMEDOUT',
+    });
+    expect(isRetryableError(error, false)).toBe(true);
+  });
+
+  it('should retry network error code regardless of retryFetchErrors=true', () => {
+    const error = Object.assign(new Error('Connection timeout'), {
+      code: 'ETIMEDOUT',
+    });
+    expect(isRetryableError(error, true)).toBe(true);
+  });
+
+  it('should retry network error code in nested .cause chain', () => {
+    const innerError = Object.assign(new Error('Socket hang up'), {
+      code: 'ECONNRESET',
+    });
+    const outerError = new Error('Fetch failed', { cause: innerError });
+    expect(isRetryableError(outerError, false)).toBe(true);
+  });
+
+  it('should NOT retry generic "fetch failed" when retryFetchErrors=false', () => {
+    const error = new Error('fetch failed');
+    expect(isRetryableError(error, false)).toBe(false);
+  });
+
+  it('should retry generic "fetch failed" when retryFetchErrors=true', () => {
+    const error = new Error('fetch failed');
+    expect(isRetryableError(error, true)).toBe(true);
+  });
+
+  it('should never retry 400 ApiError', () => {
+    const error = new ApiError({ message: 'Bad Request', status: 400 });
+    expect(isRetryableError(error, false)).toBe(false);
+    expect(isRetryableError(error, true)).toBe(false);
+  });
+
+  it('should retry 503 ApiError', () => {
+    const error = new ApiError({ message: 'Service Unavailable', status: 503 });
+    expect(isRetryableError(error, false)).toBe(true);
+    expect(isRetryableError(error, true)).toBe(true);
+  });
+
+  it('should retry 429 ApiError', () => {
+    const error = new ApiError({ message: 'Too Many Requests', status: 429 });
+    expect(isRetryableError(error, false)).toBe(true);
+    expect(isRetryableError(error, true)).toBe(true);
+  });
+
+  it('should retry 503 generic error with status property', () => {
+    const error = Object.assign(new Error('Service Unavailable'), {
+      status: 503,
+    });
+    expect(isRetryableError(error, false)).toBe(true);
+  });
+
+  it('should retry network error with ECONNRESET code', () => {
+    const error = Object.assign(new Error('socket hang up'), {
+      code: 'ECONNRESET',
+    });
+    expect(isRetryableError(error, false)).toBe(true);
+  });
+
+  it('should retry network error with UND_ERR_SOCKET code', () => {
+    const error = Object.assign(new Error('undici socket error'), {
+      code: 'UND_ERR_SOCKET',
+    });
+    expect(isRetryableError(error, false)).toBe(true);
+  });
+
+  it('should NOT retry non-network, non-HTTP errors', () => {
+    const error = new Error('Some random error');
+    expect(isRetryableError(error, false)).toBe(false);
+    expect(isRetryableError(error, true)).toBe(false);
+  });
+
+  it('should prioritize network codes over retryFetchErrors gate', () => {
+    // Create an error that has both a network code AND "fetch failed" message
+    // Network code should win (always retry), even if retryFetchErrors=false
+    const error = Object.assign(new Error('fetch failed due to ETIMEDOUT'), {
+      code: 'ETIMEDOUT',
+    });
+    expect(isRetryableError(error, false)).toBe(true);
   });
 });
