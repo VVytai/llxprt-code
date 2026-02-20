@@ -573,7 +573,7 @@ describe('mcp-client', () => {
     });
 
     describe('should connect via url', () => {
-      it('without headers', async () => {
+      it('without headers defaults to HTTP transport', async () => {
         const transport = await createTransport(
           'test-server',
           {
@@ -581,10 +581,10 @@ describe('mcp-client', () => {
           },
           false,
         );
-        expect(transport).toBeInstanceOf(SSEClientTransport);
+        expect(transport).toBeInstanceOf(StreamableHTTPClientTransport);
       });
 
-      it('with headers', async () => {
+      it('with headers defaults to HTTP transport', async () => {
         const transport = await createTransport(
           'test-server',
           {
@@ -594,7 +594,31 @@ describe('mcp-client', () => {
           false,
         );
 
+        expect(transport).toBeInstanceOf(StreamableHTTPClientTransport);
+      });
+
+      it('with type sse uses SSE transport', async () => {
+        const transport = await createTransport(
+          'test-server',
+          {
+            url: 'http://test-server',
+            type: 'sse',
+          },
+          false,
+        );
         expect(transport).toBeInstanceOf(SSEClientTransport);
+      });
+
+      it('with type http uses HTTP transport', async () => {
+        const transport = await createTransport(
+          'test-server',
+          {
+            url: 'http://test-server',
+            type: 'http',
+          },
+          false,
+        );
+        expect(transport).toBeInstanceOf(StreamableHTTPClientTransport);
       });
     });
 
@@ -716,6 +740,7 @@ describe('mcp-client', () => {
           'test-server',
           {
             url: 'http://test.googleapis.com',
+            type: 'sse',
             authProviderType: AuthProviderType.GOOGLE_CREDENTIALS,
             oauth: {
               scopes: ['scope1'],

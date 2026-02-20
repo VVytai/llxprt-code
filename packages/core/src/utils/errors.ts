@@ -158,7 +158,11 @@ export function isAuthenticationError(error: unknown): boolean {
 
   // Anchored message pattern — must not match '401' appearing in model names, IDs, etc.
   const message = getErrorMessage(error);
-  if (/\bHTTP 401\b/.test(message) || /\bstatus 401\b/i.test(message)) {
+  if (
+    /\bHTTP 401\b/.test(message) ||
+    /\bstatus 401\b/i.test(message) ||
+    /\b401 Unauthorized\b/i.test(message)
+  ) {
     return true;
   }
 

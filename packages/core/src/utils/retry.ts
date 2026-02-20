@@ -564,8 +564,15 @@ function getRetryAfterDelayMs(error: unknown): number {
         typeof response.headers === 'object' &&
         response.headers !== null
       ) {
-        const headers = response.headers as { 'retry-after'?: unknown };
-        const retryAfterHeader = headers['retry-after'];
+        const headers = response.headers as {
+          'retry-after'?: unknown;
+          get?: (name: string) => string | null;
+        };
+        // Support both plain object and Fetch Headers API
+        const retryAfterHeader =
+          typeof headers.get === 'function'
+            ? headers.get('retry-after')
+            : headers['retry-after'];
         if (typeof retryAfterHeader === 'string') {
           const retryAfterSeconds = parseInt(retryAfterHeader, 10);
           if (!isNaN(retryAfterSeconds)) {

@@ -366,12 +366,17 @@ export async function downloadFromGitHubRelease(
       downloadedAssetPath += '.zip';
     }
 
-    // Source tarballs/zipballs need a different Accept header than binary assets
-    const accept =
-      isTar || isZip
-        ? 'application/vnd.github+json'
-        : 'application/octet-stream';
-    await downloadFile(archiveUrl, downloadedAssetPath, accept);
+    // GitHub API requires different Accept headers for different types of downloads:
+    // 1. Binary Assets (e.g. release artifacts): Require 'application/octet-stream' to return the raw content.
+    // 2. Source Tarballs (e.g. /tarball/{ref}): Require 'application/vnd.github+json' (or similar) to return
+    //    a 302 Redirect to the actual download location (codeload.github.com).
+    //    Sending 'application/octet-stream' for tarballs results in a 415 Unsupported Media Type error.
+    const headers = {
+      ...(asset
+        ? { Accept: 'application/octet-stream' }
+        : { Accept: 'application/vnd.github+json' }),
+    };
+    await downloadFile(archiveUrl, downloadedAssetPath, { headers });
 
     await extractFile(downloadedAssetPath, destination);
 
@@ -473,7 +478,7 @@ export function findReleaseAsset(assets: Asset[]): Asset | undefined {
 
 async function fetchJson<T>(url: string): Promise<T> {
   const headers: { 'User-Agent': string; Authorization?: string } = {
-    'User-Agent': 'gemini-cli',
+    'User-Agent': 'llxprt-code',
   };
   const token = getGitHubToken();
   if (token) {
@@ -498,28 +503,40 @@ async function fetchJson<T>(url: string): Promise<T> {
   });
 }
 
-async function downloadFile(
+export interface DownloadOptions {
+  headers?: Record<string, string>;
+}
+
+export async function downloadFile(
   url: string,
   dest: string,
-  accept = 'application/octet-stream',
+  options?: DownloadOptions,
+  redirectCount: number = 0,
 ): Promise<void> {
-  const headers: {
-    'User-agent': string;
-    Accept: string;
-    Authorization?: string;
-  } = {
+  const headers: Record<string, string> = {
     'User-agent': 'llxprt-code',
-    Accept: accept,
+    Accept: 'application/octet-stream',
+    ...options?.headers,
   };
   const token = getGitHubToken();
   if (token) {
-    headers.Authorization = `token ${token}`;
+    headers['Authorization'] = `token ${token}`;
   }
+
   return new Promise((resolve, reject) => {
     https
       .get(url, { headers }, (res) => {
         if (res.statusCode === 302 || res.statusCode === 301) {
-          downloadFile(res.headers.location!, dest, accept)
+          if (redirectCount >= 10) {
+            return reject(new Error('Too many redirects'));
+          }
+
+          if (!res.headers.location) {
+            return reject(
+              new Error('Redirect response missing Location header'),
+            );
+          }
+          downloadFile(res.headers.location, dest, options, redirectCount + 1)
             .then(resolve)
             .catch(reject);
           return;

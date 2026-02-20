@@ -40,7 +40,7 @@ import { MCPOAuthProvider } from '../mcp/oauth-provider.js';
 import { MCPOAuthTokenStorage } from '../mcp/oauth-token-storage.js';
 import { OAuthUtils } from '../mcp/oauth-utils.js';
 import type { PromptRegistry } from '../prompts/prompt-registry.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { getErrorMessage, isAuthenticationError } from '../utils/errors.js';
 import type {
   Unsubscribe,
   WorkspaceContext,
@@ -461,24 +461,50 @@ function createAuthProvider(
  * @param transportOptions The transport options
  */
 function createUrlTransport(
+  mcpServerName: string,
   mcpServerConfig: MCPServerConfig,
   transportOptions:
     | StreamableHTTPClientTransportOptions
     | SSEClientTransportOptions,
 ): StreamableHTTPClientTransport | SSEClientTransport {
+  // Priority 1: httpUrl (deprecated)
   if (mcpServerConfig.httpUrl) {
+    if (mcpServerConfig.url) {
+      debugLogger.warn(
+        `MCP server '${mcpServerName}': Both 'httpUrl' and 'url' are configured. ` +
+          `Using deprecated 'httpUrl'. Please migrate to 'url' with 'type: "http"'.`,
+      );
+    }
     return new StreamableHTTPClientTransport(
       new URL(mcpServerConfig.httpUrl),
       transportOptions,
     );
   }
+
+  // Priority 2 & 3: url with explicit type
+  if (mcpServerConfig.url && mcpServerConfig.type) {
+    if (mcpServerConfig.type === 'http') {
+      return new StreamableHTTPClientTransport(
+        new URL(mcpServerConfig.url),
+        transportOptions,
+      );
+    } else if (mcpServerConfig.type === 'sse') {
+      return new SSEClientTransport(
+        new URL(mcpServerConfig.url),
+        transportOptions,
+      );
+    }
+  }
+
+  // Priority 4: url without type (default to HTTP)
   if (mcpServerConfig.url) {
-    return new SSEClientTransport(
+    return new StreamableHTTPClientTransport(
       new URL(mcpServerConfig.url),
       transportOptions,
     );
   }
-  throw new Error('No URL configured for MCP Server');
+
+  throw new Error(`No URL configured for MCP server '${mcpServerName}'`);
 }
 
 /**
@@ -1040,7 +1066,7 @@ export async function connectToMcpServer(
   } catch (error) {
     // Check if this is a 401 error that might indicate OAuth is required
     const errorString = String(error);
-    if (errorString.includes('401') && hasNetworkTransport(mcpServerConfig)) {
+    if (isAuthenticationError(error) && hasNetworkTransport(mcpServerConfig)) {
       mcpServerRequiresOAuth.set(mcpServerName, true);
       // Only trigger automatic OAuth discovery for HTTP servers or when OAuth is explicitly configured
       // For SSE servers, we should not trigger new OAuth flows automatically
@@ -1456,7 +1482,7 @@ export async function createTransport(
       requestInit: createTransportRequestInit(mcpServerConfig, headers),
     };
 
-    return createUrlTransport(mcpServerConfig, transportOptions);
+    return createUrlTransport(mcpServerName, mcpServerConfig, transportOptions);
   }
 
   if (mcpServerConfig.command) {

@@ -251,6 +251,8 @@ describe('modifyWithEditor', () => {
       mockModifyContext,
       DEFAULT_GUI_EDITOR,
       abortSignal,
+      vi.fn(), // onEditorClose
+      undefined, // onEditorOpen
       {
         currentContent: overrideCurrent,
         proposedContent: overrideProposed,
@@ -278,6 +280,8 @@ describe('modifyWithEditor', () => {
       mockModifyContext,
       DEFAULT_GUI_EDITOR,
       abortSignal,
+      vi.fn(), // onEditorClose
+      undefined, // onEditorOpen
       {
         currentContent: null,
         proposedContent: 'override proposed content',
