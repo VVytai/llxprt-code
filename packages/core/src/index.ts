@@ -58,6 +58,7 @@ export * from './types/modelParams.js';
 
 // Export Commands logic
 export * from './commands/extensions.js';
+export * from './commands/types.js';
 
 // Export Core Logic
 export * from './core/client.js';

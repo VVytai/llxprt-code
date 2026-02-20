@@ -14,7 +14,6 @@ import {
   MessageActionReturn,
   CommandKind,
   SlashCommandActionReturn,
-  LoadHistoryActionReturn,
 } from './types.js';
 import {
   decodeTagName,
@@ -185,9 +184,7 @@ const resumeCommand: SlashCommand = {
   action: async (
     context,
     args,
-  ): Promise<
-    SlashCommandActionReturn | MessageActionReturn | LoadHistoryActionReturn
-  > => {
+  ): Promise<SlashCommandActionReturn> => {
     const tag = args.trim();
     if (!tag) {
       return {
@@ -419,7 +416,7 @@ const clearCommand: SlashCommand = {
 const restoreHistory = async (
   context: CommandContext,
   turns: number,
-): Promise<MessageActionReturn | LoadHistoryActionReturn> => {
+): Promise<SlashCommandActionReturn> => {
   const client = context.services.config?.getGeminiClient();
   if (!client?.hasChatInitialized()) {
     return {
@@ -486,7 +483,7 @@ const restoreCommand: SlashCommand = {
   action: async (
     context,
     args,
-  ): Promise<MessageActionReturn | LoadHistoryActionReturn> => {
+  ): Promise<SlashCommandActionReturn> => {
     const turnsStr = args.trim();
     if (!turnsStr) {
       return {

@@ -5,7 +5,6 @@
  */
 
 import type { ReactNode } from 'react';
-import type { Content, PartListUnion } from '@google/genai';
 import type {
   HistoryItemWithoutId,
   HistoryItem,
@@ -19,6 +18,12 @@ import type {
   RecordingIntegration,
   SubagentManager,
   Todo,
+  // Import shared command action return types from core
+  ToolActionReturn,
+  MessageActionReturn,
+  LoadHistoryActionReturn,
+  SubmitPromptActionReturn,
+  CommandActionReturn,
 } from '@vybestack/llxprt-code-core';
 import type { RecordingSwapCallbacks } from '../../services/performResume.js';
 import type { LoadedSettings } from '../../config/settings.js';
@@ -120,29 +125,19 @@ export interface CommandContext {
   recordingSwapCallbacks?: RecordingSwapCallbacks;
 }
 
-/**
- * The return type for a command action that results in scheduling a tool call.
- */
-export interface ToolActionReturn {
-  type: 'tool';
-  toolName: string;
-  toolArgs: Record<string, unknown>;
-}
+// Re-export core command action return types for convenience
+export type {
+  ToolActionReturn,
+  MessageActionReturn,
+  LoadHistoryActionReturn,
+  SubmitPromptActionReturn,
+  CommandActionReturn,
+};
 
 /** The return type for a command action that results in the app quitting. */
 export interface QuitActionReturn {
   type: 'quit';
   messages: HistoryItem[];
-}
-
-/**
- * The return type for a command action that results in a simple message
- * being displayed to the user.
- */
-export interface MessageActionReturn {
-  type: 'message';
-  messageType: 'info' | 'error';
-  content: string;
 }
 
 /**
@@ -244,24 +239,7 @@ export interface OpenDialogActionReturn {
     | ProfileDialogData;
 }
 
-/**
- * The return type for a command action that results in replacing
- * the entire conversation history.
- */
-export interface LoadHistoryActionReturn {
-  type: 'load_history';
-  history: HistoryItemWithoutId[];
-  clientHistory: Content[]; // The history for the generative client
-}
 
-/**
- * The return type for a command action that should immediately submit
- * content as a prompt to the Gemini model.
- */
-export interface SubmitPromptActionReturn {
-  type: 'submit_prompt';
-  content: PartListUnion;
-}
 
 /**
  * The return type for a command action that needs to pause and request
@@ -299,13 +277,14 @@ export interface PerformResumeActionReturn {
   requiresConfirmation?: boolean;
 }
 
+/**
+ * Union of all slash command action return types.
+ * Includes both core shared types and CLI-specific types.
+ */
 export type SlashCommandActionReturn =
-  | ToolActionReturn
-  | MessageActionReturn
+  | CommandActionReturn<HistoryItemWithoutId>
   | QuitActionReturn
   | OpenDialogActionReturn
-  | LoadHistoryActionReturn
-  | SubmitPromptActionReturn
   | ConfirmShellCommandsActionReturn
   | ConfirmActionReturn
   | PerformResumeActionReturn;
