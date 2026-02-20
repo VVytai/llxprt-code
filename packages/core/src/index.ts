@@ -115,7 +115,6 @@ export * from './utils/ide-trust.js';
 export * from './utils/thoughtUtils.js';
 export * from './utils/events.js';
 export * from './utils/package.js';
-export * from './utils/checkpointUtils.js';
 export * from './utils/extensionLoader.js';
 export * from './utils/terminalSerializer.js';
 

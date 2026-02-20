@@ -106,7 +106,6 @@ export interface ToolCallRequestInfo {
   isClientInitiated: boolean;
   prompt_id: string;
   agentId?: string;
-  checkpoint?: string;
 }
 
 export interface ToolCallResponseInfo {

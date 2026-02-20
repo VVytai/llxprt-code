@@ -35,8 +35,7 @@ import {
   createStreamMessageRequest,
   createMockConfig,
 } from '../utils/testing_utils.js';
-import { MockTool } from '@vybestack/llxprt-code-core';
-import type { Command, CommandContext } from '../commands/types.js';
+import type { Command } from '../commands/types.js';
 
 const mockToolConfirmationFn = async () =>
   ({}) as unknown as ToolCallConfirmationDetails;
@@ -97,7 +96,6 @@ vi.mock('@vybestack/llxprt-code-core', async () => {
       getUserTier: vi.fn().mockReturnValue('free'),
       initialize: vi.fn(),
     })),
-    performRestore: vi.fn(),
   };
 });
 
@@ -741,17 +739,6 @@ describe('E2E Tests', () => {
     });
 
     it('should return extensions for valid command', async () => {
-      const mockExtensionsCommand = {
-        name: 'extensions list',
-        description: 'a mock command',
-        execute: vi.fn(async (context: CommandContext) => {
-          // Simulate the actual command's behavior
-          const extensions = context.config.getExtensions();
-          return { name: 'extensions list', data: extensions };
-        }),
-      };
-      vi.spyOn(commandRegistry, 'get').mockReturnValue(mockExtensionsCommand);
-
       const agent = request.agent(app);
       const res = await agent
         .post('/executeCommand')
@@ -767,8 +754,6 @@ describe('E2E Tests', () => {
     });
 
     it('should return 404 for invalid command', async () => {
-      vi.spyOn(commandRegistry, 'get').mockReturnValue(undefined);
-
       const agent = request.agent(app);
       const res = await agent
         .post('/executeCommand')
@@ -800,67 +785,6 @@ describe('E2E Tests', () => {
 
       expect(res.body.error).toBe('"args" field must be an array.');
       expect(getExtensionsSpy).not.toHaveBeenCalled();
-    });
-
-    it('should execute a command that does not require a workspace when CODER_AGENT_WORKSPACE_PATH is not set', async () => {
-      const mockCommand = {
-        name: 'test-command',
-        description: 'a mock command',
-        execute: vi
-          .fn()
-          .mockResolvedValue({ name: 'test-command', data: 'success' }),
-      };
-      vi.spyOn(commandRegistry, 'get').mockReturnValue(mockCommand);
-
-      delete process.env['CODER_AGENT_WORKSPACE_PATH'];
-      const response = await request(app)
-        .post('/executeCommand')
-        .send({ command: 'test-command', args: [] });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data).toBe('success');
-    });
-
-    it('should return 400 for a command that requires a workspace when CODER_AGENT_WORKSPACE_PATH is not set', async () => {
-      const mockWorkspaceCommand = {
-        name: 'workspace-command',
-        description: 'A command that requires a workspace',
-        requiresWorkspace: true,
-        execute: vi
-          .fn()
-          .mockResolvedValue({ name: 'workspace-command', data: 'success' }),
-      };
-      vi.spyOn(commandRegistry, 'get').mockReturnValue(mockWorkspaceCommand);
-
-      delete process.env['CODER_AGENT_WORKSPACE_PATH'];
-      const response = await request(app)
-        .post('/executeCommand')
-        .send({ command: 'workspace-command', args: [] });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe(
-        'Command "workspace-command" requires a workspace, but CODER_AGENT_WORKSPACE_PATH is not set.',
-      );
-    });
-
-    it('should execute a command that requires a workspace when CODER_AGENT_WORKSPACE_PATH is set', async () => {
-      const mockWorkspaceCommand = {
-        name: 'workspace-command',
-        description: 'A command that requires a workspace',
-        requiresWorkspace: true,
-        execute: vi
-          .fn()
-          .mockResolvedValue({ name: 'workspace-command', data: 'success' }),
-      };
-      vi.spyOn(commandRegistry, 'get').mockReturnValue(mockWorkspaceCommand);
-
-      process.env['CODER_AGENT_WORKSPACE_PATH'] = '/tmp/test-workspace';
-      const response = await request(app)
-        .post('/executeCommand')
-        .send({ command: 'workspace-command', args: [] });
-
-      expect(response.status).toBe(200);
-      expect(response.body.data).toBe('success');
     });
   });
 });

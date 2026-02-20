@@ -1,37 +1,56 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 Vybestack LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as fs from 'node:fs/promises';
-import path from 'node:path';
-import { z } from 'zod';
-import {
-  type Config,
-  formatCheckpointDisplayList,
-  getToolCallDataSchema,
-  getTruncatedCheckpointNames,
-  performRestore,
-  type ToolCallData,
-} from '@vybestack/llxprt-code-core';
+import * as fs from 'fs/promises';
+import path from 'path';
 import {
   type CommandContext,
   type SlashCommand,
   type SlashCommandActionReturn,
   CommandKind,
 } from './types.js';
-import type { HistoryItem } from '../types.js';
-import type { Content } from '@google/genai';
+import { Config } from '@vybestack/llxprt-code-core';
+import { type CommandArgumentSchema } from './schema/types.js';
+import { withFuzzyFilter } from '../utils/fuzzyFilter.js';
 
-const HistoryItemSchema = z
-  .object({
-    type: z.string(),
-    id: z.number(),
-  })
-  .passthrough();
+const checkpointSuggestionDescription = 'Restorable tool call checkpoint';
 
-const ToolCallDataSchema = getToolCallDataSchema(HistoryItemSchema);
+const restoreSchema: CommandArgumentSchema = [
+  {
+    kind: 'value',
+    name: 'checkpoint',
+    description: 'Select checkpoint to restore',
+    /**
+     * @plan:PLAN-20251013-AUTOCOMPLETE.P11
+     * @requirement:REQ-004
+     * @requirement:REQ-006
+     * Deprecation: Legacy completion removed in favour of schema completer.
+     */
+    completer: withFuzzyFilter(async (ctx) => {
+      const checkpointDir =
+        ctx.services.config?.storage.getProjectTempCheckpointsDir();
+      if (!checkpointDir) {
+        return [];
+      }
+
+      try {
+        const files = await fs.readdir(checkpointDir);
+        return files
+          .filter((file) => file.endsWith('.json'))
+          .map((file) => file.replace(/\.json$/, ''))
+          .map((name) => ({
+            value: name,
+            description: checkpointSuggestionDescription,
+          }));
+      } catch (_err) {
+        return [];
+      }
+    }),
+  },
+];
 
 async function restoreAction(
   context: CommandContext,
@@ -47,7 +66,7 @@ async function restoreAction(
     return {
       type: 'message',
       messageType: 'error',
-      content: 'Could not determine the .gemini directory path.',
+      content: 'Could not determine the configuration directory path.',
     };
   }
 
@@ -65,7 +84,15 @@ async function restoreAction(
           content: 'No restorable tool calls found.',
         };
       }
-      const fileList = formatCheckpointDisplayList(jsonFiles);
+      const truncatedFiles = jsonFiles.map((file) => {
+        const components = file.split('.');
+        if (components.length <= 1) {
+          return file;
+        }
+        components.pop();
+        return components.join('.');
+      });
+      const fileList = truncatedFiles.join('\n');
       return {
         type: 'message',
         messageType: 'info',
@@ -85,43 +112,33 @@ async function restoreAction(
 
     const filePath = path.join(checkpointDir, selectedFile);
     const data = await fs.readFile(filePath, 'utf-8');
-    const parseResult = ToolCallDataSchema.safeParse(JSON.parse(data));
+    const toolCallData = JSON.parse(data);
 
-    if (!parseResult.success) {
-      return {
-        type: 'message',
-        messageType: 'error',
-        content: `Checkpoint file is invalid: ${parseResult.error.message}`,
-      };
+    if (toolCallData.history) {
+      if (!loadHistory) {
+        // This should not happen
+        return {
+          type: 'message',
+          messageType: 'error',
+          content: 'loadHistory function is not available.',
+        };
+      }
+      loadHistory(toolCallData.history);
     }
 
-    // We safely cast here because:
-    // 1. ToolCallDataSchema strictly validates the existence of 'history' as an array and 'id'/'type' on each item.
-    // 2. We trust that files valid according to this schema (written by useGeminiStream) contain the full HistoryItem structure.
-    const toolCallData = parseResult.data as ToolCallData<
-      HistoryItem[],
-      Record<string, unknown>
-    >;
+    if (toolCallData.clientHistory) {
+      await config?.getGeminiClient()?.setHistory(toolCallData.clientHistory);
+    }
 
-    const actionStream = performRestore(toolCallData, gitService);
-
-    for await (const action of actionStream) {
-      if (action.type === 'message') {
-        addItem(
-          {
-            type: action.messageType,
-            text: action.content,
-          },
-          Date.now(),
-        );
-      } else if (action.type === 'load_history' && loadHistory) {
-        loadHistory(action.history);
-        if (action.clientHistory) {
-          await config
-            ?.getGeminiClient()
-            ?.setHistory(action.clientHistory as Content[]);
-        }
-      }
+    if (toolCallData.commitHash) {
+      await gitService?.restoreProjectFromSnapshot(toolCallData.commitHash);
+      addItem(
+        {
+          type: 'info',
+          text: 'Restored project to the state before the tool call.',
+        },
+        Date.now(),
+      );
     }
 
     return {
@@ -138,25 +155,6 @@ async function restoreAction(
   }
 }
 
-async function completion(
-  context: CommandContext,
-  _partialArg: string,
-): Promise<string[]> {
-  const { services } = context;
-  const { config } = services;
-  const checkpointDir = config?.storage.getProjectTempCheckpointsDir();
-  if (!checkpointDir) {
-    return [];
-  }
-  try {
-    const files = await fs.readdir(checkpointDir);
-    const jsonFiles = files.filter((file) => file.endsWith('.json'));
-    return getTruncatedCheckpointNames(jsonFiles);
-  } catch (_err) {
-    return [];
-  }
-}
-
 export const restoreCommand = (config: Config | null): SlashCommand | null => {
   if (!config?.getCheckpointingEnabled()) {
     return null;
@@ -167,8 +165,7 @@ export const restoreCommand = (config: Config | null): SlashCommand | null => {
     description:
       'Restore a tool call. This will reset the conversation and file history to the state it was in when the tool call was suggested',
     kind: CommandKind.BUILT_IN,
-    autoExecute: true,
     action: restoreAction,
-    completion,
+    schema: restoreSchema,
   };
 };

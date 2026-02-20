@@ -5,11 +5,7 @@
  */
 
 import { listExtensions, type Config } from '@vybestack/llxprt-code-core';
-import type {
-  Command,
-  CommandContext,
-  CommandExecutionResponse,
-} from './types.js';
+import type { Command, CommandExecutionResponse } from './types.js';
 
 export class ExtensionsCommand implements Command {
   readonly name = 'extensions';
@@ -18,10 +14,10 @@ export class ExtensionsCommand implements Command {
   readonly topLevel = true;
 
   async execute(
-    context: CommandContext,
+    config: Config,
     _: string[],
   ): Promise<CommandExecutionResponse> {
-    return new ListExtensionsCommand().execute(context, _);
+    return new ListExtensionsCommand().execute(config, _);
   }
 }
 
@@ -30,10 +26,10 @@ export class ListExtensionsCommand implements Command {
   readonly description = 'Lists all installed extensions.';
 
   async execute(
-    context: CommandContext,
+    config: Config,
     _: string[],
   ): Promise<CommandExecutionResponse> {
-    const extensions = listExtensions(context.config);
+    const extensions = listExtensions(config);
     const data = extensions.length ? extensions : 'No extensions installed.';
 
     return { name: this.name, data };
