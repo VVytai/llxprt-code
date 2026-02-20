@@ -122,7 +122,7 @@ Cherry-pick of b27cf0b0a (Move key restore logic to core) introduced:
 | SHA | Subject | Decision | Reason |
 |-----|---------|----------|--------|
 | 934b309b4cc6 | Terminal wrapping fix | CHERRY-PICK | Bug fix |
-| 616d6f666705 | Session summary | REIMPLEMENT (R19) | New infrastructure |
+| 616d6f666705 | Session summary | NO_OP (out-of-range) | Ancestor of v0.20.2; excluded from this merge scope |
 | 996cbcb680fd | Model routing docs | SKIP | Per policy |
 | bdd15e8911ba | Autoupgrade detach | CHERRY-PICK | Process fix |
 | 025e450ac247 | Floating promises lint | CHERRY-PICK | Code quality |

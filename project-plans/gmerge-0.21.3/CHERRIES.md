@@ -1,9 +1,11 @@
 # Cherry-Pick Decisions: v0.20.2 → v0.21.3 (FINAL)
 
 **Total commits in range:** 122  
-**PICK:** 33  
+**PICK:** 32  
 **SKIP:** 71  
 **REIMPLEMENT:** 18
+
+> Note: `616d6f666705` (session summary) was initially listed but is out of range for `v0.20.2..v0.21.3` (it is an ancestor of `v0.20.2`). It is tracked in older sync work, not this merge.
 
 ---
 
@@ -72,17 +74,16 @@ After subagent and manual verification:
 | 20 | 7db5abdecfdf | 2025-12-04 | core | Bug fix | Fixes [API Error: Cannot read properties of undefined] |
 | 21 | d284fa66c015 | 2025-12-04 | shell | Bug fix - important | Fix bug in shellExecutionService (truncation + 3X bloat) |
 | 22 | 934b309b4cc6 | 2025-12-04 | core | Bug fix | Fix issue passing model content reflecting terminal wrapping |
-| 23 | 616d6f666705 | 2025-12-05 | sessions | UX improvement | feat(sessions): use 1-line generated session summary |
-| 24 | 996cbcb680fd | 2025-12-05 | docs | Docs | Docs: Model routing clarification |
-| 25 | bdd15e8911ba | 2025-12-05 | cli | Fix | Fully detach autoupgrade process |
-| 26 | 025e450ac247 | 2025-12-05 | core | Code quality - lint rule | Disallow floating promises |
-| 27 | 389cadb06ad6 | 2025-12-08 | cli | Bug fix | Fix: Prevent freezing in non-interactive when debug mode enabled |
-| 28 | 84c07c8fa174 | 2025-12-08 | audio | Feature | fix(audio): improve reading of audio files |
-| 29 | 89570aef0633 | 2025-12-08 | cli | UX improvement | feat: auto-execute on slash command completion functions |
-| 30 | 171103aedc9f | 2025-12-08 | core, shell | Refactor | refactor(core): Improve environment variable handling |
-| 31 | 560550f5df78 | 2025-12-09 | mcp | **Major MCP feature** | feat: Add support for MCP Resources |
-| 32 | afd4829f1096 | 2025-12-09 | clipboard | Fix | fix: use Gemini API supported image formats for clipboard |
-| 33 | 364b12e2fae5 | 2025-12-09 | deps | Dependency update | chore(deps): bump express from 5.1.0 to 5.2.0 |
+| 23 | 996cbcb680fd | 2025-12-05 | docs | Docs | Docs: Model routing clarification |
+| 24 | bdd15e8911ba | 2025-12-05 | cli | Fix | Fully detach autoupgrade process |
+| 25 | 025e450ac247 | 2025-12-05 | core | Code quality - lint rule | Disallow floating promises |
+| 26 | 389cadb06ad6 | 2025-12-08 | cli | Bug fix | Fix: Prevent freezing in non-interactive when debug mode enabled |
+| 27 | 84c07c8fa174 | 2025-12-08 | audio | Feature | fix(audio): improve reading of audio files |
+| 28 | 89570aef0633 | 2025-12-08 | cli | UX improvement | feat: auto-execute on slash command completion functions |
+| 29 | 171103aedc9f | 2025-12-08 | core, shell | Refactor | refactor(core): Improve environment variable handling |
+| 30 | 560550f5df78 | 2025-12-09 | mcp | **Major MCP feature** | feat: Add support for MCP Resources |
+| 31 | afd4829f1096 | 2025-12-09 | clipboard | Fix | fix: use Gemini API supported image formats for clipboard |
+| 32 | 364b12e2fae5 | 2025-12-09 | deps | Dependency update | chore(deps): bump express from 5.1.0 to 5.2.0 |
 | 34 | d591140f62ff | 2025-12-16 | core | Fix | Fix prompt and chat code |
 | 35 | 6e51bbc21570 | 2025-12-08 | a2a | **Moved from SKIP** - a2a not excluded | Add prompt_id propagation in a2a-server task |
 | 36 | 674494e80b66 | 2025-12-09 | a2a | **Moved from SKIP** - a2a not excluded | allow final:true to be returned on a2a server edit calls |

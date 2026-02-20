@@ -51,7 +51,7 @@
 | 7db5abdecfdf | PICK | | API error fix |
 | d284fa66c015 | PICK | | Shell truncation fix |
 | 934b309b4cc6 | PICK | | Terminal wrapping fix |
-| 616d6f666705 | PICK | | Session summary |
+| 616d6f666705 | NO_OP (out-of-range) | - | Ancestor of v0.20.2; not in v0.20.2..v0.21.3 scope |
 | dd3fd73ffe9a | REIMPLEMENT | | API response error handling |
 | 996cbcb680fd | PICK | | Model routing docs |
 | 2c4ec31ed170 | SKIP | - | previewFeatures - model routing |
@@ -80,7 +80,8 @@
 
 ## Summary
 
-- **PICK:** 36 commits
+- **PICK:** 35 commits
 - **SKIP:** 68 commits  
 - **REIMPLEMENT:** 18 commits
+- **NO_OP (out-of-range):** 1 commit
 - **Total:** 122 commits
