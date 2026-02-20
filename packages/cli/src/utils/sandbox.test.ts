@@ -11,6 +11,7 @@ import {
   mountGitConfigFiles,
   setupSshAgentLinux,
   getProfileScopedCredentialAllowlist,
+  isSandboxDebugModeEnabled,
 } from './sandbox.js';
 import { Config } from '@vybestack/llxprt-code-core';
 
@@ -148,6 +149,24 @@ describe('getPassthroughEnvVars', () => {
     expect(result).not.toBe(env);
   });
 });
+describe('isSandboxDebugModeEnabled', () => {
+  it('returns true for DEBUG=true', () => {
+    expect(isSandboxDebugModeEnabled('true')).toBe(true);
+  });
+
+  it('returns true for DEBUG=1', () => {
+    expect(isSandboxDebugModeEnabled('1')).toBe(true);
+  });
+
+  it('returns false for DEBUG=verbose', () => {
+    expect(isSandboxDebugModeEnabled('verbose')).toBe(false);
+  });
+
+  it('returns false for undefined DEBUG', () => {
+    expect(isSandboxDebugModeEnabled(undefined)).toBe(false);
+  });
+});
+
 
 describe('buildSandboxEnvArgs', () => {
   let mockEnv: NodeJS.ProcessEnv;

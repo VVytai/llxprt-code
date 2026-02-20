@@ -743,6 +743,10 @@ function ports(): string[] {
     .map((p) => p.trim());
 }
 
+export function isSandboxDebugModeEnabled(debugValue?: string): boolean {
+  return debugValue === 'true' || debugValue === '1';
+}
+
 function entrypoint(workdir: string, cliArgs: string[]): string[] {
   const isWindows = os.platform() === 'win32';
   const containerWorkdir = getContainerPath(workdir);
@@ -796,12 +800,13 @@ function entrypoint(workdir: string, cliArgs: string[]): string[] {
   );
 
   const quotedCliArgs = cliArgs.slice(2).map((arg) => quote([arg]));
+  const isDebugMode = isSandboxDebugModeEnabled(process.env.DEBUG);
   const cliCmd =
     process.env.NODE_ENV === 'development'
-      ? process.env.DEBUG
+      ? isDebugMode
         ? 'npm run debug --'
         : 'npm rebuild && npm run start --'
-      : process.env.DEBUG
+      : isDebugMode
         ? `node --inspect-brk=0.0.0.0:${process.env.DEBUG_PORT || '9229'} $(which llxprt)`
         : 'llxprt';
 
@@ -906,9 +911,11 @@ export async function start_sandbox(
       }
       // Log on STDERR so it doesn't clutter the output on STDOUT
       console.error(`using macos seatbelt (profile: ${profile}) ...`);
-      // if DEBUG is set, convert to --inspect-brk in NODE_OPTIONS
+      // if DEBUG is enabled, convert to --inspect-brk in NODE_OPTIONS
       const nodeOptions = [
-        ...(process.env.DEBUG ? ['--inspect-brk'] : []),
+        ...(isSandboxDebugModeEnabled(process.env.DEBUG)
+          ? ['--inspect-brk']
+          : []),
         ...nodeArgs,
       ].join(' ');
 
@@ -1321,8 +1328,8 @@ export async function start_sandbox(
     // expose env-specified ports on the sandbox
     ports().forEach((p) => args.push('--publish', `${p}:${p}`));
 
-    // if DEBUG is set, expose debugging port
-    if (process.env.DEBUG) {
+    // if DEBUG is enabled, expose debugging port
+    if (isSandboxDebugModeEnabled(process.env.DEBUG)) {
       const debugPort = process.env.DEBUG_PORT || '9229';
       args.push(`--publish`, `${debugPort}:${debugPort}`);
     }
