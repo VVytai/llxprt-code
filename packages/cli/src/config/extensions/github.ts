@@ -366,7 +366,12 @@ export async function downloadFromGitHubRelease(
       downloadedAssetPath += '.zip';
     }
 
-    await downloadFile(archiveUrl, downloadedAssetPath);
+    // Source tarballs/zipballs need a different Accept header than binary assets
+    const accept =
+      isTar || isZip
+        ? 'application/vnd.github+json'
+        : 'application/octet-stream';
+    await downloadFile(archiveUrl, downloadedAssetPath, accept);
 
     await extractFile(downloadedAssetPath, destination);
 
@@ -493,14 +498,18 @@ async function fetchJson<T>(url: string): Promise<T> {
   });
 }
 
-async function downloadFile(url: string, dest: string): Promise<void> {
+async function downloadFile(
+  url: string,
+  dest: string,
+  accept = 'application/octet-stream',
+): Promise<void> {
   const headers: {
     'User-agent': string;
     Accept: string;
     Authorization?: string;
   } = {
-    'User-agent': 'gemini-cli',
-    Accept: 'application/octet-stream',
+    'User-agent': 'llxprt-code',
+    Accept: accept,
   };
   const token = getGitHubToken();
   if (token) {
@@ -510,7 +519,9 @@ async function downloadFile(url: string, dest: string): Promise<void> {
     https
       .get(url, { headers }, (res) => {
         if (res.statusCode === 302 || res.statusCode === 301) {
-          downloadFile(res.headers.location!, dest).then(resolve).catch(reject);
+          downloadFile(res.headers.location!, dest, accept)
+            .then(resolve)
+            .catch(reject);
           return;
         }
         if (res.statusCode !== 200) {

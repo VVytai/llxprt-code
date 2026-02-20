@@ -12,6 +12,7 @@ import {
   findReleaseAsset,
   parseGitHubRepoForReleases,
   tryParseGithubUrl,
+  downloadFromGitHubRelease,
 } from './github.js';
 import { simpleGit, type SimpleGit } from 'simple-git';
 import { ExtensionUpdateState } from '../../ui/state/extensions.js';
@@ -33,6 +34,11 @@ vi.mock('node:os', async (importOriginal) => {
     arch: mockArch,
   };
 });
+
+const mockHttpsGet = vi.hoisted(() => vi.fn());
+vi.mock('node:https', () => ({
+  get: mockHttpsGet,
+}));
 
 vi.mock('simple-git');
 
@@ -461,6 +467,196 @@ describe('git extension helpers', () => {
       await expect(
         extractFile(unsupportedFilePath, extractionDest),
       ).rejects.toThrow('Unsupported file extension for extraction:');
+    });
+  });
+
+  /**
+   * @plan PLAN-20250219-GMERGE021.R14.P01
+   * @requirement REQ-R14-003
+   */
+  function makeMockResponse(
+    statusCode: number,
+    headers: Record<string, string> = {},
+  ) {
+    const events: Record<string, (...args: unknown[]) => void> = {};
+    const response = {
+      statusCode,
+      headers,
+      on: (event: string, cb: (...args: unknown[]) => void) => {
+        events[event] = cb;
+        return response;
+      },
+      pipe: (dest: { on: (event: string, cb: (...args: unknown[]) => void) => void; close: (cb: () => void) => void }) => {
+        setImmediate(() => events['finish']?.());
+        return dest;
+      },
+    };
+    return response;
+  }
+
+  describe('downloadFromGitHubRelease', () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+      tempDir = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'github-download-test-'));
+      mockHttpsGet.mockClear();
+    });
+
+    afterEach(async () => {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    });
+
+    /**
+     * @plan PLAN-20250219-GMERGE021.R14.P02
+     * @requirement REQ-R14-001
+     */
+    it('should use application/octet-stream for binary asset', async () => {
+      const mockRelease = {
+        tag_name: 'v1.0.0',
+        assets: [
+          {
+            name: 'test-darwin-x64.tar.gz',
+            url: 'https://api.github.com/repos/owner/repo/releases/assets/123',
+          },
+        ],
+        tarball_url: 'https://api.github.com/repos/owner/repo/tarball/v1.0.0',
+      };
+
+      mockPlatform.mockReturnValue('darwin');
+      mockArch.mockReturnValue('x64');
+
+      mockHttpsGet.mockImplementation((url, options, callback) => {
+        const response = makeMockResponse(200);
+        callback(response);
+        return { on: vi.fn().mockReturnThis() };
+      });
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockRelease,
+      } as Response);
+
+      const installMetadata = {
+        source: 'owner/repo',
+        ref: 'v1.0.0',
+        type: 'github-release' as const,
+      };
+
+      await downloadFromGitHubRelease(installMetadata, tempDir);
+
+      expect(mockHttpsGet).toHaveBeenCalled();
+      const callArgs = mockHttpsGet.mock.calls[0];
+      expect(callArgs[1].headers.Accept).toBe('application/octet-stream');
+    });
+
+    /**
+     * @plan PLAN-20250219-GMERGE021.R14.P02
+     * @requirement REQ-R14-001
+     */
+    it('should use application/vnd.github+json for tarball_url fallback', async () => {
+      const mockRelease = {
+        tag_name: 'v1.0.0',
+        assets: [],
+        tarball_url: 'https://api.github.com/repos/owner/repo/tarball/v1.0.0',
+      };
+
+      mockPlatform.mockReturnValue('darwin');
+      mockArch.mockReturnValue('x64');
+
+      mockHttpsGet.mockImplementation((url, options, callback) => {
+        const response = makeMockResponse(200);
+        callback(response);
+        return { on: vi.fn().mockReturnThis() };
+      });
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockRelease,
+      } as Response);
+
+      const installMetadata = {
+        source: 'owner/repo',
+        ref: 'v1.0.0',
+        type: 'github-release' as const,
+      };
+
+      await downloadFromGitHubRelease(installMetadata, tempDir);
+
+      expect(mockHttpsGet).toHaveBeenCalled();
+      const callArgs = mockHttpsGet.mock.calls[0];
+      expect(callArgs[1].headers.Accept).toBe('application/vnd.github+json');
+    });
+
+    /**
+     * @plan PLAN-20250219-GMERGE021.R14.P02
+     * @requirement REQ-R14-001
+     */
+    it('should use application/vnd.github+json for zipball_url fallback', async () => {
+      const mockRelease = {
+        tag_name: 'v1.0.0',
+        assets: [],
+        zipball_url: 'https://api.github.com/repos/owner/repo/zipball/v1.0.0',
+      };
+
+      mockPlatform.mockReturnValue('darwin');
+      mockArch.mockReturnValue('x64');
+
+      mockHttpsGet.mockImplementation((url, options, callback) => {
+        const response = makeMockResponse(200);
+        callback(response);
+        return { on: vi.fn().mockReturnThis() };
+      });
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockRelease,
+      } as Response);
+
+      const installMetadata = {
+        source: 'owner/repo',
+        ref: 'v1.0.0',
+        type: 'github-release' as const,
+      };
+
+      await downloadFromGitHubRelease(installMetadata, tempDir);
+
+      expect(mockHttpsGet).toHaveBeenCalled();
+      const callArgs = mockHttpsGet.mock.calls[0];
+      expect(callArgs[1].headers.Accept).toBe('application/vnd.github+json');
+    });
+
+    /**
+     * @plan PLAN-20250219-GMERGE021.R14.P02
+     * @requirement REQ-R14-001
+     */
+    it('should include status code in error message from failed download', async () => {
+      const mockRelease = {
+        tag_name: 'v1.0.0',
+        assets: [],
+        tarball_url: 'https://api.github.com/repos/owner/repo/tarball/v1.0.0',
+      };
+
+      mockPlatform.mockReturnValue('darwin');
+      mockArch.mockReturnValue('x64');
+
+      mockHttpsGet.mockImplementation((url, options, callback) => {
+        const response = makeMockResponse(403);
+        callback(response);
+        return { on: vi.fn().mockReturnThis() };
+      });
+
+      vi.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => mockRelease,
+      } as Response);
+
+      const installMetadata = {
+        source: 'owner/repo',
+        ref: 'v1.0.0',
+        type: 'github-release' as const,
+      };
+
+      await expect(downloadFromGitHubRelease(installMetadata, tempDir)).rejects.toThrow('403');
     });
   });
 });
