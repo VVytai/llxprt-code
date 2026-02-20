@@ -150,7 +150,7 @@
     "@dqbd/tiktoken": "^1.0.21",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "cors": "^2.8.5",
-    "express": "^5.1.0",
+    "express": "^5.2.0",
     "semver": "^7.6.3",
     "zod": "^3.25.76"
   },
