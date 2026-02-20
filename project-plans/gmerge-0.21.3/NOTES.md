@@ -98,4 +98,16 @@ Cherry-pick of b27cf0b0a (Move key restore logic to core) introduced:
 
 **Deviation from upstream:** Upstream added `enableMessageBusIntegration` as a configurable option. LLxprt makes MessageBus always-on with no option to disable (simpler, hooks always work).
 
+### B3 Commit Analysis (performed manually)
+
+| Commit | Subject | Verdict | Reason |
+|--------|---------|---------|--------|
+| b27cf0b0a8dd | Move key restore logic to core | SKIP | LLxprt uses /continue not /restore, different command architecture |
+| 1040c246f5a0 | Auto-execute on Enter for MCP prompts | TBD | Needs evaluation |
+| 84f521b1c62b | Cursor visibility in interactive mode | SKIP | Already fixed in LLxprt during prior cursor work |
+| 8b0a8f47c1b2 | Session id in JSON output | REIMPLEMENT | Architecture differs, ~100 lines, adds session_id to JsonFormatter |
+| 2d1c1ac5672e | Latch hasFailedCompressionAttempt | SKIP | LLxprt rewrote compression entirely, flag doesn't exist |
+
+**Documentation updated:** Added compression and restore notes to dev-docs/cherrypicking.md
+
 ...
