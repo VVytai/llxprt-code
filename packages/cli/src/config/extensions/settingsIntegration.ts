@@ -180,3 +180,111 @@ export async function getExtensionEnvironment(
 
   return result;
 }
+
+/**
+ * Gets all settings and their values for display purposes.
+ * Sensitive settings show '[value stored in keychain]' instead of actual value.
+ * Missing settings show '[not set]'.
+ *
+ * @param extensionName - Extension name
+ * @param extensionDir - Extension directory path
+ * @returns Promise resolving to array of setting display info
+ */
+export async function getEnvContents(
+  extensionName: string,
+  extensionDir: string,
+): Promise<Array<{ name: string; value: string }>> {
+  const settings = loadExtensionSettingsFromManifest(extensionDir);
+
+  if (settings.length === 0) {
+    return [];
+  }
+
+  const storage = new ExtensionSettingsStorage(extensionName, extensionDir);
+  const settingsValues = await storage.loadSettings(settings);
+
+  return settings.map((setting) => {
+    const value = settingsValues[setting.envVar];
+    let displayValue: string;
+
+    if (value === undefined || value === '') {
+      displayValue = '[not set]';
+    } else if (setting.sensitive) {
+      displayValue = '[value stored in keychain]';
+    } else {
+      displayValue = value;
+    }
+
+    return {
+      name: setting.name,
+      value: displayValue,
+    };
+  });
+}
+
+/**
+ * Updates a single extension setting.
+ *
+ * @param extensionName - Extension name
+ * @param extensionDir - Extension directory path
+ * @param settingKey - Setting name or envVar to update
+ * @param requestSetting - Function to prompt user for new value
+ * @returns Promise resolving to true if successful
+ */
+export async function updateSetting(
+  extensionName: string,
+  extensionDir: string,
+  settingKey: string,
+  requestSetting: (prompt: string, sensitive: boolean) => Promise<string>,
+): Promise<boolean> {
+  const settings = loadExtensionSettingsFromManifest(extensionDir);
+
+  // Find the setting by name or envVar
+  const setting = settings.find(
+    (s) =>
+      s.name.toLowerCase() === settingKey.toLowerCase() ||
+      s.envVar.toLowerCase() === settingKey.toLowerCase(),
+  );
+
+  if (!setting) {
+    console.error(
+      `Setting "${settingKey}" not found in extension "${extensionName}".`,
+    );
+    console.error('Available settings:');
+    settings.forEach((s) => {
+      console.error(`  - ${s.name} (${s.envVar})`);
+    });
+    return false;
+  }
+
+  // Prompt for new value
+  const prompt = setting.description
+    ? `${setting.name} (${setting.description}): `
+    : `${setting.name}: `;
+  const newValue = await requestSetting(prompt, setting.sensitive);
+
+  if (newValue === '') {
+    console.log('Update cancelled.');
+    return false;
+  }
+
+  // Load existing values
+  const storage = new ExtensionSettingsStorage(extensionName, extensionDir);
+  const existingValues = await storage.loadSettings(settings);
+
+  // Update the value
+  const updatedValues: Record<string, string> = {};
+  for (const s of settings) {
+    const existing = existingValues[s.envVar];
+    if (existing !== undefined && existing !== '') {
+      updatedValues[s.envVar] = existing;
+    }
+  }
+  updatedValues[setting.envVar] = newValue;
+
+  // Save all settings
+  await storage.saveSettings(settings, updatedValues);
+
+  console.log(`Setting "${setting.name}" updated successfully.`);
+  return true;
+}
