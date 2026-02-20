@@ -15,7 +15,7 @@ import {
   MCPDiscoveryState,
   populateMcpServerCommand,
 } from './mcp-client.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { getErrorMessage, isAuthenticationError } from '../utils/errors.js';
 import type { EventEmitter } from 'node:events';
 import { coreEvents } from '../utils/events.js';
 import { DebugLogger } from '../debug/index.js';
@@ -195,13 +195,16 @@ export class McpClientManager {
           } catch (error) {
             this.eventEmitter?.emit('mcp-client-update', this.clients);
             // Log the error but don't let a single failed server stop the others
-            coreEvents.emitFeedback(
-              'error',
-              `Error during discovery for server '${name}': ${getErrorMessage(
+            // Skip emitting feedback for authentication errors (they're handled by connectToMcpServer)
+            if (!isAuthenticationError(error)) {
+              coreEvents.emitFeedback(
+                'error',
+                `Error during discovery for server '${name}': ${getErrorMessage(
+                  error,
+                )}`,
                 error,
-              )}`,
-              error,
-            );
+              );
+            }
           }
         } finally {
           // This is required to update the content generator configuration with the

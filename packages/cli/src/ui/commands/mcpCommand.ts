@@ -169,7 +169,7 @@ const getMcpStatus = async (
 
     let needsAuthHint = mcpServerRequiresOAuth.get(serverName) || false;
     // Add OAuth status if applicable
-    if (server?.oauth?.enabled) {
+    if (server?.oauth?.enabled || mcpServerRequiresOAuth.has(serverName)) {
       needsAuthHint = true;
       try {
         const { MCPOAuthTokenStorage } = await import(
@@ -372,14 +372,24 @@ const authCommand: SlashCommand = {
     const mcpServers = config.getMcpServers() || {};
 
     if (!serverName) {
-      // List servers that support OAuth
-      const oauthServers = Object.entries(mcpServers)
+      // List servers that support OAuth (from config or discovered)
+      const oauthServersFromConfig = Object.entries(mcpServers)
         .filter(
           ([_, server]: [string, MCPServerConfig]) => server.oauth?.enabled,
         )
         .map(([name, _]) => name);
 
-      if (oauthServers.length === 0) {
+      // Include servers discovered to require OAuth
+      const discoveredOAuthServers = Array.from(
+        mcpServerRequiresOAuth.keys(),
+      ).filter((name) => mcpServers[name]); // Only include configured servers
+
+      // Combine and deduplicate
+      const allOAuthServers = [
+        ...new Set([...oauthServersFromConfig, ...discoveredOAuthServers]),
+      ];
+
+      if (allOAuthServers.length === 0) {
         return {
           type: 'message',
           messageType: 'info',
@@ -390,7 +400,7 @@ const authCommand: SlashCommand = {
       return {
         type: 'message',
         messageType: 'info',
-        content: `MCP servers with OAuth authentication:\n${oauthServers.map((s) => `  - ${s}`).join('\n')}\n\nUse /mcp auth <server-name> to authenticate.`,
+        content: `MCP servers with OAuth authentication:\n${allOAuthServers.map((s) => `  - ${s}`).join('\n')}\n\nUse /mcp auth <server-name> to authenticate.`,
       };
     }
 
