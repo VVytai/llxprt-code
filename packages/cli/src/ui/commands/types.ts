@@ -239,8 +239,6 @@ export interface OpenDialogActionReturn {
     | ProfileDialogData;
 }
 
-
-
 /**
  * The return type for a command action that needs to pause and request
  * confirmation for a set of shell commands before proceeding.

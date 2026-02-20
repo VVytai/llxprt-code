@@ -37,11 +37,7 @@ describe('JSON output', () => {
   });
 
   it('should include session_id in JSON output', async () => {
-    const result = await rig.run(
-      'Say hello',
-      '--output-format',
-      'json',
-    );
+    const result = await rig.run('Say hello', '--output-format', 'json');
     const parsed = JSON.parse(result);
 
     expect(parsed).toHaveProperty('session_id');

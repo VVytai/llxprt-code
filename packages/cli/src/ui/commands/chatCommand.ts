@@ -181,10 +181,7 @@ const resumeCommand: SlashCommand = {
     'Resume a conversation from a checkpoint. Usage: /chat resume <tag>',
   kind: CommandKind.BUILT_IN,
   schema: chatTagSchema,
-  action: async (
-    context,
-    args,
-  ): Promise<SlashCommandActionReturn> => {
+  action: async (context, args): Promise<SlashCommandActionReturn> => {
     const tag = args.trim();
     if (!tag) {
       return {
@@ -480,10 +477,7 @@ const restoreCommand: SlashCommand = {
   description:
     'Restore conversation to N turns ago. Usage: /chat restore <number>',
   kind: CommandKind.BUILT_IN,
-  action: async (
-    context,
-    args,
-  ): Promise<SlashCommandActionReturn> => {
+  action: async (context, args): Promise<SlashCommandActionReturn> => {
     const turnsStr = args.trim();
     if (!turnsStr) {
       return {

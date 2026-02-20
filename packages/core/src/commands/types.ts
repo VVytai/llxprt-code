@@ -6,10 +6,10 @@
 
 /**
  * Shared command action return types for LLxprt Code.
- * 
+ *
  * These types define the contract between command implementations and command processors.
  * They are used by both core and CLI packages to communicate command results.
- * 
+ *
  * @upstream b27cf0b0a8dd - Adapted from upstream's move of command types to core.
  *                         LLxprt keeps full command logic in CLI but shares action types.
  */
@@ -38,7 +38,7 @@ export interface MessageActionReturn {
 /**
  * The return type for a command action that results in replacing
  * the entire conversation history.
- * 
+ *
  * @template HistoryType - The type of history items being loaded
  */
 export interface LoadHistoryActionReturn<HistoryType = unknown> {
@@ -59,16 +59,16 @@ export interface SubmitPromptActionReturn {
 /**
  * Discriminated union of all command action return types that are shared
  * between core and CLI packages.
- * 
+ *
  * Note: This does NOT include CLI-specific actions like:
  * - QuitActionReturn
  * - OpenDialogActionReturn
  * - ConfirmShellCommandsActionReturn
  * - ConfirmActionReturn
  * - PerformResumeActionReturn
- * 
+ *
  * Those remain in the CLI package as they are tightly coupled to UI concerns.
- * 
+ *
  * @template HistoryType - The type of history items, defaults to unknown
  */
 export type CommandActionReturn<HistoryType = unknown> =

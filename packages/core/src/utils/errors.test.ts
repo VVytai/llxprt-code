@@ -52,7 +52,9 @@ describe('isAuthenticationError @plan:PLAN-20250219-GMERGE021.R3.P02', () => {
    * @requirement REQ-GMERGE021-R3-002
    */
   it('should return true for error message containing "HTTP 401" @plan:PLAN-20250219-GMERGE021.R3.P02 @requirement:REQ-GMERGE021-R3-002', () => {
-    const error = new Error('Error POSTing to endpoint (HTTP 401): Unauthorized');
+    const error = new Error(
+      'Error POSTing to endpoint (HTTP 401): Unauthorized',
+    );
     expect(isAuthenticationError(error)).toBe(true);
   });
 

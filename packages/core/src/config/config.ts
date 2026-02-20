@@ -299,7 +299,7 @@ export class MCPServerConfig {
      * - 'http' → StreamableHTTPClientTransport
      * - 'sse'  → SSEClientTransport
      * - omitted → defaults to HTTP with SSE fallback (deprecated; add type explicitly)
-     * 
+     *
      * Note: 'httpUrl' is deprecated; use 'url' + 'type: "http"' instead.
      * @plan PLAN-20250219-GMERGE021.R3.P03
      * @requirement REQ-GMERGE021-R3-001

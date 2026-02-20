@@ -124,7 +124,7 @@ function parseResponseData(error: GaxiosError): ResponseData {
 /**
  * Checks if an error is a 401 authentication error.
  * Uses structured error properties from MCP SDK errors first.
- * 
+ *
  * @plan PLAN-20250219-GMERGE021.R3.P03
  * @requirement REQ-GMERGE021-R3-002
  */

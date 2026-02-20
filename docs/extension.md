@@ -126,6 +126,7 @@ llxprt extensions update --all
 ### Creating a new extension
 
 <!-- @plan PLAN-20250219-GMERGE021.R9.P03 -->
+
 LLxprt Code includes several boilerplate templates to help you get started:
 `context`, `exclude-tools`, and `mcp-server`.
 

@@ -19,8 +19,7 @@ vi.mock('../runtime/runtimeSettings.js', () => ({
     mockLoadProfileByName(...(args as [string])),
 }));
 
-const mockClearCachedCredentialFile =
-  vi.fn<() => Promise<void>>();
+const mockClearCachedCredentialFile = vi.fn<() => Promise<void>>();
 vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
@@ -73,7 +72,7 @@ describe('GeminiAgent.authenticate credential cache', () => {
     const agent = new GeminiAgent(
       mockConfig as never,
       { debug: () => {} } as never,
-      undefined,
+      undefined as never,
     );
     // Stub applyRuntimeProviderOverrides to avoid config dependencies
     vi.spyOn(agent as never, 'applyRuntimeProviderOverrides').mockResolvedValue(

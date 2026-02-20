@@ -9,7 +9,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import pathMod from 'node:path';
 import { useState, useCallback, useEffect, useMemo, useReducer } from 'react';
-import { unescapePath, coreEvents, CoreEvent } from '@vybestack/llxprt-code-core';
+import {
+  unescapePath,
+  coreEvents,
+  CoreEvent,
+} from '@vybestack/llxprt-code-core';
 import {
   toCodePoints,
   cpLen,
