@@ -128,8 +128,13 @@ Cherry-pick of b27cf0b0a (Move key restore logic to core) introduced:
 | 025e450ac247 | Floating promises lint | CHERRY-PICK | Code quality |
 
 ### B6 Evaluation
-MCP Resources (560550f5d): REIMPLEMENT (R20) - 20 files, 1146 lines
-Other B6 commits: SKIP (not found or already done)
+- 171103aedc9f: NO_OP (subsumed)
+  - Upstream commit refactors shell env handling via `getSanitizedEnv()`.
+  - LLxprt already enforces env sanitization in both execution paths through `sanitizeEnvironment(..., isSandboxOrCI, ...)` and config-level `isSandboxOrCI` wiring.
+- 560550f5df78: REIMPLEMENT (R20)
+  - Large feature delta (20 files, ~1146 upstream LOC) touching core MCP client, config, CLI completion, @-command processing, and MCP status UI.
+  - Implement via dedicated phased plan (`560550f5df78-plan.md`) instead of direct cherry-pick.
+Other B6 commits: completed/adapted earlier in this branch.
 
 ### B7 Evaluation
 OSC52, deps, A2A types: SKIP (already implemented or managed separately)

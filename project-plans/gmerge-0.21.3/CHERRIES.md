@@ -1,9 +1,7 @@
 # Cherry-Pick Decisions: v0.20.2 → v0.21.3 (FINAL)
 
 **Total commits in range:** 122  
-**PICK:** 32  
-**SKIP:** 71  
-**REIMPLEMENT:** 18
+**Decision counts:** See `AUDIT.md` summary (source of truth for final tallies).
 
 > Note: `616d6f666705` (session summary) was initially listed but is out of range for `v0.20.2..v0.21.3` (it is an ancestor of `v0.20.2`). It is tracked in older sync work, not this merge.
 
@@ -49,7 +47,7 @@ After subagent and manual verification:
 
 ---
 
-## PICK Table (33 commits)
+## PICK Table (historical planning snapshot)
 
 | # | Upstream SHA | Date | Areas | Rationale | Subject |
 |---|-------------|------|-------|-----------|---------|
@@ -80,14 +78,25 @@ After subagent and manual verification:
 | 26 | 389cadb06ad6 | 2025-12-08 | cli | Bug fix | Fix: Prevent freezing in non-interactive when debug mode enabled |
 | 27 | 84c07c8fa174 | 2025-12-08 | audio | Feature | fix(audio): improve reading of audio files |
 | 28 | 89570aef0633 | 2025-12-08 | cli | UX improvement | feat: auto-execute on slash command completion functions |
-| 29 | 171103aedc9f | 2025-12-08 | core, shell | Refactor | refactor(core): Improve environment variable handling |
-| 30 | 560550f5df78 | 2025-12-09 | mcp | **Major MCP feature** | feat: Add support for MCP Resources |
+| 29 | 171103aedc9f | 2025-12-08 | core, shell | **NO_OP (subsumed)** | refactor(core): Improve environment variable handling |
+| 30 | 560550f5df78 | 2025-12-09 | mcp | **REIMPLEMENT (R20)** | feat: Add support for MCP Resources |
 | 31 | afd4829f1096 | 2025-12-09 | clipboard | Fix | fix: use Gemini API supported image formats for clipboard |
 | 32 | 364b12e2fae5 | 2025-12-09 | deps | Dependency update | chore(deps): bump express from 5.1.0 to 5.2.0 |
 | 34 | d591140f62ff | 2025-12-16 | core | NO_OP (policy) | Preview fallback-oriented prompt/chat logic conflicts with LLxprt model-selection policy |
 | 35 | 6e51bbc21570 | 2025-12-08 | a2a | **Moved from SKIP** - a2a not excluded | Add prompt_id propagation in a2a-server task |
 | 36 | 674494e80b66 | 2025-12-09 | a2a | **Moved from SKIP** - a2a not excluded | allow final:true to be returned on a2a server edit calls |
 | 37 | 1f813f6a060e | 2025-12-09 | a2a | **Moved from SKIP** - a2a not excluded | feat(a2a): Introduce restore command for a2a server |
+
+
+### B6 Decision Clarifications
+
+- **171103aedc9f — NO_OP (subsumed)**
+  - Upstream adds `getSanitizedEnv()` for CI/sandbox-like env filtering.
+  - LLxprt already applies `sanitizeEnvironment(...)` in both shell execution backends and wires policy via `isSandboxOrCI` from config.
+
+- **560550f5df78 — REIMPLEMENT (R20)**
+  - Large MCP Resources feature across 20 files with new core abstractions and CLI/UI integration.
+  - Execute as phased reimplementation to fit LLxprt architecture and naming conventions.
 
 ---
 
@@ -137,10 +146,11 @@ After subagent and manual verification:
 
 ---
 
-## REIMPLEMENT Table (18 commits)
+## REIMPLEMENT Table (historical planning snapshot)
 
 | # | Upstream SHA | Date | Areas | Rationale | Subject |
 |---|-------------|------|-------|-----------|---------|
+| 18 | 560550f5df78 | 2025-12-09 | mcp | **Large cross-layer feature; plan-first adaptation required** | feat: Add support for MCP Resources |
 | 1 | 533a3fb312ad | 2025-12-02 | core | **Hardcode true** - Remove conditional, set `messageBusEnabled = true` always | feat: enable message bus integration by default |
 | 2 | 344f2f26e78e | 2025-12-02 | cli, settings | **VERIFIED** - SettingsDialog diverged; uses AsyncFzf | implement fuzzy search inside settings |
 | 2 | bdbbe9232d23 | 2025-12-02 | mcp | Verify MCP config structure | feat: consolidate remote MCP servers to use `url` |
@@ -162,11 +172,11 @@ After subagent and manual verification:
 
 ---
 
+
 ## Ready for Phase 3
 
-All commits verified. Counts finalized:
-- **PICK:** 34 (down from initial 39)
-- **SKIP:** 71 (up from initial 67)  
-- **REIMPLEMENT:** 17 (up from initial 16)
+All commits verified.
+
+For final decision counts and reconciliation status, see `AUDIT.md` (source of truth).
 
 Proceed to PLAN.md creation when ready.

@@ -114,6 +114,7 @@ Each REIMPLEMENT batch has a detailed plan (and critique where applicable):
 | R16 | PLAN-20250219-GMERGE021.R16 | d35a1fdec71b | Missing extension config | [d35a1fdec71b-plan.md](./d35a1fdec71b-plan.md) | — |
 | R17 | PLAN-20250219-GMERGE021.R17 | b27cf0b0a8dd | Continue logic to core | [b27cf0b0a8dd-plan.md](./b27cf0b0a8dd-plan.md) | [critique](./b27cf0b0a8dd-critique.md) |
 | R18 | PLAN-20250219-GMERGE021.R18 | 8b0a8f47c1b2 | Session ID in JSON output | [8b0a8f47c1b2-plan.md](./8b0a8f47c1b2-plan.md) | [critique](./8b0a8f47c1b2-critique.md) |
+| R20 | PLAN-20250219-GMERGE021.R20 | 560550f5df78 | MCP Resources | [560550f5df78-plan.md](./560550f5df78-plan.md) | — |
 
 **Note on R17 (b27cf0b0a8dd):** Originally B3 PICK, reclassified to REIMPLEMENT. Adapts upstream /restore logic for LLxprt's /continue command. Critique recommends partial alignment with staged commits.
 
@@ -160,7 +161,8 @@ REIMPLEMENT Batches — internal dependencies:
        ├─ R11 (Setting search UX) — AFTER R2 (R11 upgrades the UX from R2's search)
        ├─ R6  (Hook System Documentation) — AFTER R4, R5 (documents what's implemented)
        ├─ R17 (Continue logic to core) — no deps, from B3 reclassification
-       └─ R18 (Session ID in JSON output) — no deps, from B3 reclassification
+       ├─ R18 (Session ID in JSON output) — no deps, from B3 reclassification
+       └─ R20 (MCP Resources) — AFTER B6 and AFTER R3 (build on current MCP client/config surfaces)
 ```
 
 **Critical ordering rules:**
@@ -325,18 +327,20 @@ git cherry-pick 934b309b4cc6 616d6f666705 996cbcb680fd bdd15e8911ba 025e450ac247
 
 ---
 
-#### Batch 6: PICK commits 26-30 (Dec 8) - FULL VERIFY
+#### Batch 6: PICK commits 26-28 (Dec 8) - FULL VERIFY
 Phase ID: `PLAN-20250219-GMERGE021.B6`
 ```bash
-git cherry-pick 389cadb06ad6 84c07c8fa174 89570aef0633 171103aedc9f 560550f5df78
+git cherry-pick 389cadb06ad6 84c07c8fa174 89570aef0633
 ```
 | SHA | Subject |
 |-----|---------|
 | 389cadb06ad6 | Fix: Prevent freezing in non-interactive when debug enabled |
 | 84c07c8fa174 | fix(audio): improve reading of audio files |
 | 89570aef0633 | feat: auto-execute on slash command completion |
-| 171103aedc9f | refactor(core): Improve env var handling in shell |
-| 560550f5df78 | **feat: Add support for MCP Resources** |
+
+> **B6 strategy update:**
+> - `171103aedc9f` is **NO_OP (subsumed)** in LLxprt. Its env-sanitization intent is already implemented via `ShellExecutionService.sanitizeEnvironment(..., isSandboxOrCI, ...)` and config wiring.
+> - `560550f5df78` is **REIMPLEMENT (R20)** due to large cross-layer scope (core MCP + config + CLI/UI).
 
 **B6-verify:** Full suite
 
@@ -374,7 +378,7 @@ git cherry-pick 1f813f6a060e
 
 ---
 
-### REIMPLEMENT Batches (18 commits, all independent batches)
+### REIMPLEMENT Batches (19 commits, all independent batches)
 
 Each REIMPLEMENT has a detailed plan file. Read the plan (and critique if present) before implementing. The critiques are authoritative — treat every identified gap as a required fix or documented decision before closing the batch.
 
@@ -644,6 +648,20 @@ Phase ID: `PLAN-20250219-GMERGE021.R16`
 
 ---
 
+#### Batch R20: 560550f5df78 — MCP Resources (plan-first reimplementation)
+Phase ID: `PLAN-20250219-GMERGE021.R20`
+**Plan:** [560550f5df78-plan.md](./560550f5df78-plan.md)
+
+**Action:** Implement MCP Resources support in LLxprt architecture via phased reimplementation (resource registry, MCP client discovery/read, config plumbing, @-command resource resolution, @ completion suggestions, MCP status UI).
+
+**Why REIMPLEMENT:** Upstream commit spans 20 files and introduces new cross-layer abstractions; LLxprt currently lacks `ResourceRegistry` and `Config.getResourceRegistry()` surfaces, so direct cherry-pick is high risk.
+
+**Requires:** B6 complete and R3 complete first.
+
+**R20-verify:** Full suite
+
+---
+
 ## Todo List
 
 ```javascript
@@ -665,7 +683,7 @@ todo_write({
     { id: "B5-exec",   content: "Batch 5 PICK: cherry-pick 934b309b..025e450a (5 commits) (Subagent: cherrypicker)", status: "pending" },
     { id: "B5-verify", content: "Batch 5 VERIFY: npm run lint && npm run typecheck", status: "pending" },
     { id: "B5-review", content: "Batch 5 REVIEW: lint + typecheck (Subagent: reviewer)", status: "pending" },
-    { id: "B6-exec",   content: "Batch 6 PICK: cherry-pick 389cadb0..560550f5 (5 commits) (Subagent: cherrypicker)", status: "pending" },
+    { id: "B6-exec",   content: "Batch 6 PICK: cherry-pick 389cadb0 84c07c8f 89570aef (3 commits) + classify 171103aed/560550f5 outcomes", status: "pending" },
     { id: "B6-verify", content: "Batch 6 VERIFY: FULL VERIFY suite", status: "pending" },
     { id: "B6-review", content: "Batch 6 REVIEW: FULL VERIFY (Subagent: reviewer)", status: "pending" },
     { id: "B7-exec",   content: "Batch 7 PICK: cherry-pick afd4829f..674494e8 (5 commits) (Subagent: cherrypicker)", status: "pending" },
@@ -724,6 +742,9 @@ todo_write({
     { id: "R6-exec",   content: "REIMPLEMENT 8d4082ef: Hook System Documentation (5 phases) (Subagent: typescriptexpert)", status: "pending" },
     { id: "R6-verify", content: "R6 VERIFY: FULL VERIFY suite", status: "pending" },
     { id: "R6-review", content: "R6 REVIEW: FULL VERIFY (Subagent: deepthinker)", status: "pending" },
+    { id: "R20-exec",  content: "REIMPLEMENT 560550f5: MCP Resources (phased plan-first implementation) (Subagent: typescriptexpert)", status: "pending" },
+    { id: "R20-verify", content: "R20 VERIFY: FULL VERIFY suite", status: "pending" },
+    { id: "R20-review", content: "R20 REVIEW: FULL VERIFY (Subagent: deepthinker)", status: "pending" },
 
     // Final
     { id: "FINAL-progress", content: "UPDATE PROGRESS.md with all commit hashes", status: "pending" },
@@ -792,7 +813,7 @@ Update this table after completing each phase. "Semantic?" tracks whether semant
 | B5-exec   | PLAN-20250219-GMERGE021.B5  | [ ] | - | - | - | N/A | cherry-pick 934b309b..025e450a |
 | B5-verify | —                           | [ ] | - | - | - | N/A | lint + typecheck |
 | B5-review | —                           | [ ] | - | - | - | N/A | reviewer sign-off |
-| B6-exec   | PLAN-20250219-GMERGE021.B6  | [ ] | - | - | - | N/A | cherry-pick 389cadb0..560550f5 |
+| B6-exec   | PLAN-20250219-GMERGE021.B6  | [ ] | - | - | - | N/A | cherry-pick 389cadb0 84c07c8f 89570aef; classify 171103aed + 560550f5 |
 | B6-verify | —                           | [ ] | - | - | - | N/A | FULL VERIFY |
 | B6-review | —                           | [ ] | - | - | - | N/A | reviewer sign-off |
 | B7-exec   | PLAN-20250219-GMERGE021.B7  | [ ] | - | - | - | N/A | cherry-pick afd4829f..674494e8 |
@@ -846,6 +867,9 @@ Update this table after completing each phase. "Semantic?" tracks whether semant
 | R11-exec  | PLAN-20250219-GMERGE021.R11 | [ ] | - | - | - | [ ] | Setting search UX |
 | R11-verify| —                           | [ ] | - | - | - | [ ] | lint + typecheck |
 | R11-review| —                           | [ ] | - | - | - | [ ] | deepthinker sign-off |
+| R20-exec  | PLAN-20250219-GMERGE021.R20 | [ ] | - | - | - | [ ] | MCP Resources |
+| R20-verify| —                           | [ ] | - | - | - | [ ] | FULL VERIFY |
+| R20-review| —                           | [ ] | - | - | - | [ ] | deepthinker sign-off |
 | R6-exec   | PLAN-20250219-GMERGE021.R6  | [ ] | - | - | - | [ ] | Hook System Documentation |
 | R6-verify | —                           | [ ] | - | - | - | [ ] | FULL VERIFY |
 | R6-review | —                           | [ ] | - | - | - | [ ] | deepthinker sign-off |

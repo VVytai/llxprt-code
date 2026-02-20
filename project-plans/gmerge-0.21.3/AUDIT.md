@@ -61,9 +61,9 @@
 | 84c07c8fa174 | PICK | | Audio file reading |
 | 89570aef0633 | PICK | | Slash command auto-execute |
 | ec9a8c7a7293 | REIMPLEMENT | | User-scoped ext settings |
-| 171103aedc9f | PICK | | Env var handling |
+| 171103aedc9f | NO_OP (subsumed) | - | Env var handling already covered by LLxprt `sanitizeEnvironment(...)` + `isSandboxOrCI` wiring in shell execution paths |
 | d35a1fdec71b | REIMPLEMENT | | Missing ext config |
-| 560550f5df78 | PICK | | MCP Resources |
+| 560550f5df78 | REIMPLEMENT | | MCP Resources is a large cross-layer feature; implement as R20 plan instead of direct cherry-pick |
 | afd4829f1096 | PICK | | Clipboard image formats |
 | 1f813f6a060e | PICK | | a2a restore command |
 | 674494e80b66 | PICK | | a2a final:true |
@@ -78,10 +78,27 @@
 | (telemetry) | SKIP | - | Google telemetry (5 commits) |
 | (model routing) | SKIP | - | Model routing (9 commits) |
 
+
+## B6 Remaining Commit Strategy Update
+
+- **171103aedc9f → NO_OP (subsumed)**
+  - Upstream scope is only `packages/core/src/services/shellExecutionService.ts` and `.test.ts` (`git show --name-status 171103aedc9f`).
+  - Upstream introduces `getSanitizedEnv()` and swaps spawn env from `process.env` to sanitized env.
+  - LLxprt already has stronger, explicit sanitization in `ShellExecutionService.sanitizeEnvironment(env, isSandboxOrCI, allowlist?)` and both runtime execution paths already call it:
+    - child_process path: `packages/core/src/services/shellExecutionService.ts:326-334`
+    - PTY path: `packages/core/src/services/shellExecutionService.ts:638-646`
+  - LLxprt config already wires sandbox/CI policy centrally: `packages/core/src/config/config.ts:1994-2001` (`isSandboxOrCI: !!this.getSandbox() || process.env.CI === 'true'`).
+  - Conclusion: upstream refactor intent is already implemented (and generalized) in LLxprt; no code delta required.
+
+- **560550f5df78 → REIMPLEMENT (R20)**
+  - Upstream commit is a large cross-layer feature (`git show --name-status 560550f5df78`): 20 files spanning core MCP client, new resource registry, config plumbing, CLI at-completion, @-command processing, mcp status UI, and docs.
+  - LLxprt currently has no resource registry surface (`getResourceRegistry` absent in `packages/core/src/config/config.ts`; no `packages/core/src/resources/resource-registry.ts`; no MCP resource discovery/read paths in `packages/core/src/tools/mcp-client.ts`).
+  - Conclusion: do not direct cherry-pick; implement via dedicated phased reimplementation plan file `560550f5df78-plan.md`.
+
 ## Summary
 
-- **PICK:** 34 commits
+- **PICK:** 32 commits
 - **SKIP:** 68 commits  
-- **REIMPLEMENT:** 18 commits
-- **NO_OP:** 2 commits (1 out-of-range + 1 policy-driven)
+- **REIMPLEMENT:** 19 commits
+- **NO_OP:** 3 commits (1 out-of-range + 1 policy-driven + 1 subsumed)
 - **Total:** 122 commits
