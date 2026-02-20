@@ -232,7 +232,8 @@ The model receives: `Please provide a code fix for the issue described here: "Bu
 
 When you use `{{args}}` inside a shell injection block (`!{...}`), the arguments are automatically **shell-escaped** before replacement. This allows you to safely pass arguments to shell commands, ensuring the resulting command is syntactically correct and secure while preventing command injection vulnerabilities.
 
-**Example (`/grep-code.toml`):**
+<!-- @plan PLAN-20250219-GMERGE021.R9.P03 -->
+**Example (custom command TOML):**
 
 ```toml
 prompt = """
@@ -243,7 +244,7 @@ Search Results:
 """
 ```
 
-When you run `/grep-code It's complicated`:
+When you run `/my-command It's complicated`:
 
 1. The CLI sees `{{args}}` used both outside and inside `!{...}`.
 2. Outside: The first `{{args}}` is replaced raw with `It's complicated`.
