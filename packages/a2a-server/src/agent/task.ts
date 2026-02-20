@@ -455,7 +455,6 @@ export class Task {
       onToolCallsUpdate: this._schedulerToolCallsUpdate.bind(this),
       getPreferredEditor: () => DEFAULT_GUI_EDITOR,
       onEditorClose: () => {},
-      config: this.config,
     });
   }
 

@@ -195,6 +195,7 @@ export async function openDiff(
   oldPath: string,
   newPath: string,
   editor: EditorType,
+  onEditorClose?: () => void,
 ): Promise<void> {
   const diffCommand = getDiffCommand(oldPath, newPath, editor);
   if (!diffCommand) {
@@ -215,6 +216,7 @@ export async function openDiff(
       }
     } finally {
       coreEvents.emit(CoreEvent.ExternalEditorClosed);
+      onEditorClose?.();
     }
     return;
   }
@@ -226,6 +228,8 @@ export async function openDiff(
     });
 
     childProcess.on('close', (code) => {
+      coreEvents.emit(CoreEvent.ExternalEditorClosed);
+      onEditorClose?.();
       if (code === 0) {
         resolve();
       } else {

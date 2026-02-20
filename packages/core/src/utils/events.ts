@@ -175,6 +175,7 @@ export class CoreEventEmitter extends EventEmitter {
     payload: ConsoleLogPayload,
   ): boolean;
   override emit(event: CoreEvent.Output, payload: OutputPayload): boolean;
+  override emit(event: CoreEvent.ExternalEditorClosed): boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override emit(event: string | symbol, ...args: any[]): boolean {
     return super.emit(event, ...args);
