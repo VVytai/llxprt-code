@@ -27,7 +27,10 @@ import { keyMatchers, Command } from '../keyMatchers.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { Config, ApprovalMode } from '@vybestack/llxprt-code-core';
 import { StreamingState } from '../types.js';
-import { isSlashCommand } from '../utils/commandUtils.js';
+import {
+  isAutoExecutableCommand,
+  isSlashCommand,
+} from '../utils/commandUtils.js';
 import {
   parseInputForHighlighting,
   buildSegmentsForVisualSlice,
@@ -593,22 +596,40 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 ? 0 // Default to the first if none is active
                 : completion.activeSuggestionIndex;
             if (targetIndex < completion.suggestions.length) {
-              // Check if this is Enter key and command has autoExecute
               const isEnterKey = key.name === 'return';
-              const command = completion.getCommandFromSuggestion(targetIndex);
-              const shouldAutoExecute = isEnterKey && command?.autoExecute;
 
-              const completedText = completion.handleAutocomplete(targetIndex);
+              if (isEnterKey && buffer.text.startsWith('/')) {
+                const isArgumentCompletion = completion.isArgumentCompletion;
+                const leafCommand = completion.leafCommand;
 
-              // If autoExecute is true, also submit the command
-              if (shouldAutoExecute && completedText !== undefined) {
-                // Submit the text returned by handleAutocomplete rather
-                // than reading buffer.text, which would be stale here
-                // (buffer is a useMemo snapshot from the current render).
-                setTimeout(() => {
-                  handleSubmit(completedText);
-                }, 0);
+                if (
+                  isArgumentCompletion &&
+                  isAutoExecutableCommand(leafCommand)
+                ) {
+                  const completedText =
+                    completion.handleAutocomplete(targetIndex);
+                  if (completedText !== undefined) {
+                    handleSubmit(completedText.trim());
+                    return;
+                  }
+                } else if (!isArgumentCompletion) {
+                  const command =
+                    completion.getCommandFromSuggestion(targetIndex);
+                  if (
+                    isAutoExecutableCommand(command) &&
+                    !command?.completion
+                  ) {
+                    const completedText =
+                      completion.handleAutocomplete(targetIndex);
+                    if (completedText !== undefined) {
+                      handleSubmit(completedText.trim());
+                      return;
+                    }
+                  }
+                }
               }
+
+              completion.handleAutocomplete(targetIndex);
             }
           }
           return;

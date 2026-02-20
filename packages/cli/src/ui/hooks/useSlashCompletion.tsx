@@ -86,6 +86,8 @@ export interface UseSlashCompletionReturn {
   navigateDown: () => void;
   handleAutocomplete: (indexToUse: number) => string | undefined;
   getCommandFromSuggestion: (suggestionIndex: number) => SlashCommand | null;
+  isArgumentCompletion: boolean;
+  leafCommand: SlashCommand | null;
 }
 
 const debugLogger = new DebugLogger('llxprt:ui:slash-completion');
@@ -133,6 +135,15 @@ export function useSlashCompletion(
 
   // Track mapping from suggestion values to their source commands for autoExecute
   const suggestionCommandMapRef = useRef<Map<string, SlashCommand>>(new Map());
+
+  // Track slash completion context for Enter auto-execute behavior in InputPrompt.
+  const slashCompletionContextRef = useRef<{
+    isArgumentCompletion: boolean;
+    leafCommand: SlashCommand | null;
+  }>({
+    isArgumentCompletion: false,
+    leafCommand: null,
+  });
 
   const cursorRow = buffer.cursor[0];
   const cursorCol = buffer.cursor[1];
@@ -332,6 +343,11 @@ export function useSlashCompletion(
         completionStart.current = commandIndex + 1;
         completionEnd.current = currentLine.length;
       }
+
+      slashCompletionContextRef.current = {
+        isArgumentCompletion,
+        leafCommand,
+      };
 
       // Provide Suggestions based on the now-corrected context
       if (isArgumentCompletion) {
@@ -942,5 +958,8 @@ export function useSlashCompletion(
     navigateDown,
     handleAutocomplete,
     getCommandFromSuggestion,
+    isArgumentCompletion:
+      slashCompletionContextRef.current.isArgumentCompletion,
+    leafCommand: slashCompletionContextRef.current.leafCommand,
   };
 }

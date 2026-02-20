@@ -46,6 +46,8 @@ export interface UseCommandCompletionReturn {
   handleAutocomplete: (indexToUse: number) => string | undefined;
   promptCompletion: PromptCompletion;
   getCommandFromSuggestion: (suggestionIndex: number) => SlashCommand | null;
+  isArgumentCompletion: boolean;
+  leafCommand: SlashCommand | null;
 }
 
 export function useCommandCompletion(
@@ -287,6 +289,8 @@ export function useCommandCompletion(
       navigateDown: slashCompletionResults.navigateDown,
       handleAutocomplete: slashCompletionResults.handleAutocomplete,
       getCommandFromSuggestion: slashCompletionResults.getCommandFromSuggestion,
+      isArgumentCompletion: slashCompletionResults.isArgumentCompletion,
+      leafCommand: slashCompletionResults.leafCommand,
       promptCompletion,
     };
   }
@@ -306,6 +310,8 @@ export function useCommandCompletion(
     navigateDown,
     handleAutocomplete,
     getCommandFromSuggestion: () => null, // Not in slash mode, so no command mapping
+    isArgumentCompletion: false,
+    leafCommand: null,
     promptCompletion,
   };
 }

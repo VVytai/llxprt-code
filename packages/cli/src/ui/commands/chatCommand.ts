@@ -181,6 +181,7 @@ const resumeCommand: SlashCommand = {
     'Resume a conversation from a checkpoint. Usage: /chat resume <tag>',
   kind: CommandKind.BUILT_IN,
   schema: chatTagSchema,
+  autoExecute: true,
   action: async (context, args): Promise<SlashCommandActionReturn> => {
     const tag = args.trim();
     if (!tag) {
@@ -260,6 +261,7 @@ const deleteCommand: SlashCommand = {
     'Delete a conversation checkpoint. Usage: /chat delete <tag> [--force]',
   kind: CommandKind.BUILT_IN,
   schema: chatTagSchema,
+  autoExecute: true,
   action: async (context, args): Promise<SlashCommandActionReturn> => {
     const force = args.includes('--force');
     const tag = args.replace('--force', '').trim();

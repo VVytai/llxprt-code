@@ -97,9 +97,9 @@ describe('autoExecute classifications — subcommands', () => {
     expect(findSub(mcpCommand, 'refresh')?.autoExecute).toBe(true);
   });
 
-  it('/mcp auth should NOT have autoExecute: true', async () => {
+  it('/mcp auth should have autoExecute: true', async () => {
     const { mcpCommand } = await import('../commands/mcpCommand.js');
-    expect(findSub(mcpCommand, 'auth')?.autoExecute).not.toBe(true);
+    expect(findSub(mcpCommand, 'auth')?.autoExecute).toBe(true);
   });
 
   it('/extensions list should have autoExecute: true', async () => {

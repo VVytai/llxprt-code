@@ -354,6 +354,7 @@ const authCommand: SlashCommand = {
   description: 'Authenticate with an OAuth-enabled MCP server',
   kind: CommandKind.BUILT_IN,
   schema: mcpAuthSchema,
+  autoExecute: true,
   action: async (
     context: CommandContext,
     args: string,

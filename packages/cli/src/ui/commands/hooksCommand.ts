@@ -252,6 +252,27 @@ async function disableHook(
   );
 }
 
+async function completeHookNames(
+  context: CommandContext,
+  partialArg: string,
+): Promise<string[]> {
+  const { config } = context.services;
+  if (!config) {
+    return [];
+  }
+
+  const hookSystem = config.getHookSystem();
+  if (!hookSystem) {
+    return [];
+  }
+
+  const hookRegistry = hookSystem.getRegistry();
+  const hookNames = hookRegistry
+    .getAllHooks()
+    .map((entry) => hookRegistry.getHookName(entry));
+  return hookNames.filter((name) => name.startsWith(partialArg));
+}
+
 const listCommand: SlashCommand = {
   name: 'list',
   description: 'List all registered hooks',
@@ -281,6 +302,7 @@ const enableCommand: SlashCommand = {
     }
     await enableHook(context, hookName);
   },
+  completion: completeHookNames,
 };
 
 const disableCommand: SlashCommand = {
@@ -302,6 +324,7 @@ const disableCommand: SlashCommand = {
     }
     await disableHook(context, hookName);
   },
+  completion: completeHookNames,
 };
 
 export const hooksCommand: SlashCommand = {
