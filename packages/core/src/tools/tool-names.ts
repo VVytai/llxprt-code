@@ -65,6 +65,11 @@ export const STRUCTURAL_ANALYSIS_TOOL = 'structural_analysis';
 export const APPLY_PATCH_TOOL = 'apply_patch';
 
 /**
+ * Set of edit tool names for checkpointing and restore operations
+ */
+export const EDIT_TOOL_NAMES = new Set([EDIT_TOOL_NAME, WRITE_FILE_TOOL]);
+
+/**
  * Union type of all tool names for type safety
  */
 export type ToolName =
