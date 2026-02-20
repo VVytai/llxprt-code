@@ -52,6 +52,14 @@ export function createMockConfig(
     }),
     getTargetDir: () => '/test',
     getGeminiClient: vi.fn(),
+    getCheckpointingEnabled: vi.fn().mockReturnValue(false),
+    storage: {
+      getProjectTempDir: () => '/tmp',
+      getProjectTempCheckpointsDir: () => '/tmp/checkpoints',
+    } as Storage,
+    getTruncateToolOutputThreshold: () =>
+      DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD,
+    getTruncateToolOutputLines: () => DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES,
     getDebugMode: vi.fn().mockReturnValue(false),
     getContentGeneratorConfig: vi.fn().mockReturnValue({ model: 'gemini-pro' }),
     getModel: vi.fn().mockReturnValue('gemini-pro'),
@@ -67,6 +75,11 @@ export function createMockConfig(
     getMessageBus: vi.fn().mockReturnValue(defaultMessageBus),
     getPolicyEngine: vi.fn(),
     getEnableExtensionReloading: vi.fn().mockReturnValue(false),
+    getEnableHooks: vi.fn().mockReturnValue(false),
+    getMcpClientManager: vi.fn().mockReturnValue({
+      getMcpServers: vi.fn().mockReturnValue({}),
+    }),
+    getGitService: vi.fn(),
     disposeScheduler: vi.fn(),
     getOrCreateScheduler: vi
       .fn()
@@ -84,6 +97,12 @@ export function createMockConfig(
               errorType: undefined;
             };
           };
+    ...overrides,
+  } as unknown as Config;
+  mockConfig.getMessageBus = vi.fn().mockReturnValue(createMockMessageBus());
+  mockConfig.getHookSystem = vi
+    .fn()
+    .mockReturnValue(new HookSystem(mockConfig));
 
           const makeCall = (
             callId: string,
