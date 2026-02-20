@@ -112,6 +112,12 @@ Each REIMPLEMENT batch has a detailed plan (and critique where applicable):
 | R14 | PLAN-20250219-GMERGE021.R14 | 205d0f456e9c | Extensions GitHub 415 fix | [205d0f456e9c-plan.md](./205d0f456e9c-plan.md) | [critique](./205d0f456e9c-critique.md) |
 | R15 | PLAN-20250219-GMERGE021.R15 | ec9a8c7a7293 | User-scoped extension settings | [ec9a8c7a7293-plan.md](./ec9a8c7a7293-plan.md) | [critique](./ec9a8c7a7293-critique.md) |
 | R16 | PLAN-20250219-GMERGE021.R16 | d35a1fdec71b | Missing extension config | [d35a1fdec71b-plan.md](./d35a1fdec71b-plan.md) | — |
+| R17 | PLAN-20250219-GMERGE021.R17 | b27cf0b0a8dd | Continue logic to core | [b27cf0b0a8dd-plan.md](./b27cf0b0a8dd-plan.md) | [critique](./b27cf0b0a8dd-critique.md) |
+| R18 | PLAN-20250219-GMERGE021.R18 | 8b0a8f47c1b2 | Session ID in JSON output | [8b0a8f47c1b2-plan.md](./8b0a8f47c1b2-plan.md) | [critique](./8b0a8f47c1b2-critique.md) |
+
+**Note on R17 (b27cf0b0a8dd):** Originally B3 PICK, reclassified to REIMPLEMENT. Adapts upstream /restore logic for LLxprt's /continue command. Critique recommends partial alignment with staged commits.
+
+**Note on R18 (8b0a8f47c1b2):** Originally B3 PICK, reclassified to REIMPLEMENT. Adds session_id to JSON output. Critique recommends minimal approach (just add session_id inline, skip error-path refactor).
 
 **Note on R12 (6a3b56c5b6a8):** The plan concludes NO ACTION IS REQUIRED — LLxprt's retry.ts already subsumes and exceeds the upstream changes. The critique identifies edge cases to verify before finalizing that call. Treat as a verification + optional minor-fix batch.
 
@@ -152,7 +158,9 @@ REIMPLEMENT Batches — internal dependencies:
        ├─ R5  (Hooks Commands Panel) — AFTER R4 (hook types and lifecycle must exist)
        ├─ R2  (Fuzzy search in settings) — after PICK batches settle SettingsDialog
        ├─ R11 (Setting search UX) — AFTER R2 (R11 upgrades the UX from R2's search)
-       └─ R6  (Hook System Documentation) — AFTER R4, R5 (documents what's implemented)
+       ├─ R6  (Hook System Documentation) — AFTER R4, R5 (documents what's implemented)
+       ├─ R17 (Continue logic to core) — no deps, from B3 reclassification
+       └─ R18 (Session ID in JSON output) — no deps, from B3 reclassification
 ```
 
 **Critical ordering rules:**
@@ -266,20 +274,20 @@ node scripts/start.js --profile-load synthetic --prompt "write me a haiku"
 
 ---
 
-#### Batch 3: PICK commits 11-15 (Dec 4)
+#### Batch 3: RECLASSIFIED (Dec 4)
 Phase ID: `PLAN-20250219-GMERGE021.B3`
-```bash
-git cherry-pick b27cf0b0a8dd 1040c246f5a0 84f521b1c62b 8b0a8f47c1b2 2d1c1ac5672e
-```
-| SHA | Subject |
-|-----|---------|
-| b27cf0b0a8dd | feat(cli): Move key restore logic to core |
-| 1040c246f5a0 | feat: add auto-execute on Enter for MCP prompts |
-| 84f521b1c62b | fix(shell): cursor visibility in interactive mode |
-| 8b0a8f47c1b2 | Adding session id as part of json o/p |
-| 2d1c1ac5672e | fix(client): Correctly latch hasFailedCompressionAttempt |
 
-**B3-verify:** `npm run lint && npm run typecheck`
+**Analysis performed:** B3 commits were individually evaluated due to GeminiClient API divergence.
+
+| SHA | Subject | Decision | Reason |
+|-----|---------|----------|--------|
+| b27cf0b0a8dd | Move key restore logic to core | **REIMPLEMENT (R17)** | LLxprt uses /continue not /restore |
+| 1040c246f5a0 | Auto-execute for MCP prompts | **CHERRY-PICKED** | Applied as bd3bbe824 |
+| 84f521b1c62b | Cursor visibility fix | **SKIP** | Already fixed in LLxprt |
+| 8b0a8f47c1b2 | Session id in JSON output | **REIMPLEMENT (R18)** | Architecture differs |
+| 2d1c1ac5672e | Compression latch fix | **SKIP** | LLxprt rewrote compression |
+
+**B3-verify:** Already verified with 1040c246f5a0 cherry-pick
 
 ---
 
