@@ -75,6 +75,7 @@ function createRealConfig(options: {
 
   const config = {
     getEnableHooks: () => true,
+    getDisabledHooks: () => [],
     getHooks: () => hooks,
     getSessionId: () => 'e2e-test-session-' + Date.now(),
     getWorkingDir: () => TEST_SCRIPTS_DIR,
