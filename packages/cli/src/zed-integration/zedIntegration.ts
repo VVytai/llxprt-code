@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WritableStream, ReadableStream } from 'node:stream/web';
-
 import {
   Config,
   ContentGeneratorConfig,
@@ -35,8 +33,10 @@ import {
   type FilterFilesOptions,
   ReadManyFilesTool,
   type ToolConfirmationPayload,
+  createInkStdio,
+  ApprovalMode,
 } from '@vybestack/llxprt-code-core';
-import * as acp from './acp.js';
+import * as acp from '@agentclientprotocol/sdk';
 import { AcpFileSystemService } from './fileSystemService.js';
 import { Readable, Writable } from 'node:stream';
 import { Content, Part, FunctionCall, PartListUnion } from '@google/genai';
@@ -59,6 +59,7 @@ import {
   getActiveModelParams,
   loadProfileByName,
 } from '../runtime/runtimeSettings.js';
+import { runExitCleanup } from '../utils/cleanup.js';
 
 type ToolRunResult = {
   parts: Part[];
@@ -78,12 +79,12 @@ export function parseZedAuthMethodId(
 export async function runZedIntegration(
   config: Config,
   settings: LoadedSettings,
-): Promise<never> {
+): Promise<void> {
   const logger = new DebugLogger('llxprt:zed-integration');
   logger.debug(() => 'Starting Zed integration');
 
-  const stdout = Writable.toWeb(process.stdout) as WritableStream;
-
+  const { stdout: workingStdout } = createInkStdio();
+  const stdout = Writable.toWeb(workingStdout) as WritableStream;
   const stdin = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
 
   logger.debug(() => 'Streams created');
@@ -100,26 +101,18 @@ export async function runZedIntegration(
   });
 
   try {
-    new acp.AgentSideConnection(
-      (client: acp.Client) => {
-        logger.debug(() => 'Creating GeminiAgent');
-        return new GeminiAgent(config, settings, client);
-      },
-      stdout,
-      stdin,
-    );
+    const stream = acp.ndJsonStream(stdout, stdin);
+    const connection = new acp.AgentSideConnection((conn) => {
+      logger.debug(() => 'Creating GeminiAgent');
+      return new GeminiAgent(config, settings, conn);
+    }, stream);
     logger.debug(() => 'AgentSideConnection created successfully');
+
+    await connection.closed.finally(runExitCleanup);
   } catch (e) {
     logger.debug(() => `ERROR: Failed to create AgentSideConnection: ${e}`);
     throw e;
   }
-
-  logger.debug(() => 'Zed integration ready, waiting for messages');
-
-  // Keep the process alive - the Connection's #receive method will handle messages
-  return new Promise<never>(() => {
-    // This promise never resolves, keeping the process alive
-  });
 }
 
 export class GeminiAgent {
@@ -130,7 +123,7 @@ export class GeminiAgent {
   constructor(
     private config: Config,
     _settings: LoadedSettings,
-    private client: acp.Client,
+    private connection: acp.AgentSideConnection,
   ) {
     this.logger = new DebugLogger('llxprt:zed-integration');
   }
@@ -225,14 +218,17 @@ export class GeminiAgent {
     try {
       const sessionId = randomUUID();
 
-      // Use the existing config that was passed to runZedIntegration
+      // TODO: Create a per-session Config to isolate approval mode, file system
+      // service, and tool registries between concurrent sessions. Currently all
+      // sessions share one Config, which is safe only while Zed opens one
+      // session at a time.
       const sessionConfig = this.config;
 
       this.logger.debug(() => `newSession - creating session ${sessionId}`);
 
       if (this.clientCapabilities?.fs) {
         const acpFileSystemService = new AcpFileSystemService(
-          this.client,
+          this.connection,
           sessionId,
           this.clientCapabilities.fs,
           sessionConfig.getFileSystemService(),
@@ -482,16 +478,35 @@ export class GeminiAgent {
           throw error;
         }
       }
-      const session = new Session(sessionId, chat, sessionConfig, this.client);
+      const session = new Session(
+        sessionId,
+        chat,
+        sessionConfig,
+        this.connection,
+      );
       this.sessions.set(sessionId, session);
 
       return {
         sessionId,
+        modes: {
+          availableModes: buildAvailableModes(),
+          currentModeId: sessionConfig.getApprovalMode(),
+        },
       };
     } catch (error) {
       this.logger.debug(() => `ERROR in newSession: ${error}`);
       throw error;
     }
+  }
+
+  async setSessionMode(
+    params: acp.SetSessionModeRequest,
+  ): Promise<acp.SetSessionModeResponse> {
+    const session = this.sessions.get(params.sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${params.sessionId}`);
+    }
+    return session.setMode(params.modeId);
   }
 
   async cancel(params: acp.CancelNotification): Promise<void> {
@@ -514,13 +529,15 @@ export class GeminiAgent {
 export class Session {
   private pendingPrompt: AbortController | null = null;
   private emojiFilter: EmojiFilter;
+  private logger: DebugLogger;
 
   constructor(
     private readonly id: string,
     private readonly chat: GeminiChat,
     private readonly config: Config,
-    private readonly client: acp.Client,
+    private readonly connection: acp.AgentSideConnection,
   ) {
+    this.logger = new DebugLogger('llxprt:zed-integration');
     // Initialize emoji filter from settings
     const emojiFilterMode =
       (this.config.getEphemeralSetting('emojifilter') as
@@ -543,9 +560,19 @@ export class Session {
     });
   }
 
+  setMode(modeId: acp.SessionModeId): acp.SetSessionModeResponse {
+    const availableModes = buildAvailableModes();
+    const mode = availableModes.find((m) => m.id === modeId);
+    if (!mode) {
+      throw new Error(`Invalid or unavailable mode: ${modeId}`);
+    }
+    this.config.setApprovalMode(mode.id as ApprovalMode);
+    return {};
+  }
+
   async cancelPendingPrompt(): Promise<void> {
     if (!this.pendingPrompt) {
-      throw new Error('Not currently generating');
+      return;
     }
 
     this.pendingPrompt.abort();
@@ -581,10 +608,47 @@ export class Session {
         );
         nextMessage = null;
 
+        // Batch streaming chunks to reduce NDJSON message count.
+        // Without batching, each model token (~617 for a typical response)
+        // becomes a separate JSON message → Zed parse → UI render cycle.
+        // Accumulating for a short window collapses these into ~10-15
+        // larger messages, significantly reducing protocol overhead.
+        const BATCH_INTERVAL_MS = 100;
+        let pendingText = '';
+        let pendingThought = '';
+        let batchTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const flushBatch = () => {
+          if (batchTimer !== null) {
+            clearTimeout(batchTimer);
+            batchTimer = null;
+          }
+          if (pendingThought.length > 0) {
+            hasStreamedAgentContent = true;
+            void this.sendUpdate({
+              sessionUpdate: 'agent_thought_chunk',
+              content: { type: 'text', text: pendingThought },
+            });
+            pendingThought = '';
+          }
+          if (pendingText.length > 0) {
+            hasStreamedAgentContent = true;
+            void this.sendUpdate({
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'text', text: pendingText },
+            });
+            pendingText = '';
+          }
+        };
+
+        const scheduleBatchFlush = () => {
+          if (batchTimer === null) {
+            batchTimer = setTimeout(flushBatch, BATCH_INTERVAL_MS);
+          }
+        };
+
         for await (const resp of responseStream) {
           if (pendingSend.signal.aborted) {
-            // Let the stream processing complete naturally to handle cancellation properly
-            // Don't return early here - let the tool pipeline handle cleanup
             break;
           }
 
@@ -599,24 +663,21 @@ export class Session {
                 continue;
               }
 
-              // Filter the content through emoji filter
-              const filterResult = this.emojiFilter.filterStreamChunk(
-                part.text,
-              );
+              // Filter emojis using single-pass filterText (not the
+              // streaming chunker — providers deliver complete unicode
+              // strings per part.text so there is no split-emoji risk).
+              const filterResult = this.emojiFilter.filterText(part.text);
 
               if (filterResult.blocked) {
-                // In error mode: inject error feedback to model for retry
+                flushBatch();
                 hasStreamedAgentContent = true;
-                this.sendUpdate({
+                void this.sendUpdate({
                   sessionUpdate: 'agent_message_chunk',
                   content: {
                     type: 'text',
                     text: '[Error: Response blocked due to emoji detection]',
                   },
                 });
-
-                // Add system feedback to be sent with next tool response
-                // This could be done by queueing feedback similar to TUI implementation
                 continue;
               }
 
@@ -625,22 +686,16 @@ export class Session {
                   ? filterResult.filtered
                   : '';
 
-              const trimmedText = filteredText.trim();
-              if (trimmedText.length > 0) {
-                hasStreamedAgentContent = true;
+              if (filteredText.length === 0) {
+                continue;
               }
 
-              const content: acp.ContentBlock = {
-                type: 'text',
-                text: filteredText,
-              };
-
-              this.sendUpdate({
-                sessionUpdate: part.thought
-                  ? 'agent_thought_chunk'
-                  : 'agent_message_chunk',
-                content,
-              });
+              if (part.thought) {
+                pendingThought += filteredText;
+              } else {
+                pendingText += filteredText;
+              }
+              scheduleBatchFlush();
             }
           }
 
@@ -652,6 +707,9 @@ export class Session {
             }
           }
         }
+
+        // Flush any remaining batched content after stream ends
+        flushBatch();
 
         if (pendingSend.signal.aborted) {
           return { stopReason: 'cancelled' };
@@ -729,7 +787,24 @@ export class Session {
       update,
     };
 
-    await this.client.sessionUpdate(params);
+    this.logger.debug(
+      () =>
+        `sendUpdate: ${update.sessionUpdate} ${
+          'content' in update && update.content && 'text' in update.content
+            ? `(${(update.content as { text: string }).text.length} chars)`
+            : ''
+        }`,
+    );
+
+    try {
+      await this.connection.sessionUpdate(params);
+      this.logger.debug(() => 'sendUpdate: delivered');
+    } catch (error) {
+      this.logger.debug(
+        () =>
+          `sendUpdate ERROR: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private async runTool(
@@ -832,7 +907,7 @@ export class Session {
           },
         };
 
-        const output = await this.client.requestPermission(params);
+        const output = await this.connection.requestPermission(params);
         let outcome: ToolConfirmationOutcome;
         let payload: ToolConfirmationPayload | undefined;
 
@@ -1408,6 +1483,7 @@ export class Session {
     const entries: acp.PlanEntry[] = todos.map((todo) => ({
       content: todo.content,
       status: todo.status,
+      priority: 'medium' as const,
     }));
 
     // Send plan update to Zed via ACP protocol
@@ -1516,4 +1592,24 @@ function toPermissionOptions(
       throw new Error(`Unexpected: ${unreachable}`);
     }
   }
+}
+
+function buildAvailableModes(): acp.SessionMode[] {
+  return [
+    {
+      id: ApprovalMode.DEFAULT,
+      name: 'Default',
+      description: 'Prompts for approval',
+    },
+    {
+      id: ApprovalMode.AUTO_EDIT,
+      name: 'Auto Edit',
+      description: 'Auto-approves edit tools',
+    },
+    {
+      id: ApprovalMode.YOLO,
+      name: 'YOLO',
+      description: 'Auto-approves all tools',
+    },
+  ];
 }
