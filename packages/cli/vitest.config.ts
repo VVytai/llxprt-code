@@ -118,6 +118,8 @@ export default defineConfig({
       'src/ui/components/HistoryItemDisplay.test.tsx',
       // Include useTodoContinuation test for issue #1277
       'src/ui/hooks/useTodoContinuation.spec.ts',
+      // Include HooksList test for audit issue #8
+      'src/ui/components/views/HooksList.test.tsx',
     ],
     exclude: baseExcludePatterns,
     environment: 'jsdom',

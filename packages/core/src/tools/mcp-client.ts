@@ -49,6 +49,7 @@ import type { PromptRegistry } from '../prompts/prompt-registry.js';
 import type { ResourceRegistry } from '../resources/resource-registry.js';
 import {
   getErrorMessage,
+  is404Error,
   isAuthenticationError,
   UnauthorizedError,
 } from '../utils/errors.js';
@@ -914,8 +915,13 @@ async function retryWithOAuth(
     });
   } catch (httpError) {
     // Check if HTTP returned 404, then fallback to SSE
-    const errorStr = String(httpError);
-    if (errorStr.includes('404') || errorStr.includes('Not Found')) {
+    // BUT: only fallback if config.type is NOT explicitly set
+    // (url-only/no-type configs can fallback, explicit type:'http' should not)
+    const is404 = is404Error(httpError);
+    const shouldFallback =
+      is404 && !config.type && config.url && !config.httpUrl;
+
+    if (shouldFallback) {
       debugLogger.log(
         `HTTP connection failed with 404 for '${serverName}', falling back to SSE with OAuth`,
       );
@@ -1478,9 +1484,8 @@ export async function connectToMcpServer(
       return mcpClient;
     } catch (error) {
       await transport.close();
-      // Check if HTTP returned 404
-      const errorStr = String(error);
-      if (errorStr.includes('404') || errorStr.includes('Not Found')) {
+      // Check if HTTP returned 404 using proper detection
+      if (is404Error(error)) {
         httpReturned404 = true;
       }
       throw error;

@@ -9,27 +9,8 @@ import {
   type SlashCommand,
   CommandKind,
 } from './types.js';
-import { MessageType } from '../types.js';
+import { MessageType, type HistoryItemHooksList } from '../types.js';
 import { type HookRegistryEntry } from '@vybestack/llxprt-code-core';
-
-const COLOR_GREEN = '\u001b[32m';
-const COLOR_YELLOW = '\u001b[33m';
-const COLOR_CYAN = '\u001b[36m';
-const COLOR_GREY = '\u001b[90m';
-const RESET_COLOR = '\u001b[0m';
-
-/**
- * Format a hook entry for display
- */
-function formatHookEntry(entry: HookRegistryEntry, hookName: string): string {
-  const statusBadge = entry.enabled
-    ? `${COLOR_GREEN}[enabled]${RESET_COLOR}`
-    : `${COLOR_GREY}[disabled]${RESET_COLOR}`;
-
-  const sourceBadge = `${COLOR_CYAN}[${entry.source}]${RESET_COLOR}`;
-
-  return `  ${statusBadge} ${sourceBadge} ${hookName} (${entry.eventName})`;
-}
 
 /**
  * List all registered hooks
@@ -63,53 +44,12 @@ async function listHooks(context: CommandContext): Promise<void> {
   const hookRegistry = hookSystem.getRegistry();
   const allHooks = hookRegistry.getAllHooks();
 
-  if (allHooks.length === 0) {
-    context.ui.addItem(
-      {
-        type: MessageType.INFO,
-        text: 'No hooks registered.',
-      },
-      Date.now(),
-    );
-    return;
-  }
+  const historyItem: HistoryItemHooksList = {
+    type: MessageType.HOOKS_LIST,
+    hooks: allHooks,
+  };
 
-  let message = 'Registered hooks:\n\n';
-
-  // Group by event name
-  const byEvent = new Map<string, HookRegistryEntry[]>();
-  for (const entry of allHooks) {
-    const eventName = entry.eventName;
-    if (!byEvent.has(eventName)) {
-      byEvent.set(eventName, []);
-    }
-    byEvent.get(eventName)!.push(entry);
-  }
-
-  for (const [eventName, entries] of byEvent.entries()) {
-    message += `${COLOR_YELLOW}${eventName}${RESET_COLOR}:\n`;
-    for (const entry of entries) {
-      const hookName = hookRegistry.getHookName(entry);
-      message += formatHookEntry(entry, hookName) + '\n';
-    }
-    message += '\n';
-  }
-
-  const enabledCount = allHooks.filter(
-    (h: HookRegistryEntry) => h.enabled,
-  ).length;
-  const disabledCount = allHooks.length - enabledCount;
-
-  message += `Total: ${allHooks.length} hooks (${enabledCount} enabled, ${disabledCount} disabled)\n`;
-  message += RESET_COLOR;
-
-  context.ui.addItem(
-    {
-      type: MessageType.INFO,
-      text: message,
-    },
-    Date.now(),
-  );
+  context.ui.addItem(historyItem, Date.now());
 }
 
 /**

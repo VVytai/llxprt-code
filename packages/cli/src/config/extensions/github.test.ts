@@ -42,6 +42,11 @@ vi.mock('node:https', () => ({
 
 vi.mock('simple-git');
 
+const mockLoadExtension = vi.hoisted(() => vi.fn());
+vi.mock('../extension.js', () => ({
+  loadExtension: mockLoadExtension,
+}));
+
 describe('git extension helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -272,6 +277,52 @@ describe('git extension helpers', () => {
         (newState) => (result = newState),
       );
       expect(result).toBe(ExtensionUpdateState.ERROR);
+    });
+
+    it('should return NOT_UPDATABLE and use console.warn when loadExtension returns null for local extension', async () => {
+      const extension: GeminiCLIExtension = {
+        name: 'local-test',
+        path: '/ext',
+        version: '1.0.0',
+        isActive: true,
+        installMetadata: {
+          type: 'local',
+          source: '/path/to/local/ext',
+        },
+        contextFiles: [],
+      };
+
+      // Mock loadExtension to return null (config can't be loaded)
+      mockLoadExtension.mockReturnValue(null);
+
+      // Spy on console.warn and console.error
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      let result: ExtensionUpdateState | undefined = undefined;
+      await checkForExtensionUpdate(
+        extension,
+        (newState) => (result = newState),
+      );
+
+      // Assert: Should use NOT_UPDATABLE (not ERROR)
+      expect(result).toBe(ExtensionUpdateState.NOT_UPDATABLE);
+
+      // Assert: Should use console.warn (not console.error)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Failed to check for update for local extension',
+        ),
+      );
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      mockLoadExtension.mockReset();
     });
   });
 
@@ -545,6 +596,103 @@ describe('git extension helpers', () => {
       await expect(
         downloadFromGitHubRelease(installMetadata, tempDir),
       ).rejects.toThrow('403');
+    });
+  });
+
+  describe('downloadFile', () => {
+    let tempDir: string;
+
+    beforeEach(async () => {
+      tempDir = await fs.mkdtemp(
+        path.join(await fs.realpath(os.tmpdir()), 'download-file-test-'),
+      );
+      mockHttpsGet.mockClear();
+    });
+
+    afterEach(async () => {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    });
+
+    /**
+     * Test B: Verify that partial files are cleaned up on download failure
+     * @requirement Audit issue #3 - downloadFile needs partial-file cleanup on failure
+     */
+    it('should clean up partial file on download failure', async () => {
+      const { downloadFile } = await import('./github.js');
+      const destPath = path.join(tempDir, 'test-file.tar.gz');
+
+      // Mock https.get to return an error mid-stream
+      mockHttpsGet.mockImplementation((_url, _options, _callback) => {
+        // Don't call the callback, instead emit error on the request
+        const request = {
+          on: vi
+            .fn()
+            .mockImplementation(
+              (event: string, handler: (error: Error) => void) => {
+                if (event === 'error') {
+                  setImmediate(() => handler(new Error('Network error')));
+                }
+                return request;
+              },
+            ),
+        };
+        return request;
+      });
+
+      await expect(
+        downloadFile('https://example.com/file.tar.gz', destPath),
+      ).rejects.toThrow('Network error');
+
+      // Verify that the partial file was deleted
+      const fileExists = await fs
+        .access(destPath)
+        .then(() => true)
+        .catch(() => false);
+      expect(fileExists).toBe(false);
+    });
+
+    /**
+     * Test C: Verify that partial files are cleaned up on response stream error
+     * @requirement Audit issue #3 - downloadFile needs partial-file cleanup on failure
+     */
+    it('should clean up partial file on response stream error', async () => {
+      const { downloadFile } = await import('./github.js');
+      const destPath = path.join(tempDir, 'test-file.tar.gz');
+
+      // Mock https.get to return a response that errors mid-stream
+      mockHttpsGet.mockImplementation((_url, _options, callback) => {
+        const events: Record<string, (error: Error) => void> = {};
+        const response = {
+          statusCode: 200,
+          headers: {},
+          on: vi
+            .fn()
+            .mockImplementation(
+              (event: string, handler: (error: Error) => void) => {
+                events[event] = handler;
+                return response;
+              },
+            ),
+          pipe: vi.fn().mockImplementation((dest: unknown) => {
+            // Simulate error after piping starts
+            setImmediate(() => events['error']?.(new Error('Stream error')));
+            return dest;
+          }),
+        };
+        callback(response);
+        return { on: vi.fn().mockReturnThis() };
+      });
+
+      await expect(
+        downloadFile('https://example.com/file.tar.gz', destPath),
+      ).rejects.toThrow('Stream error');
+
+      // Verify that the partial file was deleted
+      const fileExists = await fs
+        .access(destPath)
+        .then(() => true)
+        .catch(() => false);
+      expect(fileExists).toBe(false);
     });
   });
 });

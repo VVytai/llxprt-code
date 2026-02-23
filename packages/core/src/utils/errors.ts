@@ -168,3 +168,38 @@ export function isAuthenticationError(error: unknown): boolean {
 
   return false;
 }
+
+/**
+ * Checks if an error is a 404 Not Found error with proper detection.
+ * Uses typed error checking first, falls back to anchored pattern matching.
+ * Avoids false positives from strings like "port 40404" or "code 4040".
+ *
+ * @param error - The error to check
+ * @returns True if the error is a 404 error
+ */
+export function is404Error(error: unknown): boolean {
+  if (error == null || typeof error !== 'object') {
+    return false;
+  }
+
+  // MCP SDK errors (SseError, StreamableHTTPError) carry numeric 'code'
+  if ('code' in error) {
+    const errorCode = (error as { code: unknown }).code;
+    if (errorCode === 404) {
+      return true;
+    }
+  }
+
+  // Anchored message pattern — must not match '404' appearing in ports, IDs, etc.
+  const message = getErrorMessage(error);
+  if (
+    /\bHTTP 404\b/i.test(message) ||
+    /\bstatus[:\s]+404\b/i.test(message) ||
+    /\b404 Not Found\b/i.test(message) ||
+    /\bNot Found\b/.test(message)
+  ) {
+    return true;
+  }
+
+  return false;
+}

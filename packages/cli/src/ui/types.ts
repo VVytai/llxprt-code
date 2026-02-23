@@ -185,6 +185,11 @@ export type HistoryItemExtensionsList = HistoryItemBase & {
   extensions: GeminiCLIExtension[];
 };
 
+export type HistoryItemHooksList = HistoryItemBase & {
+  type: 'hooks_list';
+  hooks: Array<import('@vybestack/llxprt-code-core').HookRegistryEntry>;
+};
+
 export interface ChatDetail {
   name: string;
   mtime: string;
@@ -251,6 +256,7 @@ export type HistoryItemWithoutId =
   | HistoryItemCompression
   | HistoryItemOAuthURL
   | HistoryItemExtensionsList
+  | HistoryItemHooksList
   | HistoryItemToolsList
   | HistoryItemMcpStatus
   | HistoryItemChatList
@@ -279,6 +285,7 @@ export enum MessageType {
   COMPRESSION = 'compression',
   EXTENSIONS_LIST = 'extensions_list',
   CHAT_LIST = 'chat_list',
+  HOOKS_LIST = 'hooks_list',
   PROFILE_CHANGE = 'profile_change',
 }
 

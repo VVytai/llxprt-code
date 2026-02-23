@@ -221,8 +221,19 @@ class DirectWebFetchToolInvocation extends BaseToolInvocation<
         returnDisplay: `Fetched ${url} as ${format}`,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      let errorMessage: string;
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Preserve the cause chain (cause is ES2022+, so check with 'in' operator)
+        const err = error as Error & { cause?: unknown };
+        if ('cause' in err && err.cause) {
+          const causeMessage =
+            err.cause instanceof Error ? err.cause.message : String(err.cause);
+          errorMessage += `: ${causeMessage}`;
+        }
+      } else {
+        errorMessage = String(error);
+      }
       return {
         llmContent: `Error fetching URL: ${errorMessage}`,
         returnDisplay: `Error: ${errorMessage}`,

@@ -2048,6 +2048,142 @@ describe('connectToMcpServer with OAuth', () => {
 
       expect(mockedClient.connect).toHaveBeenCalledTimes(1);
     });
+
+    // Audit issue #1: retryWithOAuth should NOT attempt SSE fallback on 404 when type:'http' is explicit
+    it('should NOT attempt SSE fallback when type:http is explicit and OAuth retry gets 404', async () => {
+      const serverUrl = 'http://test-server.com/http';
+
+      // First connect attempt: 401 Unauthorized (triggers OAuth retry)
+      vi.mocked(mockedClient.connect).mockRejectedValueOnce(
+        new Error('401 Unauthorized'),
+      );
+
+      // Second connect attempt (OAuth retry with HTTP): 404 Not Found
+      vi.mocked(mockedClient.connect).mockRejectedValueOnce(
+        new Error('404 Not Found'),
+      );
+
+      // Should fail with 404, NOT attempt SSE fallback
+      await expect(
+        connectToMcpServer(
+          'test-server',
+          { url: serverUrl, type: 'http' }, // Explicit HTTP type
+          false,
+          workspaceContext,
+        ),
+      ).rejects.toThrow(/404/);
+
+      // Should only try twice: initial HTTP (401) + OAuth retry HTTP (404)
+      // Should NOT try a third time with SSE fallback
+      expect(mockedClient.connect).toHaveBeenCalledTimes(2);
+    });
+
+    // Audit issue #7: Test false-positive prevention for HTTP status detection
+    it('should NOT treat non-404 error containing "404" in message as a 404', async () => {
+      const mockTransport = { close: vi.fn() };
+      vi.spyOn(
+        StreamableHTTPClientTransport.prototype,
+        'close',
+      ).mockReturnValue(mockTransport.close());
+
+      // Error message contains "404" but is not an actual HTTP 404 error
+      vi.mocked(mockedClient.connect)
+        .mockRejectedValueOnce(new Error('Connection failed at port 40404'))
+        .mockResolvedValueOnce(undefined); // SSE fallback succeeds
+
+      await connectToMcpServer(
+        'test-server',
+        { url: 'http://test-server.com/mcp' },
+        false,
+        workspaceContext,
+      );
+
+      // Should have tried twice: HTTP first, then SSE fallback
+      // (because the error is NOT recognized as a real 404)
+      expect(mockedClient.connect).toHaveBeenCalledTimes(2);
+    });
+
+    it('should NOT treat error with "4040" string as a 404', async () => {
+      const mockTransport = { close: vi.fn() };
+      vi.spyOn(
+        StreamableHTTPClientTransport.prototype,
+        'close',
+      ).mockReturnValue(mockTransport.close());
+
+      vi.mocked(mockedClient.connect)
+        .mockRejectedValueOnce(new Error('Server returned error code 4040'))
+        .mockResolvedValueOnce(undefined); // SSE fallback succeeds
+
+      await connectToMcpServer(
+        'test-server',
+        { url: 'http://test-server.com/mcp' },
+        false,
+        workspaceContext,
+      );
+
+      expect(mockedClient.connect).toHaveBeenCalledTimes(2);
+    });
+
+    it('should correctly detect actual HTTP 404 via error code property', async () => {
+      const mockTransport = { close: vi.fn() };
+      vi.spyOn(
+        StreamableHTTPClientTransport.prototype,
+        'close',
+      ).mockReturnValue(mockTransport.close());
+
+      // Create error with code property (like MCP SDK errors)
+      const error404 = new Error('Request failed');
+      (error404 as unknown as { code: number }).code = 404;
+
+      vi.mocked(mockedClient.connect).mockRejectedValueOnce(error404);
+
+      await expect(
+        connectToMcpServer(
+          'test-server',
+          { url: 'http://test-server.com/mcp' },
+          false,
+          workspaceContext,
+        ),
+      ).rejects.toThrow();
+
+      // Should NOT attempt SSE fallback because it's a real 404
+      expect(mockedClient.connect).toHaveBeenCalledTimes(1);
+      expect(mockTransport.close).toHaveBeenCalled();
+    });
+
+    it('should detect proper HTTP 404 error message format', async () => {
+      vi.mocked(mockedClient.connect).mockRejectedValueOnce(
+        new Error('HTTP 404 Not Found'),
+      );
+
+      await expect(
+        connectToMcpServer(
+          'test-server',
+          { url: 'http://test-server.com/mcp' },
+          false,
+          workspaceContext,
+        ),
+      ).rejects.toThrow();
+
+      expect(mockedClient.connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('should detect status 404 error message format', async () => {
+      vi.mocked(mockedClient.connect).mockRejectedValueOnce(
+        new Error('Request failed with status 404'),
+      );
+
+      await expect(
+        connectToMcpServer(
+          'test-server',
+          { url: 'http://test-server.com/mcp' },
+          false,
+          workspaceContext,
+        ),
+      ).rejects.toThrow();
+
+      expect(mockedClient.connect).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('getInstructions', () => {

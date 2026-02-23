@@ -56,6 +56,40 @@ describe('getKeychainServiceName', () => {
     // Keychain service names have platform-specific limits
     expect(serviceName.length).toBeLessThanOrEqual(256);
   });
+
+  it('should use workspace identity (git root) not cwd for workspace scope', async () => {
+    // This test verifies that workspace-scoped extensions use getWorkspaceIdentity()
+    // (git root) instead of process.cwd() for the service name hash.
+
+    // Since getWorkspaceIdentity() is already imported and called by getKeychainServiceName,
+    // we need to test the actual behavior by verifying the hash in the service name.
+
+    // For a workspace-scoped extension path
+    const extensionDir = path.join(
+      process.cwd(),
+      '.llxprt',
+      'extensions',
+      'test-extension',
+    );
+    const serviceName = getKeychainServiceName('test-extension', extensionDir);
+
+    // The service name should contain a hash based on the git root (workspace identity)
+    // Import getWorkspaceIdentity to get the actual workspace identity
+    const { getWorkspaceIdentity } = await import('../../utils/gitUtils.js');
+    const workspaceIdentity = getWorkspaceIdentity();
+
+    const crypto = await import('node:crypto');
+    const expectedHash = crypto
+      .createHash('md5')
+      .update(workspaceIdentity)
+      .digest('hex')
+      .substring(0, 8);
+
+    // Assert the service name contains the hash of the workspace identity
+    expect(serviceName).toContain(expectedHash);
+    expect(serviceName).toContain('test-extension');
+    expect(serviceName).toContain('Workspace');
+  });
 });
 
 describe('ExtensionSettingsStorage', () => {

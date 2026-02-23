@@ -20,6 +20,7 @@ import * as path from 'path';
 import * as crypto from 'node:crypto';
 import type { ExtensionSetting } from './extensionSettings.js';
 import { SecureStore } from '@vybestack/llxprt-code-core';
+import { getWorkspaceIdentity } from '../../utils/gitUtils.js';
 
 /**
  * Returns the path to the .env file for an extension.
@@ -50,9 +51,11 @@ export function getKeychainServiceName(
 
   if (isWorkspaceScope) {
     // Include workspace identifier for workspace scope
+    // Use getWorkspaceIdentity() to get the git root, not process.cwd()
+    const workspaceIdentity = getWorkspaceIdentity();
     const workspaceHash = crypto
       .createHash('md5')
-      .update(process.cwd())
+      .update(workspaceIdentity)
       .digest('hex')
       .substring(0, 8);
     const serviceName = `LLxprt Code Extension ${sanitized} Workspace ${workspaceHash}`;

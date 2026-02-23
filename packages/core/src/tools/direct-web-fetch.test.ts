@@ -133,6 +133,29 @@ describe('DirectWebFetchTool', () => {
     expect(result.error?.message).toContain('Network error');
   });
 
+  it('should preserve error cause chain in ToolResult', async () => {
+    const params: DirectWebFetchToolParams = {
+      url: 'https://example.com',
+      format: 'text',
+    };
+    const invocation = tool.build(params) as ToolInvocation<
+      DirectWebFetchToolParams,
+      ToolResult
+    >;
+
+    // Create an error with a cause chain
+    const rootCause = new Error('ENOTFOUND');
+    const fetchError = new Error('fetch failed', { cause: rootCause });
+    mockedFetch.mockRejectedValue(fetchError);
+
+    const result = await invocation.execute(new AbortController().signal);
+
+    expect(result.error).toBeDefined();
+    expect(result.error?.message).toContain('fetch failed');
+    // The error message should include the cause information
+    expect(result.error?.message).toContain('ENOTFOUND');
+  });
+
   it('should handle large files', async () => {
     const params: DirectWebFetchToolParams = {
       url: 'https://example.com/large',

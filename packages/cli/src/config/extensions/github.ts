@@ -214,10 +214,10 @@ export async function checkForExtensionUpdate(
         workspaceDir: cwd,
       });
       if (!newExtension) {
-        console.error(
+        console.warn(
           `Failed to check for update for local extension "${extension.name}". Could not load extension from source path: ${installMetadata.source}`,
         );
-        setExtensionUpdateState(ExtensionUpdateState.ERROR);
+        setExtensionUpdateState(ExtensionUpdateState.NOT_UPDATABLE);
         return;
       }
       if (newExtension.version !== extension.version) {
@@ -524,6 +524,17 @@ export async function downloadFile(
   }
 
   return new Promise((resolve, reject) => {
+    const cleanupAndReject = (error: Error) => {
+      // Try to clean up the partial file, but don't mask the original error
+      fs.unlink(dest, (unlinkErr) => {
+        if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+          // Log cleanup failure but still reject with original error
+          console.error(`Failed to clean up partial file ${dest}:`, unlinkErr);
+        }
+        reject(error);
+      });
+    };
+
     https
       .get(url, { headers }, (res) => {
         if (res.statusCode === 302 || res.statusCode === 301) {
@@ -547,10 +558,25 @@ export async function downloadFile(
           );
         }
         const file = fs.createWriteStream(dest);
+
+        // Handle file write errors
+        file.on('error', (err) => {
+          res.destroy();
+          cleanupAndReject(err);
+        });
+
+        // Handle response stream errors
+        res.on('error', (err) => {
+          file.destroy();
+          cleanupAndReject(err);
+        });
+
         res.pipe(file);
         file.on('finish', () => file.close(resolve as () => void));
       })
-      .on('error', reject);
+      .on('error', (err) => {
+        cleanupAndReject(err);
+      });
   });
 }
 
