@@ -158,4 +158,185 @@ describe('DirectWebFetchTool', () => {
     expect(result.error).toBeDefined();
     expect(result.error?.message).toContain('Response too large');
   });
+
+  describe('retry behavior', () => {
+    it('retries ENOTFOUND once and succeeds', async () => {
+      const params: DirectWebFetchToolParams = {
+        url: 'https://example.com',
+        format: 'text',
+      };
+      const invocation = tool.build(params) as ToolInvocation<
+        DirectWebFetchToolParams,
+        ToolResult
+      >;
+
+      const htmlContent = '<html><body>Success after retry</body></html>';
+      let attemptCount = 0;
+
+      mockedFetch.mockImplementation(async () => {
+        attemptCount++;
+        if (attemptCount === 1) {
+          const error = new Error('getaddrinfo ENOTFOUND example.com');
+          (error as { code?: string }).code = 'ENOTFOUND';
+          throw error;
+        }
+        return {
+          ok: true,
+          headers: {
+            get: (key: string) => {
+              if (key === 'content-type') return 'text/html';
+              if (key === 'content-length')
+                return htmlContent.length.toString();
+              return null;
+            },
+          },
+          arrayBuffer: () => Promise.resolve(Buffer.from(htmlContent)),
+        };
+      });
+
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(mockedFetch).toHaveBeenCalledTimes(2);
+      expect(result.error).toBeUndefined();
+      expect(result.llmContent).toContain('Success after retry');
+    });
+
+    it('does not retry non-retryable 4xx', async () => {
+      const params: DirectWebFetchToolParams = {
+        url: 'https://example.com',
+        format: 'text',
+      };
+      const invocation = tool.build(params) as ToolInvocation<
+        DirectWebFetchToolParams,
+        ToolResult
+      >;
+
+      mockedFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {
+          get: () => null,
+        },
+      });
+
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(mockedFetch).toHaveBeenCalledTimes(1);
+      expect(result.error).toBeDefined();
+      expect(result.error?.message).toContain('400');
+    });
+
+    it('retries retryable 5xx when status is preserved', async () => {
+      const params: DirectWebFetchToolParams = {
+        url: 'https://example.com',
+        format: 'text',
+      };
+      const invocation = tool.build(params) as ToolInvocation<
+        DirectWebFetchToolParams,
+        ToolResult
+      >;
+
+      const htmlContent = '<html><body>Success after 503</body></html>';
+      let attemptCount = 0;
+
+      mockedFetch.mockImplementation(async () => {
+        attemptCount++;
+        if (attemptCount === 1) {
+          return {
+            ok: false,
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: {
+              get: () => null,
+            },
+          };
+        }
+        return {
+          ok: true,
+          headers: {
+            get: (key: string) => {
+              if (key === 'content-type') return 'text/html';
+              if (key === 'content-length')
+                return htmlContent.length.toString();
+              return null;
+            },
+          },
+          arrayBuffer: () => Promise.resolve(Buffer.from(htmlContent)),
+        };
+      });
+
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(mockedFetch).toHaveBeenCalledTimes(2);
+      expect(result.error).toBeUndefined();
+      expect(result.llmContent).toContain('Success after 503');
+    });
+
+    it('pre-aborted signal returns ToolResult.error and does not call fetch', async () => {
+      const params: DirectWebFetchToolParams = {
+        url: 'https://example.com',
+        format: 'text',
+      };
+      const invocation = tool.build(params) as ToolInvocation<
+        DirectWebFetchToolParams,
+        ToolResult
+      >;
+
+      const abortController = new AbortController();
+      abortController.abort();
+
+      const result = await invocation.execute(abortController.signal);
+
+      expect(mockedFetch).not.toHaveBeenCalled();
+      expect(result.error).toBeDefined();
+      expect(result.error?.message).toMatch(/abort|cancel/i);
+    });
+
+    it('timeout abort returns ToolResult.error and cancels retries', async () => {
+      const params: DirectWebFetchToolParams = {
+        url: 'https://example.com',
+        format: 'text',
+        timeout: 1, // 1 second timeout
+      };
+      const invocation = tool.build(params) as ToolInvocation<
+        DirectWebFetchToolParams,
+        ToolResult
+      >;
+
+      // Mock fetch that respects abort signal (like real node-fetch)
+      mockedFetch.mockImplementation(
+        (_url: string, opts?: { signal?: AbortSignal }) =>
+          new Promise((resolve, reject) => {
+            const signal = opts?.signal;
+            if (signal?.aborted) {
+              reject(
+                new DOMException('The operation was aborted', 'AbortError'),
+              );
+              return;
+            }
+            const timer = setTimeout(() => {
+              resolve({
+                ok: true,
+                headers: { get: () => null },
+                arrayBuffer: () => Promise.resolve(Buffer.from('data')),
+              });
+            }, 5000);
+            signal?.addEventListener('abort', () => {
+              clearTimeout(timer);
+              reject(
+                new DOMException('The operation was aborted', 'AbortError'),
+              );
+            });
+          }),
+      );
+
+      const result = await invocation.execute(new AbortController().signal);
+
+      expect(result.error).toBeDefined();
+      expect(result.error?.message).toMatch(/abort|timeout/i);
+      expect(mockedFetch.mock.calls.length).toBeGreaterThan(0);
+      expect(mockedFetch.mock.calls.length).toBeLessThan(10);
+    });
+  });
 });

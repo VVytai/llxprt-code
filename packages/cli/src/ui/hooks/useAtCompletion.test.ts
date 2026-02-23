@@ -541,4 +541,34 @@ describe('useAtCompletion', () => {
       ]);
     });
   });
+
+  it('should include MCP resource suggestions with serverName:uri format', async () => {
+    testRootDir = await createTmpDir({});
+
+    const resourceConfig = {
+      ...mockConfig,
+      getResourceRegistry: () => ({
+        getAllResources: () => [
+          {
+            serverName: 'docs',
+            uri: 'file:///docs/readme.md',
+            name: 'README',
+            discoveredAt: Date.now(),
+          },
+        ],
+      }),
+    } as unknown as Config;
+
+    const { result } = renderHook(() =>
+      useTestHarnessForAtCompletion(true, 'docs', resourceConfig, testRootDir),
+    );
+
+    await waitFor(() => {
+      expect(
+        result.current.suggestions.some(
+          (s) => s.value === 'docs:file:///docs/readme.md',
+        ),
+      ).toBe(true);
+    });
+  });
 });

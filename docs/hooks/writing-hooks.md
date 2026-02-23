@@ -1023,4 +1023,4 @@ const SECRET_PATTERNS = [
 - [Hooks Reference](index.md) - Complete API reference and configuration
 - [Best Practices](best-practices.md) - Security, performance, and debugging
 - [Configuration](../cli/configuration.md) - LLxprt Code settings
-- [Custom Commands](../cli/custom-commands.md) - Create custom commands
+- [Custom Commands](../cli/commands.md#custom-commands) - Create custom commands

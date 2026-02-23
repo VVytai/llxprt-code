@@ -122,8 +122,17 @@ export async function listMcpServers(): Promise<void> {
     let serverInfo = `${serverName}: `;
     if (server.httpUrl) {
       serverInfo += `${server.httpUrl} (http)`;
+      // Deprecation warning when both httpUrl and url are present
+      if (server.url) {
+        console.warn(
+          `WARNING:  Warning: Server '${serverName}' has both 'httpUrl' (deprecated) and 'url'. ` +
+            `Using 'httpUrl'. Please migrate to 'url' with 'type: "http"'.`,
+        );
+      }
     } else if (server.url) {
-      serverInfo += `${server.url} (sse)`;
+      // Use server.type falling back to 'http' as default
+      const transportType = server.type || 'http';
+      serverInfo += `${server.url} (${transportType})`;
     } else if (server.command) {
       serverInfo += `${server.command} ${server.args?.join(' ') || ''} (stdio)`;
     }

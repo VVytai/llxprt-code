@@ -73,6 +73,8 @@ import {
   triggerAfterModelHook,
   triggerBeforeToolSelectionHook,
 } from './geminiChatHookTriggers.js';
+import { triggerPreCompressHook } from './lifecycleHookTriggers.js';
+import { PreCompressTrigger } from '../hooks/types.js';
 
 export enum StreamEventType {
   /** A regular content chunk from the API. */
@@ -2322,7 +2324,27 @@ export class GeminiChat {
       return;
     }
 
+    // Skip compression (and hook) if history is empty
+    const currentHistory = this.historyService.getCurated();
+    if (currentHistory.length === 0) {
+      this.logger.debug('Skipping compression — empty history');
+      return;
+    }
+
     this.logger.debug('Starting compression');
+
+    // Trigger PreCompress hook (fail-open)
+    if (this.runtimeContext.providerRuntime.config) {
+      try {
+        await triggerPreCompressHook(
+          this.runtimeContext.providerRuntime.config,
+          PreCompressTrigger.Manual,
+        );
+      } catch {
+        // Hooks are fail-open - continue even if hook fails
+      }
+    }
+
     const preCompressionCount =
       this.historyService.getStatistics().totalMessages;
     this.historyService.startCompression();

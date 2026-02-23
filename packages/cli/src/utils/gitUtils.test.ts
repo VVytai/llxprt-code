@@ -11,6 +11,7 @@ import {
   getGitRepoRoot,
   getLatestGitHubRelease,
   getGitHubRepoInfo,
+  getWorkspaceIdentity,
 } from './gitUtils.js';
 
 vi.mock('child_process');
@@ -145,5 +146,88 @@ describe('getLatestRelease', async () => {
       } as Response),
     );
     await expect(getLatestGitHubRelease()).resolves.toBe('v1.2.3');
+  });
+});
+
+describe('getWorkspaceIdentity', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should return git repo root when inside a git repository', () => {
+    vi.mocked(child_process.execSync).mockReturnValueOnce(
+      '/Users/test/projects/my-repo',
+    );
+
+    const result = getWorkspaceIdentity();
+
+    expect(result).toBe('/Users/test/projects/my-repo');
+    expect(child_process.execSync).toHaveBeenCalledWith(
+      'git rev-parse --show-toplevel',
+      expect.objectContaining({ encoding: 'utf-8' }),
+    );
+  });
+
+  it('should return cwd when NOT inside a git repository', () => {
+    vi.mocked(child_process.execSync).mockImplementation(() => {
+      throw new Error('not a git repository');
+    });
+
+    const result = getWorkspaceIdentity();
+
+    // Should fall back to process.cwd()
+    expect(result).toBe(process.cwd());
+  });
+
+  it('should handle git command failure gracefully and fall back to cwd', () => {
+    vi.mocked(child_process.execSync).mockImplementation(() => {
+      throw new Error('fatal: git command failed');
+    });
+
+    const result = getWorkspaceIdentity();
+
+    expect(result).toBe(process.cwd());
+  });
+
+  it('should return the same identity from different subdirectories in same repo', () => {
+    const repoRoot = '/Users/test/projects/my-repo';
+    vi.mocked(child_process.execSync).mockReturnValue(repoRoot);
+
+    // Simulate multiple calls (as if from different subdirs)
+    const result1 = getWorkspaceIdentity();
+    const result2 = getWorkspaceIdentity();
+
+    expect(result1).toBe(repoRoot);
+    expect(result2).toBe(repoRoot);
+    expect(result1).toBe(result2);
+  });
+
+  it('should handle bare repo gracefully', () => {
+    vi.mocked(child_process.execSync).mockImplementation(() => {
+      throw new Error('fatal: this operation must be run in a work tree');
+    });
+
+    const result = getWorkspaceIdentity();
+
+    // Should fall back to cwd for bare repos
+    expect(result).toBe(process.cwd());
+  });
+
+  it('should normalize and return absolute paths', () => {
+    // Mock git returning a path with trailing newline/whitespace
+    const pathWithWhitespace = '  /Users/test/projects/my-repo  \n';
+    vi.mocked(child_process.execSync).mockReturnValueOnce(pathWithWhitespace);
+
+    const result = getWorkspaceIdentity();
+
+    // Should trim and normalize
+    expect(result).toBe('/Users/test/projects/my-repo');
+    expect(result).not.toContain('\n');
+    expect(result).not.toMatch(/^\s/);
+    expect(result).not.toMatch(/\s$/);
   });
 });

@@ -178,6 +178,7 @@ function createConfigWithHook(options: {
     getWorkingDir: () => testCwd,
     getTargetDir: () => testCwd,
     getExtensions: () => [],
+    getDisabledHooks: () => [],
     getModel: () => 'test-model',
     getHookSystem() {
       if (!hookSystem) {

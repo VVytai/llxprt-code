@@ -20,9 +20,14 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type {
   GetPromptResult,
   Prompt,
+  ReadResourceResult,
+  Resource,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
+  ListResourcesResultSchema,
   ListRootsRequestSchema,
+  ReadResourceResultSchema,
+  ResourceListChangedNotificationSchema,
   ToolListChangedNotificationSchema,
   type Tool as McpTool,
 } from '@modelcontextprotocol/sdk/types.js';
@@ -41,6 +46,7 @@ import { MCPOAuthProvider } from '../mcp/oauth-provider.js';
 import { MCPOAuthTokenStorage } from '../mcp/oauth-token-storage.js';
 import { OAuthUtils } from '../mcp/oauth-utils.js';
 import type { PromptRegistry } from '../prompts/prompt-registry.js';
+import type { ResourceRegistry } from '../resources/resource-registry.js';
 import {
   getErrorMessage,
   isAuthenticationError,
@@ -100,14 +106,17 @@ export class McpClient {
   private client: Client | undefined;
   private transport: Transport | undefined;
   private status: MCPServerStatus = MCPServerStatus.DISCONNECTED;
-  private isRefreshing: boolean = false;
-  private pendingRefresh: boolean = false;
+  private isRefreshingTools: boolean = false;
+  private pendingToolRefresh: boolean = false;
+  private isRefreshingResources: boolean = false;
+  private pendingResourceRefresh: boolean = false;
 
   constructor(
     private readonly serverName: string,
     private readonly serverConfig: MCPServerConfig,
     private readonly toolRegistry: ToolRegistry,
     private readonly promptRegistry: PromptRegistry,
+    private readonly resourceRegistry: ResourceRegistry,
     private readonly workspaceContext: WorkspaceContext,
     private readonly cliConfig: Config,
     private readonly debugMode: boolean,
@@ -132,24 +141,7 @@ export class McpClient {
         this.workspaceContext,
       );
 
-      // setup dynamic tool listener
-      const capabilities = this.client.getServerCapabilities();
-
-      if (capabilities?.tools?.listChanged) {
-        debugLogger.log(
-          `Server '${this.serverName}' supports tool updates. Listening for changes...`,
-        );
-
-        this.client.setNotificationHandler(
-          ToolListChangedNotificationSchema,
-          async () => {
-            debugLogger.log(
-              `🔔 Received tool update notification from '${this.serverName}'`,
-            );
-            await this.refreshTools();
-          },
-        );
-      }
+      this.registerNotificationHandlers();
       const originalOnError = this.client.onerror;
       this.client.onerror = (error) => {
         if (this.status !== MCPServerStatus.CONNECTED) {
@@ -159,6 +151,7 @@ export class McpClient {
         console.error(`MCP ERROR (${this.serverName}):`, error.toString());
         this.toolRegistry.removeMcpToolsByServer(this.serverName);
         this.promptRegistry.removePromptsByServer(this.serverName);
+        this.resourceRegistry.removeResourcesByServer(this.serverName);
         const client = this.client;
         this.client = undefined;
         this.updateStatus(MCPServerStatus.DISCONNECTED);
@@ -177,15 +170,15 @@ export class McpClient {
    * Discovers tools and prompts from the MCP server.
    */
   async discover(cliConfig: Config): Promise<void> {
-    if (this.status !== MCPServerStatus.CONNECTED) {
-      throw new Error('Client is not connected.');
-    }
+    this.assertConnected();
 
     const prompts = await this.discoverPrompts();
     const tools = await this.discoverTools(cliConfig);
+    const resources = await this.discoverResources();
+    this.updateResourceRegistry(resources);
 
-    if (prompts.length === 0 && tools.length === 0) {
-      throw new Error('No prompts or tools found on the server.');
+    if (prompts.length === 0 && tools.length === 0 && resources.length === 0) {
+      throw new Error('No prompts, tools, or resources found on the server.');
     }
 
     for (const tool of tools) {
@@ -203,6 +196,7 @@ export class McpClient {
     }
     this.toolRegistry.removeMcpToolsByServer(this.serverName);
     this.promptRegistry.removePromptsByServer(this.serverName);
+    this.resourceRegistry.removeResourcesByServer(this.serverName);
     this.updateStatus(MCPServerStatus.DISCONNECTING);
     const client = this.client;
     this.client = undefined;
@@ -257,6 +251,26 @@ export class McpClient {
     return discoverPrompts(this.serverName, this.client!, this.promptRegistry);
   }
 
+  private async discoverResources(): Promise<Resource[]> {
+    this.assertConnected();
+    return discoverResources(this.serverName, this.client!);
+  }
+
+  private updateResourceRegistry(resources: Resource[]): void {
+    this.resourceRegistry.setResourcesForServer(this.serverName, resources);
+  }
+
+  async readResource(uri: string): Promise<ReadResourceResult> {
+    this.assertConnected();
+    return this.client!.request(
+      {
+        method: 'resources/read',
+        params: { uri },
+      },
+      ReadResourceResultSchema,
+    );
+  }
+
   getServerConfig(): MCPServerConfig {
     return this.serverConfig;
   }
@@ -279,20 +293,64 @@ export class McpClient {
    * (e.g., during server startup or bulk updates) without overwhelming the server or
    * creating race conditions in the global ToolRegistry.
    */
-  private async refreshTools(): Promise<void> {
-    if (this.isRefreshing) {
-      debugLogger.log(
-        `Tool refresh for '${this.serverName}' is already in progress. Pending update.`,
-      );
-      this.pendingRefresh = true;
+  /**
+   * Registers notification handlers for dynamic updates from the MCP server.
+   * This includes handlers for tool list changes and resource list changes.
+   */
+  private registerNotificationHandlers(): void {
+    if (!this.client) {
       return;
     }
 
-    this.isRefreshing = true;
+    const capabilities = this.client.getServerCapabilities();
+
+    if (capabilities?.tools?.listChanged) {
+      debugLogger.log(
+        `Server '${this.serverName}' supports tool updates. Listening for changes...`,
+      );
+
+      this.client.setNotificationHandler(
+        ToolListChangedNotificationSchema,
+        async () => {
+          debugLogger.log(
+            ` Received tool update notification from '${this.serverName}'`,
+          );
+          await this.refreshTools();
+        },
+      );
+    }
+
+    if (capabilities?.resources?.listChanged) {
+      debugLogger.log(
+        `Server '${this.serverName}' supports resource updates. Listening for changes...`,
+      );
+
+      this.client.setNotificationHandler(
+        ResourceListChangedNotificationSchema,
+        async () => {
+          debugLogger.log(
+            ` Received resource update notification from '${this.serverName}'`,
+          );
+          await this.refreshResources();
+        },
+      );
+    }
+  }
+
+  private async refreshTools(): Promise<void> {
+    if (this.isRefreshingTools) {
+      debugLogger.log(
+        `Tool refresh for '${this.serverName}' is already in progress. Pending update.`,
+      );
+      this.pendingToolRefresh = true;
+      return;
+    }
+
+    this.isRefreshingTools = true;
 
     try {
       do {
-        this.pendingRefresh = false;
+        this.pendingToolRefresh = false;
 
         if (this.status !== MCPServerStatus.CONNECTED || !this.client) break;
 
@@ -330,14 +388,64 @@ export class McpClient {
           'info',
           `Tools updated for server: ${this.serverName}`,
         );
-      } while (this.pendingRefresh);
+      } while (this.pendingToolRefresh);
     } catch (error) {
       debugLogger.error(
         `Critical error in refresh loop for ${this.serverName}: ${getErrorMessage(error)}`,
       );
     } finally {
-      this.isRefreshing = false;
-      this.pendingRefresh = false;
+      this.isRefreshingTools = false;
+      this.pendingToolRefresh = false;
+    }
+  }
+
+  private async refreshResources(): Promise<void> {
+    if (this.isRefreshingResources) {
+      debugLogger.log(
+        `Resource refresh for '${this.serverName}' is already in progress. Pending update.`,
+      );
+      this.pendingResourceRefresh = true;
+      return;
+    }
+
+    this.isRefreshingResources = true;
+
+    try {
+      do {
+        this.pendingResourceRefresh = false;
+
+        if (this.status !== MCPServerStatus.CONNECTED || !this.client) break;
+
+        const timeoutMs = this.serverConfig.timeout ?? MCP_DEFAULT_TIMEOUT_MSEC;
+        const timeoutId = setTimeout(() => {}, timeoutMs);
+
+        let newResources;
+        try {
+          newResources = await this.discoverResources();
+        } catch (err) {
+          debugLogger.error(
+            `Resource discovery failed during refresh: ${getErrorMessage(err)}`,
+          );
+          clearTimeout(timeoutId);
+          break;
+        }
+
+        this.updateResourceRegistry(newResources);
+
+        clearTimeout(timeoutId);
+
+        coreEvents.emitFeedback(
+          'info',
+          `Resources updated for server: ${this.serverName}`,
+        );
+      } while (this.pendingResourceRefresh);
+    } catch (error) {
+      debugLogger.error(
+        `Critical error in resource refresh loop for ${this.serverName}: ${getErrorMessage(error)}`,
+      );
+    } finally {
+      this.isRefreshingResources = false;
+      this.pendingResourceRefresh = false;
     }
   }
 }
@@ -627,34 +735,50 @@ async function createTransportWithOAuth(
   accessToken: string,
 ): Promise<StreamableHTTPClientTransport | SSEClientTransport | null> {
   try {
-    if (mcpServerConfig.httpUrl) {
-      // Create HTTP transport with OAuth token
-      const oauthTransportOptions: StreamableHTTPClientTransportOptions = {
-        requestInit: {
-          headers: {
-            ...mcpServerConfig.headers,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      };
+    const headers: Record<string, string> = {
+      ...mcpServerConfig.headers,
+      Authorization: `Bearer ${accessToken}`,
+    };
 
+    const transportOptions:
+      | StreamableHTTPClientTransportOptions
+      | SSEClientTransportOptions = {
+      requestInit: { headers },
+    };
+
+    // Priority 1: httpUrl uses HTTP transport
+    if (mcpServerConfig.httpUrl) {
       return new StreamableHTTPClientTransport(
         new URL(mcpServerConfig.httpUrl),
-        oauthTransportOptions,
+        transportOptions,
       );
-    } else if (mcpServerConfig.url) {
-      // Create SSE transport with OAuth token in Authorization header
-      return new SSEClientTransport(new URL(mcpServerConfig.url), {
-        requestInit: {
-          headers: {
-            ...mcpServerConfig.headers,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      });
     }
 
-    return null;
+    // Priority 2 & 3: url with explicit type
+    if (mcpServerConfig.url && mcpServerConfig.type) {
+      if (mcpServerConfig.type === 'http') {
+        return new StreamableHTTPClientTransport(
+          new URL(mcpServerConfig.url),
+          transportOptions,
+        );
+      } else if (mcpServerConfig.type === 'sse') {
+        return new SSEClientTransport(
+          new URL(mcpServerConfig.url),
+          transportOptions,
+        );
+      }
+    }
+
+    // Priority 4: url without type defaults to HTTP
+    if (mcpServerConfig.url) {
+      return new StreamableHTTPClientTransport(
+        new URL(mcpServerConfig.url),
+        transportOptions,
+      );
+    }
+
+    // No url or httpUrl configured
+    throw new Error(`No URL configured for MCP server '${mcpServerName}'`);
   } catch (error) {
     console.error(
       `Failed to create OAuth transport for server '${mcpServerName}': ${getErrorMessage(error)}`,
@@ -765,17 +889,24 @@ async function retryWithOAuth(
     return;
   }
 
-  // Try HTTP first
+  // Respect config.type when creating retry transport
+  const headers: Record<string, string> = {
+    ...config.headers,
+    Authorization: `Bearer ${accessToken}`,
+  };
+
+  // If type is explicitly set to 'sse', use SSE transport
+  if (config.type === 'sse') {
+    await connectWithSSETransport(client, config, accessToken);
+    return;
+  }
+
+  // Try HTTP first (default or explicit type:http)
   try {
     const httpTransport = new StreamableHTTPClientTransport(
       new URL(config.httpUrl || config.url!),
       {
-        requestInit: {
-          headers: {
-            ...config.headers,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
+        requestInit: { headers },
       },
     );
     await client.connect(httpTransport, {
@@ -1054,6 +1185,48 @@ export async function discoverTools(
     }
     return [];
   }
+}
+
+export async function discoverResources(
+  mcpServerName: string,
+  mcpClient: Client,
+): Promise<Resource[]> {
+  if (mcpClient.getServerCapabilities()?.resources == null) {
+    return [];
+  }
+
+  const resources = await listResources(mcpServerName, mcpClient);
+  return resources;
+}
+
+async function listResources(
+  mcpServerName: string,
+  mcpClient: Client,
+): Promise<Resource[]> {
+  const resources: Resource[] = [];
+  let cursor: string | undefined;
+  try {
+    do {
+      const response = await mcpClient.request(
+        {
+          method: 'resources/list',
+          params: cursor ? { cursor } : {},
+        },
+        ListResourcesResultSchema,
+      );
+      resources.push(...(response.resources ?? []));
+      cursor = response.nextCursor ?? undefined;
+    } while (cursor);
+  } catch (error) {
+    if (error instanceof Error && error.message?.includes('Method not found')) {
+      return [];
+    }
+    console.error(
+      `Error discovering resources from ${mcpServerName}: ${getErrorMessage(error)}`,
+    );
+    throw error;
+  }
+  return resources;
 }
 
 class McpCallableTool implements CallableTool {

@@ -22,6 +22,7 @@ import { DIRECT_WEB_FETCH_TOOL } from './tool-names.js';
 import fetch, { type RequestInit } from 'node-fetch';
 import TurndownService from 'turndown';
 import * as cheerio from 'cheerio';
+import { retryWithBackoff } from '../utils/retry.js';
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024; // 5MB
 const DEFAULT_TIMEOUT = 30 * 1000; // 30 seconds
@@ -141,19 +142,47 @@ class DirectWebFetchToolInvocation extends BaseToolInvocation<
     signal.addEventListener('abort', onAbort);
 
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept: acceptHeader,
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-      } as RequestInit);
-
-      if (!response.ok) {
-        throw new Error(`Request failed with status code: ${response.status}`);
+      // Check if already aborted before attempting fetch
+      if (signal.aborted) {
+        return {
+          llmContent: 'Request was aborted before it could start',
+          returnDisplay: 'Request aborted',
+          error: {
+            message: 'Request was aborted before it could start',
+            type: ToolErrorType.FETCH_ERROR,
+          },
+        };
       }
+
+      const response = await retryWithBackoff(
+        async () => {
+          const resp = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              Accept: acceptHeader,
+              'Accept-Language': 'en-US,en;q=0.9',
+            },
+          } as RequestInit);
+
+          if (!resp.ok) {
+            const error = new Error(
+              `Request failed with status code: ${resp.status}`,
+            ) as Error & { status: number };
+            error.status = resp.status;
+            throw error;
+          }
+
+          return resp;
+        },
+        {
+          maxAttempts: 3,
+          initialDelayMs: 500,
+          retryFetchErrors: true,
+          signal: controller.signal,
+        },
+      );
 
       // Check content length
       const contentLength = response.headers.get('content-length');

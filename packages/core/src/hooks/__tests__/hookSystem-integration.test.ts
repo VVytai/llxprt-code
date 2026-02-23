@@ -99,6 +99,7 @@ function makeConfig(hooksOverride?: Record<string, unknown>): Config {
     storage: { getGeminiDir: vi.fn().mockReturnValue('/project/.gemini') },
     getExtensions: vi.fn().mockReturnValue([]),
     getHooks: vi.fn().mockReturnValue(hooksOverride ?? {}),
+    getDisabledHooks: vi.fn().mockReturnValue([]),
     getSessionId: vi.fn().mockReturnValue('integration-test-session'),
     getTargetDir: vi.fn().mockReturnValue('/test/project'),
     getEnableHooks: vi.fn().mockReturnValue(true),

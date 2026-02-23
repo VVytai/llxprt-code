@@ -127,10 +127,12 @@ function formatEnvFile(values: Record<string, string>): string {
  * via SecureStore (keychain + encrypted file fallback).
  */
 export class ExtensionSettingsStorage {
+  private readonly extensionName: string;
   private readonly extensionDir: string;
   private readonly store: SecureStore;
 
   constructor(extensionName: string, extensionDir: string) {
+    this.extensionName = extensionName;
     this.extensionDir = extensionDir;
     this.store = new SecureStore(
       getKeychainServiceName(extensionName, extensionDir),
@@ -191,6 +193,7 @@ export class ExtensionSettingsStorage {
   /**
    * Loads settings from appropriate storage.
    * Returns a record with undefined for missing settings.
+   * Falls back to legacy cwd-based path for workspace-scoped settings.
    */
   async loadSettings(
     settings: ExtensionSetting[],
@@ -205,6 +208,20 @@ export class ExtensionSettingsStorage {
       if (fs.existsSync(envPath)) {
         const content = await fs.promises.readFile(envPath, 'utf-8');
         envValues = parseEnvFile(content);
+      } else {
+        // Backward compatibility: try legacy cwd-based path
+        // This supports migration from cwd-based to git-root-based workspace paths
+        const legacyPath = path.join(
+          process.cwd(),
+          '.llxprt',
+          'extensions',
+          this.extensionName,
+          '.env',
+        );
+        if (fs.existsSync(legacyPath)) {
+          const content = await fs.promises.readFile(legacyPath, 'utf-8');
+          envValues = parseEnvFile(content);
+        }
       }
     } catch (error) {
       // Handle missing file gracefully

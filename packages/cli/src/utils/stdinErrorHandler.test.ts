@@ -363,9 +363,7 @@ describe('stdin EIO error handling', () => {
       });
       const safeFn = withSafeRawMode(fn);
 
-      expect(async () => {
-        await safeFn();
-      }).toThrow('test error');
+      expect(() => safeFn()).toThrow('test error');
 
       expect(mockSetRawMode).toHaveBeenCalledWith(true);
       expect(mockSetRawMode).toHaveBeenCalledWith(false); // Cleanup

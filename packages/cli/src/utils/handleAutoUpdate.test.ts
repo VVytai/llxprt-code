@@ -105,6 +105,8 @@ describe('handleAutoUpdate', () => {
         write: vi.fn(),
         end: vi.fn(),
       }),
+      stdout: new EventEmitter(),
+      stderr: new EventEmitter(),
       unref: vi.fn(),
     }) as unknown as ChildProcess;
 

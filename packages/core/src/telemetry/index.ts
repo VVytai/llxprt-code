@@ -17,6 +17,7 @@ export {
   initializeTelemetry,
   shutdownTelemetry,
   isTelemetrySdkInitialized,
+  flushTelemetry,
 } from './sdk.js';
 export {
   logCliConfiguration,

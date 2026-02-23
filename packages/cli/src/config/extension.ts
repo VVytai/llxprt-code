@@ -31,7 +31,11 @@ import chalk from 'chalk';
 import { ExtensionEnablementManager } from './extensions/extensionEnablement.js';
 import type { ConfirmationRequest } from '../ui/types.js';
 import { escapeAnsiCtrlCodes } from '../ui/utils/textUtils.js';
-import { requestHookConsent } from './extensions/consent.js';
+import {
+  requestHookConsent,
+  computeHookConsentDelta,
+} from './extensions/consent.js';
+import { validateHooks, type Hooks } from './extensions/hookSchema.js';
 
 export { ExtensionEnablementManager } from './extensions/extensionEnablement.js';
 export const EXTENSIONS_DIRECTORY_NAME = '.llxprt/extensions';
@@ -53,7 +57,7 @@ interface ExtensionConfig {
   mcpServers?: Record<string, MCPServerConfig>;
   contextFileName?: string | string[];
   excludeTools?: string[];
-  hooks?: Record<string, unknown>; // Hook definitions (structure TBD)
+  hooks?: Hooks;
 }
 
 export interface ExtensionInstallMetadata {
@@ -683,19 +687,39 @@ async function maybeRequestConsentOrFail(
       previousExtensionConfig,
     );
     if (previousExtensionConsent === extensionConsent) {
-      return;
+      // Extension consent string unchanged, but check for hook changes
+      const hookDelta = computeHookConsentDelta(
+        extensionConfig.hooks,
+        previousExtensionConfig.hooks,
+      );
+      if (
+        hookDelta.newHooks.length === 0 &&
+        hookDelta.changedHooks.length === 0
+      ) {
+        // No changes at all, skip consent
+        return;
+      }
     }
   }
   if (!(await requestConsent(extensionConsent))) {
     throw new Error(`Installation cancelled for "${extensionConfig.name}".`);
   }
 
-  // Check for hook consent if extension defines hooks
-  if (extensionConfig.hooks && Object.keys(extensionConfig.hooks).length > 0) {
-    const hookNames = Object.keys(extensionConfig.hooks);
+  // Check for hook consent if extension has new or changed hooks
+  const hookDelta = computeHookConsentDelta(
+    extensionConfig.hooks,
+    previousExtensionConfig?.hooks,
+  );
+
+  if (hookDelta.newHooks.length > 0 || hookDelta.changedHooks.length > 0) {
+    const hooksRequiringConsent = [
+      ...hookDelta.newHooks,
+      ...hookDelta.changedHooks,
+    ];
     const hookConsent = await requestHookConsent(
       extensionConfig.name,
-      hookNames,
+      hooksRequiringConsent,
+      requestConsent,
     );
     if (!hookConsent) {
       throw new Error(
@@ -744,13 +768,20 @@ export async function loadExtensionConfig(
     ) as unknown as ExtensionConfig;
 
     validateName(config.name);
+
+    // Validate hooks if present
+    if (config.hooks !== undefined) {
+      config.hooks = validateHooks(config.hooks);
+    }
+
     return config;
   } catch (e) {
     // Re-throw validation errors so installExtension() can report them
     if (
       e instanceof Error &&
       (e.message.includes('Invalid extension name') ||
-        e.message.includes('Invalid configuration'))
+        e.message.includes('Invalid configuration') ||
+        e.message.includes('Hook name'))
     ) {
       throw e;
     }

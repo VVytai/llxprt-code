@@ -30,7 +30,11 @@ import {
   toFriendlyError,
 } from '../utils/errors.js';
 import { normalizeToolName } from '../tools/toolNameUtils.js';
-import { GeminiChat, InvalidStreamError } from './geminiChat.js';
+import {
+  GeminiChat,
+  InvalidStreamError,
+  StreamEventType,
+} from './geminiChat.js';
 import { DebugLogger } from '../debug/index.js';
 import { getCodeAssistServer } from '../code_assist/codeAssist.js';
 import { UserTierId } from '../code_assist/types.js';
@@ -345,14 +349,14 @@ export class Turn {
           return;
         }
 
-        // Handle the new RETRY event
-        if (streamEvent.type === 'retry') {
+        // Handle the RETRY event
+        if (streamEvent.type === StreamEventType.RETRY) {
           yield { type: GeminiEventType.Retry };
-          continue; // Skip to the next event in the stream
+          continue;
         }
 
-        // Assuming other events are chunks with a `value` property
-        const resp = streamEvent.value as GenerateContentResponse;
+        // Narrow to CHUNK — the only other variant in the discriminated union
+        const resp = streamEvent.value;
         if (!resp) continue; // Skip if there's no response body
 
         this.debugResponses.push(resp);

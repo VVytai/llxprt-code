@@ -611,6 +611,52 @@ The MCP integration tracks several states:
 4. **Incremental setup:** Start with simple tools before adding complex functionality
 5. **Use `/mcp` frequently:** Monitor server status during development
 
+## MCP Resources in LLxprt Code
+
+The LLxprt Code supports MCP resources in three user-facing ways:
+
+1. **Resource-aware `@` attachments in chat input**
+2. **Resource suggestions in `@` completion**
+3. **Resource visibility in `/mcp` status output**
+
+### Referencing a resource in chat input
+
+You can reference an MCP resource directly by using the format:
+
+```
+@serverName:resourceUri
+```
+
+For example:
+
+```
+@docs:file:///workspace/README.md
+```
+
+When this pattern matches a discovered MCP resource, LLxprt Code reads that resource via MCP (`resources/read`) and injects the resulting content into the request context.
+
+### Binary resource behavior
+
+If a resource contains binary content, LLxprt Code adds a safe placeholder summary (mime type and size) rather than raw binary text.
+
+### `@` completion behavior
+
+When typing `@`, completion suggestions include:
+
+- file path suggestions (existing behavior)
+- MCP resource suggestions in `serverName:resourceUri` format
+
+File suggestions are preserved and resources are added to the same suggestion stream.
+
+### `/mcp` status output
+
+The `/mcp` command includes resource information per server:
+
+- resource counts in per-server status summaries
+- a `Resources:` section listing discovered resource names and URIs
+
+This is implemented in this branch's text-based `/mcp` rendering path (the local architecture does not use the upstream MCP status view component).
+
 ## Important Notes
 
 ### Security Considerations

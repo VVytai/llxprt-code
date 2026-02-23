@@ -747,6 +747,31 @@ export function isSandboxDebugModeEnabled(debugValue?: string): boolean {
   return debugValue === 'true' || debugValue === '1';
 }
 
+export function shouldAllocateSandboxTty(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const hasExplicitParentTty =
+    process.stdin.isTTY === true || process.stdout.isTTY === true;
+
+  if (hasExplicitParentTty) {
+    return true;
+  }
+
+  const isCiEnvironment =
+    env.CI === 'true' ||
+    env.CI === '1' ||
+    env.GITHUB_ACTIONS === 'true' ||
+    env.BUILD_ID !== undefined ||
+    env.BUILD_NUMBER !== undefined;
+
+  if (isCiEnvironment) {
+    return false;
+  }
+
+  const term = env.TERM;
+  return typeof term === 'string' && term.length > 0 && term !== 'dumb';
+}
+
 function entrypoint(workdir: string, cliArgs: string[]): string[] {
   const isWindows = os.platform() === 'win32';
   const containerWorkdir = getContainerPath(workdir);
@@ -1205,24 +1230,11 @@ export async function start_sandbox(
       );
     }
 
-    // Add a TTY if the parent process is interacting with a terminal.
-    //
-    // IMPORTANT: On macOS, process.stdin.isTTY/process.stdout.isTTY can be undefined when the
-    // parent process is still effectively running in a terminal (depending on the PTY/wrapper
-    // setup). Running podman/docker with -i but without -t can degrade interactive input
-    // handling (e.g. dropped keypresses in Ink UIs).
-    //
-    // Heuristics (in order):
-    // - If stdin/stdout explicitly report TTY => add -t.
-    // - Else if TERM is set (typical interactive shells) => add -t.
-    // - Else => do not force -t.
-    const hasParentTty =
-      process.stdin.isTTY === true || process.stdout.isTTY === true;
-
-    // In CI we typically do not have a TTY. Passing `-t` causes docker to emit
-    // "the input device is not a TTY" and fail the sandbox. Keep `-t` for real
-    // interactive terminals only.
-    if (hasParentTty) {
+    // Add a TTY if the parent process appears interactive.
+    // On some macOS PTY wrappers, isTTY can be undefined even in local terminals.
+    // In CI, avoid forcing -t because docker/podman can error with
+    // "the input device is not a TTY".
+    if (shouldAllocateSandboxTty()) {
       args.push('-t');
     }
 

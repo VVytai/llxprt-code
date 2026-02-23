@@ -104,7 +104,7 @@ describe('mcp list command', () => {
       merged: {
         mcpServers: {
           'stdio-server': { command: '/path/to/server', args: ['arg1'] },
-          'sse-server': { url: 'https://example.com/sse' },
+          'sse-server': { url: 'https://example.com/sse', type: 'sse' },
           'http-server': { httpUrl: 'https://example.com/http' },
         },
       },
@@ -182,5 +182,104 @@ describe('mcp list command', () => {
         'extension-server: /ext/server  (stdio) - Connected',
       ),
     );
+  });
+
+  // Phase A: URL transport parity tests (RED phase)
+  // EXPECTED TO FAIL: current code hardcodes (sse) for url
+  it('should display (http) for url-only config (default transport)', async () => {
+    mockedLoadSettings.mockReturnValue({
+      merged: {
+        mcpServers: {
+          'url-server': { url: 'https://example.com/mcp' },
+        },
+      },
+    });
+
+    mockClient.connect.mockResolvedValue(undefined);
+    mockClient.ping.mockResolvedValue(undefined);
+
+    await listMcpServers();
+
+    // WILL FAIL: current code shows (sse), should show (http)
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'url-server: https://example.com/mcp (http) - Connected',
+      ),
+    );
+  });
+
+  // EXPECTED TO PASS: explicit type:sse should work
+  it('should display (sse) for url + type:sse', async () => {
+    mockedLoadSettings.mockReturnValue({
+      merged: {
+        mcpServers: {
+          'sse-server': { url: 'https://example.com/sse', type: 'sse' },
+        },
+      },
+    });
+
+    mockClient.connect.mockResolvedValue(undefined);
+    mockClient.ping.mockResolvedValue(undefined);
+
+    await listMcpServers();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'sse-server: https://example.com/sse (sse) - Connected',
+      ),
+    );
+  });
+
+  // EXPECTED TO FAIL: type:http not currently handled
+  it('should display (http) for url + type:http', async () => {
+    mockedLoadSettings.mockReturnValue({
+      merged: {
+        mcpServers: {
+          'http-server': { url: 'https://example.com/http', type: 'http' },
+        },
+      },
+    });
+
+    mockClient.connect.mockResolvedValue(undefined);
+    mockClient.ping.mockResolvedValue(undefined);
+
+    await listMcpServers();
+
+    // WILL FAIL: current code ignores type:http
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'http-server: https://example.com/http (http) - Connected',
+      ),
+    );
+  });
+
+  // Note: httpUrl already tested in existing test 'should display different server types with connected status'
+  // No need to duplicate
+
+  // EXPECTED TO FAIL: no deprecation warning currently exists
+  it('should show deprecation warning when both httpUrl and url are present', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    mockedLoadSettings.mockReturnValue({
+      merged: {
+        mcpServers: {
+          'dual-server': {
+            url: 'https://example.com/sse',
+            httpUrl: 'https://example.com/http',
+          },
+        },
+      },
+    });
+
+    mockClient.connect.mockResolvedValue(undefined);
+    mockClient.ping.mockResolvedValue(undefined);
+
+    await listMcpServers();
+
+    // WILL FAIL: no deprecation warning implemented yet
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('httpUrl'));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('deprecated'));
+
+    warnSpy.mockRestore();
   });
 });

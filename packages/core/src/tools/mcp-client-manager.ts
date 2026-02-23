@@ -173,6 +173,7 @@ export class McpClientManager {
               config,
               this.toolRegistry,
               this.cliConfig.getPromptRegistry(),
+              this.cliConfig.getResourceRegistry(),
               this.cliConfig.getWorkspaceContext(),
               this.cliConfig,
               this.cliConfig.getDebugMode(),
@@ -340,6 +341,10 @@ export class McpClientManager {
    * Instructions are formatted with server name headers for attribution.
    * Returns empty string if no servers have instructions.
    */
+  getClient(name: string): McpClient | undefined {
+    return this.clients.get(name);
+  }
+
   getMcpInstructions(): string {
     const sections: string[] = [];
 

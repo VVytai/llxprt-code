@@ -987,4 +987,45 @@ describe('isRetryableError', () => {
     });
     expect(isRetryableError(error, false)).toBe(true);
   });
+
+  it('ENOTFOUND is retryable', () => {
+    const error = Object.assign(
+      new Error('getaddrinfo ENOTFOUND example.com'),
+      {
+        code: 'ENOTFOUND',
+      },
+    );
+    expect(isRetryableError(error, false)).toBe(true);
+    expect(isRetryableError(error, true)).toBe(true);
+  });
+});
+
+describe('retryWithBackoff abort handling', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setSimulate429(false);
+    console.warn = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('pre-aborted signal does not call fn', async () => {
+    const mockFn = vi.fn(async () => 'success');
+    const abortController = new AbortController();
+    abortController.abort();
+
+    const promise = retryWithBackoff(mockFn, {
+      maxAttempts: 3,
+      initialDelayMs: 100,
+      signal: abortController.signal,
+    });
+
+    await expect(promise).rejects.toThrow(
+      expect.objectContaining({ name: 'AbortError' }),
+    );
+    expect(mockFn).not.toHaveBeenCalled();
+  });
 });

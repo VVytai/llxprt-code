@@ -16,6 +16,7 @@ import {
 } from '../extension.js';
 import { ExtensionSettingsStorage } from './settingsStorage.js';
 import { maybePromptForSettings } from './settingsPrompt.js';
+import { getWorkspaceIdentity } from '../../utils/gitUtils.js';
 
 /**
  * Scope for extension settings storage.
@@ -169,8 +170,9 @@ export async function getExtensionEnvironment(
   const userValues = await userStorage.loadSettings(settings);
 
   // Load workspace scope settings
+  const workspaceRoot = getWorkspaceIdentity();
   const workspaceDir = path.join(
-    process.cwd(),
+    workspaceRoot,
     '.llxprt',
     'extensions',
     extensionName,
@@ -212,8 +214,9 @@ export function getEnvFilePath(
 ): string {
   if (scope === ExtensionSettingScope.WORKSPACE) {
     // Workspace settings go in workspace .llxprt/extensions/{extensionName}/.env
+    const workspaceRoot = getWorkspaceIdentity();
     return path.join(
-      process.cwd(),
+      workspaceRoot,
       '.llxprt',
       'extensions',
       extensionName,
@@ -245,9 +248,10 @@ export async function getScopedEnvContents(
   }
 
   // Create storage with scope-specific path
+  const workspaceRoot = getWorkspaceIdentity();
   const scopedDir =
     scope === ExtensionSettingScope.WORKSPACE
-      ? path.join(process.cwd(), '.llxprt', 'extensions', extensionName)
+      ? path.join(workspaceRoot, '.llxprt', 'extensions', extensionName)
       : extensionDir;
 
   const storage = new ExtensionSettingsStorage(extensionName, scopedDir);
@@ -297,7 +301,13 @@ export async function getEnvContents(
       extensionDir,
       ExtensionSettingScope.WORKSPACE,
     );
-    settingsValues = { ...userValues, ...workspaceValues };
+    // Workspace overrides user only for keys that are actually set
+    settingsValues = { ...userValues };
+    for (const [key, val] of Object.entries(workspaceValues)) {
+      if (val !== undefined) {
+        settingsValues[key] = val;
+      }
+    }
   }
 
   return settings.map((setting) => {
@@ -368,9 +378,10 @@ export async function updateSetting(
   }
 
   // Create storage with scope-specific path
+  const workspaceRoot = getWorkspaceIdentity();
   const scopedDir =
     scope === ExtensionSettingScope.WORKSPACE
-      ? path.join(process.cwd(), '.llxprt', 'extensions', extensionName)
+      ? path.join(workspaceRoot, '.llxprt', 'extensions', extensionName)
       : extensionDir;
 
   const storage = new ExtensionSettingsStorage(extensionName, scopedDir);

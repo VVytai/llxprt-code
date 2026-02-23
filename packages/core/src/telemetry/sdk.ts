@@ -36,6 +36,7 @@ diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
 let sdk: NodeSDK | undefined;
 let telemetryInitialized = false;
+let flushInProgress: Promise<void> | null = null;
 
 export function isTelemetrySdkInitialized(): boolean {
   return telemetryInitialized;
@@ -126,6 +127,31 @@ export function initializeTelemetry(config: Config): void {
   process.on('SIGINT', () => {
     void shutdownTelemetry(config);
   });
+}
+
+export async function flushTelemetry(): Promise<void> {
+  if (!sdk) return;
+  if (flushInProgress) return flushInProgress;
+
+  flushInProgress = (async () => {
+    try {
+      // Feature-detect forceFlush on the SDK instance
+      if (
+        typeof (sdk as unknown as Record<string, unknown>).forceFlush ===
+        'function'
+      ) {
+        await (
+          sdk as unknown as { forceFlush: () => Promise<void> }
+        ).forceFlush();
+      }
+    } catch {
+      // Telemetry flush failures are non-fatal
+    } finally {
+      flushInProgress = null;
+    }
+  })();
+
+  return flushInProgress;
 }
 
 export async function shutdownTelemetry(config: Config): Promise<void> {

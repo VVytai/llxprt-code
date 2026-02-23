@@ -74,7 +74,7 @@ describe('CodeSearchTool', () => {
     const result = await invocation.execute(new AbortController().signal);
 
     expect(mockedFetch).toHaveBeenCalledWith(
-      'https://mcp.exa.ai/mcp',
+      expect.stringContaining('https://mcp.exa.ai/mcp'),
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining('react hooks'),

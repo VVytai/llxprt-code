@@ -12,6 +12,7 @@ import {
   setupSshAgentLinux,
   getProfileScopedCredentialAllowlist,
   isSandboxDebugModeEnabled,
+  shouldAllocateSandboxTty,
 } from './sandbox.js';
 import { Config } from '@vybestack/llxprt-code-core';
 
@@ -166,7 +167,6 @@ describe('isSandboxDebugModeEnabled', () => {
     expect(isSandboxDebugModeEnabled(undefined)).toBe(false);
   });
 });
-
 
 describe('buildSandboxEnvArgs', () => {
   let mockEnv: NodeJS.ProcessEnv;
@@ -492,5 +492,55 @@ describe('setupSshAgentLinux', () => {
     const vol = args.find((a) => a.includes('/tmp/ssh-agent.sock'));
     expect(vol).toBeDefined();
     expect(vol).toMatch(/:z$/);
+  });
+});
+
+describe('sandbox tty allocation heuristic', () => {
+  const setStdinIsTty = (value: boolean | undefined): void => {
+    Object.defineProperty(process.stdin, 'isTTY', {
+      configurable: true,
+      value,
+    });
+  };
+
+  const setStdoutIsTty = (value: boolean | undefined): void => {
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value,
+    });
+  };
+
+  let originalStdinIsTty: boolean | undefined;
+  let originalStdoutIsTty: boolean | undefined;
+
+  beforeEach(() => {
+    originalStdinIsTty = process.stdin.isTTY;
+    originalStdoutIsTty = process.stdout.isTTY;
+  });
+
+  afterEach(() => {
+    setStdinIsTty(originalStdinIsTty);
+    setStdoutIsTty(originalStdoutIsTty);
+  });
+
+  it('allocates tty when stdin/stdout are undefined but TERM indicates interactive shell', () => {
+    setStdinIsTty(undefined);
+    setStdoutIsTty(undefined);
+
+    const hasParentTty = shouldAllocateSandboxTty({ TERM: 'xterm-256color' });
+
+    expect(hasParentTty).toBe(true);
+  });
+
+  it('does not allocate tty for non-interactive CI environments based on TERM alone', () => {
+    setStdinIsTty(undefined);
+    setStdoutIsTty(undefined);
+
+    const hasParentTty = shouldAllocateSandboxTty({
+      TERM: 'xterm-256color',
+      CI: 'true',
+    });
+
+    expect(hasParentTty).toBe(false);
   });
 });

@@ -291,6 +291,7 @@ function* emitKeys(
     let shift = false;
     let meta = false;
     let ctrl = false;
+    let insertable = false;
     let code = undefined;
 
     if (ch === ESC) {
@@ -535,6 +536,7 @@ function* emitKeys(
     } else if (ch === ' ') {
       name = 'space';
       meta = escaped;
+      insertable = true;
     } else if (!escaped && ch <= '\x1a') {
       // ctrl+letter
       name = String.fromCharCode(ch.charCodeAt(0) + 'a'.charCodeAt(0) - 1);
@@ -544,6 +546,7 @@ function* emitKeys(
       name = ch.toLowerCase();
       shift = /^[A-Z]$/.exec(ch) !== null;
       meta = escaped;
+      insertable = true;
     } else if (MAC_ALT_KEY_CHARACTER_MAP[ch]) {
       // Note: we do this even if we are not on Mac, because mac users may
       // remotely connect to non-Mac systems.
@@ -568,14 +571,15 @@ function* emitKeys(
       // Escape sequence timeout
       name = ch.length ? undefined : 'escape';
       meta = true;
+    } else {
+      // Any other character is considered printable.
+      insertable = true;
     }
 
     if (
       (sequence.length !== 0 && (name !== undefined || escaped)) ||
       charLengthAt(sequence, 0) === sequence.length
     ) {
-      // insertable is true for regular printable characters (no name, no ctrl/meta)
-      const insertable = !name && !ctrl && !meta && sequence.length > 0;
       keypressHandler({
         name: name || '',
         shift,

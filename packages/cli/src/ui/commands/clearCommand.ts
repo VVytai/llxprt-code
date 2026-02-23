@@ -4,7 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GeminiClient, uiTelemetryService } from '@vybestack/llxprt-code-core';
+import {
+  GeminiClient,
+  uiTelemetryService,
+  triggerSessionEndHook,
+  triggerSessionStartHook,
+  SessionEndReason,
+  SessionStartSource,
+} from '@vybestack/llxprt-code-core';
 import { CommandKind, SlashCommand, type CommandContext } from './types.js';
 import { getCliRuntimeServices } from '../../runtime/runtimeSettings.js';
 
@@ -32,7 +39,32 @@ export const clearCommand: SlashCommand = {
 
     if (geminiClient) {
       context.ui.setDebugMessage('Clearing terminal and resetting chat.');
+
+      // Trigger SessionEnd hook before clearing (fail-open)
+      if (context.services.config) {
+        try {
+          await triggerSessionEndHook(
+            context.services.config,
+            SessionEndReason.Clear,
+          );
+        } catch {
+          // Hooks are fail-open - continue even if hook fails
+        }
+      }
+
       await geminiClient.resetChat();
+
+      // Trigger SessionStart hook after clearing (fail-open)
+      if (context.services.config) {
+        try {
+          await triggerSessionStartHook(
+            context.services.config,
+            SessionStartSource.Clear,
+          );
+        } catch {
+          // Hooks are fail-open - continue even if hook fails
+        }
+      }
     } else {
       context.ui.setDebugMessage('Clearing terminal.');
     }
