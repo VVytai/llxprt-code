@@ -40,7 +40,7 @@ describe('Provider alias integration', () => {
 
     const aliasConfig = {
       baseProvider: 'openai',
-      baseUrl: 'https://myotherprovider.com:123/v1/',
+      'base-url': 'https://myotherprovider.com:123/v1/',
       defaultModel: 'my-test-model',
       description: 'Test alias config',
     };

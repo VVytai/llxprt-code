@@ -659,12 +659,16 @@ describe('git extension helpers', () => {
       const { downloadFile } = await import('./github.js');
       const destPath = path.join(tempDir, 'test-file.tar.gz');
 
+      // Pre-create the file to simulate a partial download in progress
+      await fs.writeFile(destPath, 'partial data');
+
       // Mock https.get to return a response that errors mid-stream
       mockHttpsGet.mockImplementation((_url, _options, callback) => {
         const events: Record<string, (error: Error) => void> = {};
         const response = {
           statusCode: 200,
           headers: {},
+          destroy: vi.fn(),
           on: vi
             .fn()
             .mockImplementation(

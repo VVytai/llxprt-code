@@ -1252,10 +1252,12 @@ export const useGeminiStream = (
 
       // Display user message IMMEDIATELY for string queries (not continuations)
       // This ensures the user sees their input right away, before any async processing
+      // Skip slash commands - slashCommandProcessor handles adding those (with sanitization for secure commands)
       if (
         typeof query === 'string' &&
         query.trim().length > 0 &&
-        !options?.isContinuation
+        !options?.isContinuation &&
+        !isSlashCommand(query.trim())
       ) {
         const trimmedQuery = query.trim();
         addItem(
@@ -1306,9 +1308,9 @@ export const useGeminiStream = (
         setThought(null); // Reset thought when starting a new prompt
         // @plan:PLAN-20251202-THINKING-UI.P08
         thinkingBlocksRef.current = [];
-        // Reset bucket failover session tracking so this user turn can try all buckets fresh.
-        // This should only happen on new user turns, not on continuations (tool call responses).
-        config.getBucketFailoverHandler?.()?.resetSession?.();
+        // Reset bucket failover handler for this new user turn so all buckets are tried fresh,
+        // starting from the primary (first) bucket in the profile.
+        config.getBucketFailoverHandler?.()?.reset?.();
       }
 
       setIsResponding(true);

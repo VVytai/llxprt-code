@@ -1,317 +1,70 @@
-# MCP servers with the LLxprt Code
+# MCP Servers
 
-This document provides a guide to configuring and using Model Context Protocol (MCP) servers with the LLxprt Code.
+MCP (Model Context Protocol) servers add third-party tools to LLxprt Code. They let you connect to external services, databases, APIs, or custom tooling that goes beyond the built-in tools.
 
-## What is an MCP server?
+## Adding an MCP Server
 
-An MCP server is an application that exposes tools and resources to the LLxprt Code through the Model Context Protocol, allowing it to interact with external systems and data sources. MCP servers act as a bridge between the Gemini model and your local environment or other services like APIs.
-
-An MCP server enables the LLxprt Code to:
-
-- **Discover tools:** List available tools, their descriptions, and parameters through standardized schema definitions.
-- **Execute tools:** Call specific tools with defined arguments and receive structured responses.
-- **Access resources:** Read data from specific resources (though the LLxprt Code primarily focuses on tool execution).
-
-With an MCP server, you can extend the LLxprt Code's capabilities to perform actions beyond its built-in features, such as interacting with databases, APIs, custom scripts, or specialized workflows.
-
-## Core Integration Architecture
-
-The LLxprt Code integrates with MCP servers through a sophisticated discovery and execution system built into the core package (`packages/core/src/tools/`):
-
-### Discovery Layer (`mcp-client.ts`)
-
-The discovery process is orchestrated by `discoverMcpTools()`, which:
-
-1. **Iterates through configured servers** from your `settings.json` `mcpServers` configuration
-2. **Establishes connections** using appropriate transport mechanisms (Stdio, SSE, or Streamable HTTP)
-3. **Fetches tool definitions** from each server using the MCP protocol
-4. **Sanitizes and validates** tool schemas for compatibility with the Gemini API
-5. **Registers tools** in the global tool registry with conflict resolution
-
-### Execution Layer (`mcp-tool.ts`)
-
-Each discovered MCP tool is wrapped in a `DiscoveredMCPTool` instance that:
-
-- **Handles confirmation logic** based on server trust settings and user preferences
-- **Manages tool execution** by calling the MCP server with proper parameters
-- **Processes responses** for both the LLM context and user display
-- **Maintains connection state** and handles timeouts
-
-### Transport Mechanisms
-
-The LLxprt Code supports three MCP transport types:
-
-- **Stdio Transport:** Spawns a subprocess and communicates via stdin/stdout
-- **SSE Transport:** Connects to Server-Sent Events endpoints
-- **Streamable HTTP Transport:** Uses HTTP streaming for communication
-
-## How to set up your MCP server
-
-The LLxprt Code uses the `mcpServers` configuration in your `settings.json` file to locate and connect to MCP servers. This configuration supports multiple servers with different transport mechanisms.
-
-### Configure the MCP server in settings.json
-
-You can configure MCP servers in your `settings.json` file in two main ways: through the top-level `mcpServers` object for specific server definitions, and through the `mcp` object for global settings that control server discovery and execution.
-
-You can configure MCP servers at the global level in the `~/.llxprt/settings.json` file or in your project's root directory, create or open the `.llxprt/settings.json` file. Within the file, add the configuration blocks.
-
-#### Global MCP Settings (`mcp`)
-
-The `mcp` object in your `settings.json` allows you to define global rules for all MCP servers.
-
-- **`mcp.serverCommand`** (string): A global command to start an MCP server.
-- **`mcp.allowed`** (array of strings): A list of MCP server names to allow. If this is set, only servers from this list (matching the keys in the `mcpServers` object) will be connected to.
-- **`mcp.excluded`** (array of strings): A list of MCP server names to exclude. Servers in this list will not be connected to.
-
-**Example:**
-
-```json
-{
-  "mcp": {
-    "allowed": ["my-trusted-server"],
-    "excluded": ["experimental-server"]
-  }
-}
-```
-
-#### Server-Specific Configuration (`mcpServers`)
-
-The `mcpServers` object is where you define each individual MCP server you want the CLI to connect to.
-
-### Configuration Structure
-
-Add an `mcpServers` object to your `settings.json` file:
-
-```json
-{ ...file contains other config objects
-  "mcpServers": {
-    "serverName": {
-      "command": "path/to/server",
-      "args": ["--arg1", "value1"],
-      "env": {
-        "API_KEY": "$MY_API_TOKEN"
-      },
-      "cwd": "./server-directory",
-      "timeout": 30000,
-      "trust": false
-    }
-  }
-}
-```
-
-### Configuration Properties
-
-Each server configuration supports the following properties:
-
-#### Required (one of the following)
-
-- **`command`** (string): Path to the executable for Stdio transport
-- **`url`** (string): SSE endpoint URL (e.g., `"http://localhost:8080/sse"`)
-- **`httpUrl`** (string): HTTP streaming endpoint URL
-
-#### Optional
-
-- **`args`** (string[]): Command-line arguments for Stdio transport
-- **`headers`** (object): Custom HTTP headers when using `url` or `httpUrl`
-- **`env`** (object): Environment variables for the server process. Values can reference environment variables using `$VAR_NAME` or `${VAR_NAME}` syntax
-- **`cwd`** (string): Working directory for Stdio transport
-- **`timeout`** (number): Request timeout in milliseconds (default: 600,000ms = 10 minutes)
-- **`trust`** (boolean): When `true`, bypasses all tool call confirmations for this server (default: `false`)
-- **`includeTools`** (string[]): List of tool names to include from this MCP server. When specified, only the tools listed here will be available from this server (allowlist behavior). If not specified, all tools from the server are enabled by default.
-- **`excludeTools`** (string[]): List of tool names to exclude from this MCP server. Tools listed here will not be available to the model, even if they are exposed by the server. **Note:** `excludeTools` takes precedence over `includeTools` - if a tool is in both lists, it will be excluded.
-- **`targetAudience`** (string): The OAuth Client ID allowlisted on the IAP-protected application you are trying to access. Used with `authProviderType: 'service_account_impersonation'`.
-- **`targetServiceAccount`** (string): The email address of the Google Cloud Service Account to impersonate. Used with `authProviderType: 'service_account_impersonation'`.
-
-### OAuth Support for Remote MCP Servers
-
-The LLxprt Code supports OAuth 2.0 authentication for remote MCP servers using SSE or HTTP transports. This enables secure access to MCP servers that require authentication.
-
-#### Automatic OAuth Discovery
-
-For servers that support OAuth discovery, you can omit the OAuth configuration and let the CLI discover it automatically:
-
-```json
-{
-  "mcpServers": {
-    "discoveredServer": {
-      "url": "https://api.example.com/sse"
-    }
-  }
-}
-```
-
-The CLI will automatically:
-
-- Detect when a server requires OAuth authentication (401 responses)
-- Discover OAuth endpoints from server metadata
-- Perform dynamic client registration if supported
-- Handle the OAuth flow and token management
-
-#### Authentication Flow
-
-When connecting to an OAuth-enabled server:
-
-1. **Initial connection attempt** fails with 401 Unauthorized
-2. **OAuth discovery** finds authorization and token endpoints
-3. **Browser opens** for user authentication (requires local browser access)
-4. **Authorization code** is exchanged for access tokens
-5. **Tokens are stored** securely for future use
-6. **Connection retry** succeeds with valid tokens
-
-#### Browser Redirect Requirements
-
-**Important:** OAuth authentication requires that your local machine can:
-
-- Open a web browser for authentication
-- Receive redirects on `http://localhost:7777/oauth/callback`
-
-This feature will not work in:
-
-- Headless environments without browser access
-- Remote SSH sessions without X11 forwarding
-- Containerized environments without browser support
-
-#### Managing OAuth Authentication
-
-Use the `/mcp auth` command to manage OAuth authentication:
+### Via CLI
 
 ```bash
-# List servers requiring authentication
-/mcp auth
-
-# Authenticate with a specific server
-/mcp auth serverName
-
-# Re-authenticate if tokens expire
-/mcp auth serverName
+llxprt mcp add my-server -- npx -y @example/mcp-server
 ```
 
-#### OAuth Configuration Properties
+This adds the server to your `~/.llxprt/settings.json` automatically.
 
-- **`enabled`** (boolean): Enable OAuth for this server
-- **`clientId`** (string): OAuth client identifier (optional with dynamic registration)
-- **`clientSecret`** (string): OAuth client secret (optional for public clients)
-- **`authorizationUrl`** (string): OAuth authorization endpoint (auto-discovered if omitted)
-- **`tokenUrl`** (string): OAuth token endpoint (auto-discovered if omitted)
-- **`scopes`** (string[]): Required OAuth scopes
-- **`redirectUri`** (string): Custom redirect URI (defaults to `http://localhost:7777/oauth/callback`)
-- **`tokenParamName`** (string): Query parameter name for tokens in SSE URLs
-- **`audiences`** (string[]): Audiences the token is valid for
+### Via settings.json
 
-#### Token Management
-
-OAuth tokens are automatically:
-
-- **Stored securely** in `~/.gemini/mcp-oauth-tokens.json`
-- **Refreshed** when expired (if refresh tokens are available)
-- **Validated** before each connection attempt
-- **Cleaned up** when invalid or expired
-
-#### Authentication Provider Type
-
-You can specify the authentication provider type using the `authProviderType` property:
-
-- **`authProviderType`** (string): Specifies the authentication provider. Can be one of the following:
-  - **`dynamic_discovery`** (default): The CLI will automatically discover the OAuth configuration from the server.
-  - **`google_credentials`**: The CLI will use the Google Application Default Credentials (ADC) to authenticate with the server. When using this provider, you must specify the required scopes.
-  - **`service_account_impersonation`**: The CLI will impersonate a Google Cloud Service Account to authenticate with the server. This is useful for accessing IAP-protected services (this was specifically designed for Cloud Run services).
-
-#### Google Credentials
+Add entries under `mcpServers`:
 
 ```json
 {
   "mcpServers": {
-    "googleCloudServer": {
-      "httpUrl": "https://my-gcp-service.run.app/mcp",
-      "authProviderType": "google_credentials",
-      "oauth": {
-        "scopes": ["https://www.googleapis.com/auth/userinfo.email"]
+    "my-server": {
+      "command": "npx",
+      "args": ["-y", "@example/mcp-server"],
+      "env": {
+        "API_KEY": "your-key"
       }
     }
   }
 }
 ```
 
-#### Service Account Impersonation
+### Transport Types
 
-To authenticate with a server using Service Account Impersonation, you must set the `authProviderType` to `service_account_impersonation` and provide the following properties:
-
-- **`targetAudience`** (string): The OAuth Client ID allowslisted on the IAP-protected application you are trying to access.
-- **`targetServiceAccount`** (string): The email address of the Google Cloud Service Account to impersonate.
-
-The CLI will use your local Application Default Credentials (ADC) to generate an OIDC ID token for the specified service account and audience. This token will then be used to authenticate with the MCP server.
-
-#### Setup Instructions
-
-1. **[Create](https://cloud.google.com/iap/docs/oauth-client-creation) or use an existing OAuth 2.0 client ID.** To use an existing OAuth 2.0 client ID, follow the steps in [How to share OAuth Clients](https://cloud.google.com/iap/docs/sharing-oauth-clients).
-2. **Add the OAuth ID to the allowlist for [programmatic access](https://cloud.google.com/iap/docs/sharing-oauth-clients#programmatic_access) for the application.** Since Cloud Run is not yet a supported resource type in gcloud iap, you must allowlist the Client ID on the project.
-3. **Create a service account.** [Documentation](https://cloud.google.com/iam/docs/service-accounts-create#creating), [Cloud Console Link](https://console.cloud.google.com/iam-admin/serviceaccounts)
-4. **Add both the service account and users to the IAP Policy** in the "Security" tab of the Cloud Run service itself or via gcloud.
-5. **Grant all users and groups** who will access the MCP Server the necessary permissions to [impersonate the service account](https://cloud.google.com/docs/authentication/use-service-account-impersonation) (i.e., `roles/iam.serviceAccountTokenCreator`).
-6. **[Enable](https://console.cloud.google.com/apis/library/iamcredentials.googleapis.com) the IAM Credentials API** for your project.
-
-### Example Configurations
-
-#### Python MCP Server (Stdio)
+**stdio** (default) — runs a local process:
 
 ```json
 {
-  "mcpServers": {
-    "pythonTools": {
-      "command": "python",
-      "args": ["-m", "my_mcp_server", "--port", "8080"],
-      "cwd": "./mcp-servers/python",
-      "env": {
-        "DATABASE_URL": "$DB_CONNECTION_STRING",
-        "API_KEY": "${EXTERNAL_API_KEY}"
-      },
-      "timeout": 15000
-    }
+  "my-server": {
+    "command": "npx",
+    "args": ["-y", "@example/mcp-server"]
   }
 }
 ```
 
-#### Node.js MCP Server (Stdio)
+**SSE** — connects to a remote HTTP server:
 
 ```json
 {
-  "mcpServers": {
-    "nodeServer": {
-      "command": "node",
-      "args": ["dist/server.js", "--verbose"],
-      "cwd": "./mcp-servers/node",
-      "trust": true
-    }
+  "my-remote": {
+    "url": "https://mcp.example.com/sse"
   }
 }
 ```
 
-#### Docker-based MCP Server
+**Streamable HTTP** — modern HTTP transport:
 
 ```json
 {
-  "mcpServers": {
-    "dockerizedServer": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "API_KEY",
-        "-v",
-        "${PWD}:/workspace",
-        "my-mcp-server:latest"
-      ],
-      "env": {
-        "API_KEY": "$EXTERNAL_SERVICE_TOKEN"
-      }
-    }
+  "my-http": {
+    "url": "https://mcp.example.com/mcp",
+    "transport": "streamable-http"
   }
 }
 ```
 
-#### HTTP-based MCP Server
+## Managing Servers
 
 ```json
 {
@@ -883,33 +636,93 @@ To view all MCP servers currently configured, use the `list` command. It display
 llxprt mcp list
 ```
 
-**Example Output:**
+Or during a session:
 
-```sh
-✓ stdio-server: command: python3 server.py (stdio) - Connected
-✓ http-server: https://api.example.com/mcp (http) - Connected
-✗ sse-server: https://api.example.com/sse (sse) - Disconnected
+```
+/mcp
 ```
 
-### Removing a Server (`llxprt mcp remove`)
+This shows all configured servers, their connection status, and the tools they provide.
 
-To delete a server from your configuration, use the `remove` command with the server's name.
-
-**Command:**
-
-```bash
-llxprt mcp remove <name>
-```
-
-**Options (Flags):**
-
-- `-s, --scope`: Configuration scope (user or project). [default: "project"]
-
-**Example:**
+### Remove a Server
 
 ```bash
 llxprt mcp remove my-server
 ```
 
-This will find and delete the "my-server" entry from the `mcpServers` object in the appropriate `settings.json` file based on the scope (`-s, --scope`).
-EOF < /dev/null
+### Check Status
+
+```
+/mcp
+```
+
+Shows connection states: `connected`, `connecting`, `failed`, `not_started`.
+
+## OAuth Authentication
+
+Remote MCP servers that require OAuth are supported. When connecting, LLxprt Code handles the OAuth flow automatically:
+
+1. Server responds with a `401` and OAuth metadata
+2. LLxprt Code opens your browser for authentication
+3. Token is stored and refreshed automatically
+
+You can pre-configure OAuth:
+
+```json
+{
+  "my-oauth-server": {
+    "url": "https://mcp.example.com/sse",
+    "oauthClientId": "your-client-id",
+    "oauthAuthorizationUrl": "https://auth.example.com/authorize",
+    "oauthTokenUrl": "https://auth.example.com/token",
+    "oauthScopes": ["read", "write"]
+  }
+}
+```
+
+If `auth.noBrowser` is set, the flow falls back to a manual code-entry mode.
+
+## MCP Prompts as Slash Commands
+
+MCP servers can define **prompts** — reusable templates that appear as `/` commands in LLxprt Code:
+
+```
+/my-server:analyze-code --language typescript --focus performance
+```
+
+Use `/help` to see available MCP prompts alongside built-in commands.
+
+## Sandboxing
+
+When running in a [sandbox](../sandbox.md), MCP servers must be available **inside the container**. If your server uses `npx`, the npm package must be installable within the sandbox environment.
+
+## Common Issues
+
+**Server won't connect:**
+
+- Check the command path exists and is executable
+- For stdio servers, try running the command manually to see errors
+- Check `LLXPRT_DEBUG=llxprt:mcp:*` for detailed connection logs
+
+**Tools not appearing:**
+
+- Run `/mcp` to check if the server is connected
+- The server may need time to start — tools appear after connection is established
+- If tool names conflict with built-in tools, the built-in tool takes precedence
+
+**OAuth failures:**
+
+- Ensure the OAuth URLs and client ID are correct
+- Check if the server's OAuth flow requires specific scopes
+- Try removing cached tokens: check the token storage in your OS-standard data directory
+
+**Environment variables not reaching the server:**
+
+- Variables in the `env` block are passed to the server process
+- They don't inherit from your shell unless explicitly listed
+
+## Related
+
+- [Tools](./index.md) — all built-in tools
+- [Sandboxing](../sandbox.md) — running in a container
+- [Settings](../settings-and-profiles.md) — where MCP config lives

@@ -10,11 +10,9 @@ import {
   getPassthroughEnvVars,
   mountGitConfigFiles,
   setupSshAgentLinux,
-  getProfileScopedCredentialAllowlist,
   isSandboxDebugModeEnabled,
   shouldAllocateSandboxTty,
 } from './sandbox.js';
-import { Config } from '@vybestack/llxprt-code-core';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -433,46 +431,6 @@ describe('mountGitConfigFiles', () => {
     expect(vol).toMatch(/:ro$/);
   });
 });
-
-describe('getProfileScopedCredentialAllowlist', () => {
-  it('returns scoped provider when config has active provider', () => {
-    const config = {
-      getProvider: () => 'anthropic',
-      getBucketFailoverHandler: () => undefined,
-    } as unknown as Config;
-
-    expect(getProfileScopedCredentialAllowlist(config)).toEqual({
-      allowedProviders: ['anthropic'],
-      allowedBuckets: undefined,
-    });
-  });
-
-  it('returns provider and deduplicated buckets when failover handler is enabled', () => {
-    const config = {
-      getProvider: () => 'anthropic',
-      getBucketFailoverHandler: () => ({
-        isEnabled: () => true,
-        getBuckets: () => ['default', 'work', 'default', '  work  '],
-      }),
-    } as unknown as Config;
-
-    expect(getProfileScopedCredentialAllowlist(config)).toEqual({
-      allowedProviders: ['anthropic'],
-      allowedBuckets: ['default', 'work'],
-    });
-  });
-
-  it('returns empty allowlist when provider is unavailable', () => {
-    const config = {
-      getProvider: () => undefined,
-      getBucketFailoverHandler: () => undefined,
-    } as unknown as Config;
-
-    expect(getProfileScopedCredentialAllowlist(config)).toEqual({});
-  });
-});
-
-// --- Fix 4: SSH Agent Forwarding (R4-R7) ---
 
 describe('setupSshAgentLinux', () => {
   it('mounts host socket for docker (R5.1)', () => {

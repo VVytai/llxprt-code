@@ -1743,11 +1743,9 @@ export async function switchActiveProvider(
     aliasConfig = undefined;
   }
   const storedModelSetting = normalizeSetting(providerSettingsBefore.model);
-  const storedBaseUrlSetting =
-    normalizeSetting(providerSettingsBefore.baseUrl) ??
-    normalizeSetting(
-      (providerSettingsBefore as Record<string, unknown>).baseURL,
-    );
+  const storedBaseUrlSetting = normalizeSetting(
+    providerSettingsBefore['base-url'],
+  );
   const hadCustomBaseUrl = Boolean(storedBaseUrlSetting);
   const explicitConfigModel =
     currentProvider === name
@@ -1806,41 +1804,6 @@ export async function switchActiveProvider(
       : undefined) ??
     defaultModel ??
     '';
-
-  let availableModels: HydratedModel[] = [];
-  if (typeof providerManager.getAvailableModels === 'function') {
-    try {
-      availableModels = (await providerManager.getAvailableModels(name)) ?? [];
-    } catch (error) {
-      logger.debug(
-        () =>
-          `[cli-runtime] Failed to list models for provider '${name}': ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-      );
-    }
-  }
-
-  const firstAvailableModelId = (() => {
-    for (const model of availableModels) {
-      if (typeof model?.id === 'string' && model.id.trim() !== '') {
-        return model.id.trim();
-      }
-      if (typeof model?.name === 'string' && model.name.trim() !== '') {
-        return model.name.trim();
-      }
-    }
-    return undefined;
-  })();
-
-  let autoSelectedModel: string | undefined;
-
-  if (!modelToApply || modelToApply.trim() === '') {
-    if (firstAvailableModelId) {
-      modelToApply = firstAvailableModelId;
-      autoSelectedModel = firstAvailableModelId;
-    }
-  }
 
   modelToApply = modelToApply?.trim() ?? '';
 
@@ -2052,11 +2015,7 @@ export async function switchActiveProvider(
     );
   }
 
-  if (autoSelectedModel) {
-    infoMessages.push(
-      `Model set to '${autoSelectedModel}' for provider '${name}'.`,
-    );
-  } else if (modelToApply) {
+  if (modelToApply) {
     infoMessages.push(
       `Active model is '${modelToApply}' for provider '${name}'.`,
     );
