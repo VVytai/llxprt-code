@@ -37,10 +37,19 @@ export async function getExtensionAndConfig(name: string): Promise<{
     return { extension: null, extensionConfig: null };
   }
 
-  const extensionConfig = await loadExtensionConfig({
-    extensionDir: extension.path,
-    workspaceDir: process.cwd(),
-  });
+  let extensionConfig: ExtensionConfig | null;
+  try {
+    extensionConfig = await loadExtensionConfig({
+      extensionDir: extension.path,
+      workspaceDir: process.cwd(),
+    });
+  } catch (error) {
+    debugLogger.error(
+      `Could not load configuration for extension "${name}".`,
+      error,
+    );
+    return { extension: null, extensionConfig: null };
+  }
 
   if (!extensionConfig) {
     debugLogger.error(`Could not load configuration for extension "${name}".`);

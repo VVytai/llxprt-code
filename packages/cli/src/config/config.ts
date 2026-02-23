@@ -630,6 +630,11 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
     process.exit(0);
   }
 
+  if (result._ && result._.length > 0 && result._[0] === 'hooks') {
+    // A hooks subcommand was executed (like 'hooks list'), exit cleanly
+    process.exit(0);
+  }
+
   if (
     result._ &&
     result._.length > 0 &&

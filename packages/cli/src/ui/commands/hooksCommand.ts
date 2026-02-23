@@ -206,6 +206,7 @@ async function completeHookNames(
     return [];
   }
 
+  await hookSystem.initialize();
   const hookRegistry = hookSystem.getRegistry();
   const hookNames = hookRegistry
     .getAllHooks()

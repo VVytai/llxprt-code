@@ -723,6 +723,10 @@ describe('InputPrompt', () => {
 
     const suggestion = { label: 'about', value: 'about' };
 
+    mockCommandCompletion.handleAutocomplete = vi
+      .fn()
+      .mockReturnValue('/about ');
+
     mockedUseCommandCompletion.mockReturnValue({
       ...mockCommandCompletion,
       showSuggestions: true,
@@ -738,13 +742,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/ab'];
     props.buffer.cursor = [0, 3];
 
-    mockCommandCompletion.handleAutocomplete = vi
-      .fn()
-      .mockReturnValue('/about ');
-
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\r'); // Enter
@@ -782,9 +780,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/sh'];
     props.buffer.cursor = [0, 3];
 
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\r'); // Enter
@@ -822,9 +818,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/ab'];
     props.buffer.cursor = [0, 3];
 
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\t'); // Tab
@@ -861,9 +855,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/find'];
     props.buffer.cursor = [0, 5];
 
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\r'); // Enter
@@ -906,9 +898,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/mcp auth '];
     props.buffer.cursor = [0, 10];
 
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\r'); // Enter
@@ -950,9 +940,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/extensions enable '];
     props.buffer.cursor = [0, 19];
 
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\r'); // Enter
@@ -991,9 +979,7 @@ describe('InputPrompt', () => {
     props.buffer.lines = ['/chat resu'];
     props.buffer.cursor = [0, 10];
 
-    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />, {
-      uiActions,
-    });
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
 
     await act(async () => {
       stdin.write('\r'); // Enter

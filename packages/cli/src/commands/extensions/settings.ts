@@ -5,7 +5,7 @@
  */
 
 import { type CommandModule } from 'yargs';
-import { DebugLogger } from '@vybestack/llxprt-code-core';
+
 import { getExtensionAndConfig } from './utils.js';
 import {
   getEnvContents,
@@ -13,8 +13,6 @@ import {
   ExtensionSettingScope,
 } from '../../config/extensions/settingsIntegration.js';
 import { exitCli } from '../utils.js';
-
-const debugLogger = DebugLogger.getLogger('llxprt:extensions:settings');
 
 interface SetArgs {
   name: string;
@@ -34,12 +32,6 @@ async function promptForSetting(
   prompt: string,
   sensitive: boolean,
 ): Promise<string> {
-  const readline = await import('node:readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
   if (sensitive && process.stdin.isTTY) {
     // Hide input for sensitive settings
     return new Promise<string>((resolve) => {
@@ -73,6 +65,11 @@ async function promptForSetting(
       stdin.on('data', onData);
     });
   } else {
+    const readline = await import('node:readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
     return new Promise<string>((resolve) => {
       rl.question(prompt, (answer) => {
         rl.close();
@@ -132,14 +129,14 @@ async function handleList(args: ListArgs): Promise<void> {
   );
 
   if (contents.length === 0) {
-    debugLogger.log(`Extension "${args.name}" has no settings.`);
+    console.log(`Extension "${args.name}" has no settings.`);
     return;
   }
 
   const scopeLabel = scope ? ` (${scope} scope)` : ' (merged user + workspace)';
-  debugLogger.log(`Settings for extension "${args.name}"${scopeLabel}:`);
+  console.log(`Settings for extension "${args.name}"${scopeLabel}:`);
   for (const { name, value } of contents) {
-    debugLogger.log(`  ${name}: ${value}`);
+    console.log(`  ${name}: ${value}`);
   }
 }
 

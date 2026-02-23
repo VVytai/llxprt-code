@@ -2428,6 +2428,14 @@ ${trimmed}
    * Get disabled hooks list
    */
   getDisabledHooks(): string[] {
+    if (this.disabledHooks.length === 0) {
+      const persisted = this.settingsService.get('hooks.disabled') as
+        | string[]
+        | undefined;
+      if (persisted && persisted.length > 0) {
+        this.disabledHooks = persisted;
+      }
+    }
     return this.disabledHooks;
   }
 

@@ -180,7 +180,7 @@ export class McpClientManager {
               async () => {
                 logger.log('Tools changed, updating Gemini context...');
                 const geminiClient = this.cliConfig.getGeminiClient();
-                if (geminiClient.isInitialized()) {
+                if (geminiClient?.isInitialized()) {
                   await geminiClient.setTools();
                 }
               },

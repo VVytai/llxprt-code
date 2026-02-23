@@ -598,6 +598,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             if (targetIndex < completion.suggestions.length) {
               const isEnterKey = key.name === 'return';
 
+              let handled = false;
               if (isEnterKey && buffer.text.startsWith('/')) {
                 const isArgumentCompletion = completion.isArgumentCompletion;
                 const leafCommand = completion.leafCommand;
@@ -612,6 +613,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                     handleSubmit(completedText.trim());
                     return;
                   }
+                  handled = true;
                 } else if (!isArgumentCompletion) {
                   const command =
                     completion.getCommandFromSuggestion(targetIndex);
@@ -625,11 +627,14 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                       handleSubmit(completedText.trim());
                       return;
                     }
+                    handled = true;
                   }
                 }
               }
 
-              completion.handleAutocomplete(targetIndex);
+              if (!handled) {
+                completion.handleAutocomplete(targetIndex);
+              }
             }
           }
           return;

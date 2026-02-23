@@ -650,9 +650,10 @@ export class Task {
                 await fs.promises.rename(tmpPath, checkpointPath);
 
                 // Set checkpoint on the matching request
+                const checkpointKey = filename.replace(/\.json$/, '');
                 const callId = Array.from(
                   toolCallToCheckpointMap.entries(),
-                ).find(([, fname]) => fname === filename)?.[0];
+                ).find(([, fname]) => fname === checkpointKey)?.[0];
 
                 if (callId) {
                   const request = updatedRequests.find(
