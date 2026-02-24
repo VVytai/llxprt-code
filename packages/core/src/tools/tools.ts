@@ -79,6 +79,13 @@ export interface ToolInvocation<
     setPidCallback?: (pid: number) => void,
   ): Promise<TResult>;
 }
+/**
+ * Options for policy updates that can be customized by tool invocations.
+ */
+export interface PolicyUpdateOptions {
+  commandPrefix?: string;
+  mcpName?: string;
+}
 
 /**
  * A convenience base class for ToolInvocation.
@@ -107,6 +114,40 @@ export abstract class BaseToolInvocation<
    * Tools that require confirmation should override this method.
    * @returns Confirmation details or null if no confirmation needed.
    */
+  /**
+   * Returns tool-specific options for policy updates.
+   * Subclasses can override this to provide additional options like
+   * commandPrefix (for shell) or mcpName (for MCP tools).
+   */
+  protected getPolicyUpdateOptions(
+    _outcome: ToolConfirmationOutcome,
+  ): PolicyUpdateOptions | undefined {
+    return undefined;
+  }
+
+  /**
+   * Helper method to publish a policy update when user selects
+   * ProceedAlways or ProceedAlwaysAndSave.
+   */
+  protected async publishPolicyUpdate(
+    outcome: ToolConfirmationOutcome,
+  ): Promise<void> {
+    if (
+      outcome === ToolConfirmationOutcome.ProceedAlways ||
+      outcome === ToolConfirmationOutcome.ProceedAlwaysAndSave
+    ) {
+      if (this.messageBus && this._toolName) {
+        const options = this.getPolicyUpdateOptions(outcome);
+        await this.messageBus.publish({
+          type: MessageBusType.UPDATE_POLICY,
+          toolName: this._toolName,
+          persist: outcome === ToolConfirmationOutcome.ProceedAlwaysAndSave,
+          ...options,
+        });
+      }
+    }
+  }
+
   protected getConfirmationDetails(): ToolCallConfirmationDetails | null {
     return null;
   }

@@ -67,6 +67,10 @@ export interface ToolExecutionFailure {
 export interface UpdatePolicy {
   type: MessageBusType.UPDATE_POLICY;
   toolName: string;
+  persist?: boolean; // NEW: When true, save to TOML
+  argsPattern?: string; // NEW: Regex pattern for tool args
+  commandPrefix?: string; // NEW: Shell command prefix (e.g., "git status")
+  mcpName?: string; // NEW: MCP server name
 }
 
 /**

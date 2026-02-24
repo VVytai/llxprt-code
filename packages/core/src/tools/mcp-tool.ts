@@ -14,6 +14,7 @@ import {
   type ToolInvocation,
   type ToolMcpConfirmationDetails,
   type ToolResult,
+  type PolicyUpdateOptions,
 } from './tools.js';
 import { type CallableTool, type FunctionCall, type Part } from '@google/genai';
 import { ToolErrorType } from './tool-error.js';
@@ -84,6 +85,12 @@ class DiscoveredMCPToolInvocation extends BaseToolInvocation<
     );
   }
 
+  protected override getPolicyUpdateOptions(
+    _outcome: ToolConfirmationOutcome,
+  ): PolicyUpdateOptions | undefined {
+    return { mcpName: this.serverName };
+  }
+
   override async shouldConfirmExecute(
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
@@ -112,6 +119,9 @@ class DiscoveredMCPToolInvocation extends BaseToolInvocation<
           DiscoveredMCPToolInvocation.allowlist.add(serverAllowListKey);
         } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysTool) {
           DiscoveredMCPToolInvocation.allowlist.add(toolAllowListKey);
+        } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysAndSave) {
+          DiscoveredMCPToolInvocation.allowlist.add(toolAllowListKey);
+          await this.publishPolicyUpdate(outcome);
         }
       },
     };

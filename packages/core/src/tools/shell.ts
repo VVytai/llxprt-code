@@ -28,6 +28,7 @@ import {
   ToolConfirmationOutcome,
   type ToolCallConfirmationDetails,
   Kind,
+  type PolicyUpdateOptions,
 } from './tools.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
 import { ApprovalMode } from '../config/config.js';
@@ -150,6 +151,15 @@ class ShellToolInvocation extends BaseToolInvocation<
     return description;
   }
 
+  protected override getPolicyUpdateOptions(
+    outcome: ToolConfirmationOutcome,
+  ): PolicyUpdateOptions | undefined {
+    if (outcome === ToolConfirmationOutcome.ProceedAlwaysAndSave) {
+      return { commandPrefix: this.params.command };
+    }
+    return undefined;
+  }
+
   override async shouldConfirmExecute(
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
@@ -192,8 +202,8 @@ class ShellToolInvocation extends BaseToolInvocation<
           commandsToConfirm.forEach((command) => {
             this.allowlist.add(command);
           });
-          return;
         }
+        await this.publishPolicyUpdate(outcome);
 
         if (outcome === ToolConfirmationOutcome.SuggestEdit) {
           const editedCommand = payload?.editedCommand?.trim();

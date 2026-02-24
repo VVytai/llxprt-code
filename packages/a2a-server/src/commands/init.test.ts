@@ -120,7 +120,9 @@ describe('InitCommand', () => {
             userMessage: expect.objectContaining({
               parts: expect.arrayContaining([
                 expect.objectContaining({
-                  text: expect.stringContaining('analyze the current directory'),
+                  text: expect.stringContaining(
+                    'analyze the current directory',
+                  ),
                 }),
               ]),
               metadata: {

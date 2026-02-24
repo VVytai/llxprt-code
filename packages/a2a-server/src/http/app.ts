@@ -168,7 +168,9 @@ export async function createApp() {
         }
 
         if (args && !Array.isArray(args)) {
-          return res.status(400).json({ error: '"args" field must be an array.' });
+          return res
+            .status(400)
+            .json({ error: '"args" field must be an array.' });
         }
 
         const commandToExecute = commandRegistry.get(command);
@@ -182,7 +184,9 @@ export async function createApp() {
         }
 
         if (!commandToExecute) {
-          return res.status(404).json({ error: `Command not found: ${command}` });
+          return res
+            .status(404)
+            .json({ error: `Command not found: ${command}` });
         }
 
         if (commandToExecute.streaming) {
@@ -191,7 +195,8 @@ export async function createApp() {
           const eventHandler = (event: AgentExecutionEvent) => {
             const jsonRpcResponse = {
               jsonrpc: '2.0',
-              id: 'taskId' in event ? event.taskId : (event as Message).messageId,
+              id:
+                'taskId' in event ? event.taskId : (event as Message).messageId,
               result: event,
             };
             res.write(`data: ${JSON.stringify(jsonRpcResponse)}

@@ -189,9 +189,7 @@ describe('IDEServer', () => {
     });
 
     it('should log error and continue if directory creation fails', async () => {
-      vi.mocked(fs.mkdir).mockRejectedValueOnce(
-        new Error('Permission denied'),
-      );
+      vi.mocked(fs.mkdir).mockRejectedValueOnce(new Error('Permission denied'));
       vi.mocked(vscode.workspace).workspaceFolders = [
         { uri: { fsPath: '/workspace' } } as unknown as vscode.WorkspaceFolder,
       ];
@@ -242,7 +240,9 @@ describe('IDEServer', () => {
       await ideServer.start(mockContext);
       await ideServer.stop();
 
-      expect(mockContext.environmentVariableCollection.clear).toHaveBeenCalled();
+      expect(
+        mockContext.environmentVariableCollection.clear,
+      ).toHaveBeenCalled();
     });
   });
 

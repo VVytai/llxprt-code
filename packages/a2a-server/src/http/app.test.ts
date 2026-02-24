@@ -57,7 +57,9 @@ const streamToSSEEvents = (
       return JSON.parse(dataLine.substring(6));
     });
 
-function streamToSSEEventsForCommand(data: string): Array<{ result: AgentExecutionEvent }> {
+function streamToSSEEventsForCommand(
+  data: string,
+): Array<{ result: AgentExecutionEvent }> {
   return data
     .split('\n')
     .filter((line) => line.startsWith('data: '))
@@ -907,6 +909,5 @@ describe('E2E Tests', () => {
         expect(res.body).toEqual({ name: 'non-stream-test', data: 'done' });
       });
     });
-
   });
 });

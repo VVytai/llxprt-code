@@ -479,5 +479,4 @@ describe('Task', () => {
       expect(onConfirmSpy).not.toHaveBeenCalled();
     });
   });
-
 });
