@@ -49,4 +49,5 @@ export {
   triggerSessionEndHook,
   triggerBeforeAgentHook,
   triggerAfterAgentHook,
+  triggerPreCompressHook,
 } from '../core/lifecycleHookTriggers.js';

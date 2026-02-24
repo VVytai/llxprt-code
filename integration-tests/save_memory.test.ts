@@ -1,21 +1,17 @@
 /**
  * @license
- * Copyright 2024 Google LLC
+ * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { describe, it, expect } from 'vitest';
-import { join } from 'node:path';
 import { TestRig, printDebugInfo, validateModelOutput } from './test-helper.js';
 
 describe('save_memory', () => {
   it('should be able to save to memory', async () => {
     const rig = new TestRig();
     await rig.setup('should be able to save to memory', {
-      fakeResponsesPath: join(
-        import.meta.dirname,
-        'save-memory.responses.jsonl',
-      ),
+      settings: { tools: { core: ['save_memory'] } },
     });
 
     const prompt = `remember that my favorite color is  blue.

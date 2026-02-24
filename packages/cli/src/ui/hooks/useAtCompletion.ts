@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useReducer, useRef } from 'react';
+import { AsyncFzf } from 'fzf';
 import {
   Config,
   FileSearch,
@@ -92,6 +93,72 @@ function atCompletionReducer(
     default:
       return state;
   }
+}
+
+interface ResourceSuggestionCandidate {
+  searchKey: string;
+  suggestion: Suggestion;
+}
+
+function buildResourceCandidates(
+  config?: Config,
+): ResourceSuggestionCandidate[] {
+  const registry = (
+    config as Config & {
+      getResourceRegistry?: () => {
+        getAllResources: () => Array<{
+          serverName: string;
+          uri: string;
+          name?: string;
+        }>;
+      };
+    }
+  )?.getResourceRegistry?.();
+
+  if (!registry) {
+    return [];
+  }
+
+  return registry
+    .getAllResources()
+    .filter((resource) => Boolean(resource.serverName && resource.uri))
+    .map((resource) => {
+      const prefixedUri = `${resource.serverName}:${resource.uri}`;
+      return {
+        searchKey: `${prefixedUri} ${resource.name ?? ''}`.toLowerCase(),
+        suggestion: {
+          label: prefixedUri,
+          value: prefixedUri,
+        },
+      };
+    });
+}
+
+async function searchResourceCandidates(
+  pattern: string,
+  candidates: ResourceSuggestionCandidate[],
+): Promise<Suggestion[]> {
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  const normalizedPattern = pattern.toLowerCase();
+  if (!normalizedPattern) {
+    return candidates
+      .slice(0, MAX_SUGGESTIONS_TO_SHOW)
+      .map((candidate) => candidate.suggestion);
+  }
+
+  const fzf = new AsyncFzf(candidates, {
+    selector: (candidate: ResourceSuggestionCandidate) => candidate.searchKey,
+  });
+  const results = await fzf.find(normalizedPattern, {
+    limit: MAX_SUGGESTIONS_TO_SHOW * 3,
+  });
+
+  return results.map(
+    (result: { item: ResourceSuggestionCandidate }) => result.item.suggestion,
+  );
 }
 
 export interface UseAtCompletionProps {
@@ -216,11 +283,21 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
           return;
         }
 
-        const suggestions = results.map((p) => ({
+        const fileSuggestions = results.map((p) => ({
           label: p,
           value: escapePath(p),
         }));
-        dispatch({ type: 'SEARCH_SUCCESS', payload: suggestions });
+
+        const resourceCandidates = buildResourceCandidates(config);
+        const resourceSuggestions = await searchResourceCandidates(
+          state.pattern ?? '',
+          resourceCandidates,
+        );
+
+        dispatch({
+          type: 'SEARCH_SUCCESS',
+          payload: [...fileSuggestions, ...resourceSuggestions],
+        });
       } catch (error) {
         if (!(error instanceof Error && error.name === 'AbortError')) {
           dispatch({ type: 'ERROR' });
@@ -229,9 +306,9 @@ export function useAtCompletion(props: UseAtCompletionProps): void {
     };
 
     if (state.status === AtCompletionStatus.INITIALIZING) {
-      initialize();
+      void initialize();
     } else if (state.status === AtCompletionStatus.SEARCHING) {
-      search();
+      void search();
     }
 
     return () => {

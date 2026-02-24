@@ -27,7 +27,7 @@ export const CloudFreePrivacyNotice = ({
 
   const handleSelect = useCallback(
     (value: boolean) => {
-      updateDataCollectionOptIn(value);
+      void updateDataCollectionOptIn(value);
       // Only exit if there was no error.
       if (!privacyState.error) {
         onExit();

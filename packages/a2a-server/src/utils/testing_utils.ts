@@ -64,11 +64,21 @@ export function createMockConfig(
     getEmbeddingModel: vi.fn().mockReturnValue('text-embedding-004'),
     getSessionId: vi.fn().mockReturnValue('test-session-id'),
     getUserTier: vi.fn(),
-    getEnableMessageBusIntegration: vi.fn().mockReturnValue(false),
     getMessageBus: vi.fn().mockReturnValue(defaultMessageBus),
     getPolicyEngine: vi.fn(),
     getEnableExtensionReloading: vi.fn().mockReturnValue(false),
     disposeScheduler: vi.fn(),
+    getCheckpointingEnabled: vi.fn().mockReturnValue(false),
+    getGitService: vi.fn().mockResolvedValue({
+      restoreProjectFromSnapshot: vi.fn().mockResolvedValue(undefined),
+      createFileSnapshot: vi.fn().mockResolvedValue('mock-snapshot-hash'),
+      getCurrentCommitHash: vi.fn().mockResolvedValue('mock-commit-hash'),
+    }),
+    storage: {
+      getProjectTempCheckpointsDir: vi
+        .fn()
+        .mockReturnValue('/tmp/test-checkpoints'),
+    } as unknown as Config['storage'],
     getOrCreateScheduler: vi
       .fn()
       .mockImplementation(

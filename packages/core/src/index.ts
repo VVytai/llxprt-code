@@ -58,6 +58,7 @@ export * from './types/modelParams.js';
 
 // Export Commands logic
 export * from './commands/extensions.js';
+export * from './commands/types.js';
 
 // Export Core Logic
 export * from './core/client.js';
@@ -86,6 +87,7 @@ export * from './utils/shellPathCompletion.js';
 export * from './utils/ripgrepPathResolver.js';
 export * from './utils/schemaValidator.js';
 export * from './utils/errors.js';
+export * from './utils/checkpointUtils.js';
 export * from './utils/output-format.js';
 export * from './utils/exitCodes.js';
 export * from './utils/getFolderStructure.js';
@@ -183,6 +185,9 @@ export * from './tools/tool-names.js';
 
 // Export prompt logic
 export * from './prompts/mcp-prompts.js';
+
+// Export resource registry
+export * from './resources/resource-registry.js';
 
 // Export prompt configuration system
 export * from './prompt-config/prompt-service.js';

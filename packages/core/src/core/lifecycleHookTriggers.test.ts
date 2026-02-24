@@ -18,6 +18,7 @@ import {
   triggerSessionEndHook,
   triggerBeforeAgentHook,
   triggerAfterAgentHook,
+  triggerPreCompressHook,
 } from './lifecycleHookTriggers.js';
 import type { Config } from '../config/config.js';
 import type { HookSystem } from '../hooks/hookSystem.js';
@@ -30,6 +31,7 @@ import {
   SessionEndHookOutput,
   BeforeAgentHookOutput,
   AfterAgentHookOutput,
+  PreCompressTrigger,
 } from '../hooks/types.js';
 
 describe('Lifecycle Hook Triggers', () => {
@@ -46,6 +48,7 @@ describe('Lifecycle Hook Triggers', () => {
       fireSessionEndEvent: vi.fn(),
       fireBeforeAgentEvent: vi.fn(),
       fireAfterAgentEvent: vi.fn(),
+      firePreCompressEvent: vi.fn(),
     } as unknown as HookEventHandler;
 
     // Create mock hook system
@@ -341,6 +344,75 @@ describe('Lifecycle Hook Triggers', () => {
         'prompt',
         'response',
         false,
+      );
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  /**
+   * @plan PLAN-20250219-GMERGE021.R4.P02
+   * @requirement REQ-P02-1
+   */
+  describe('triggerPreCompressHook', () => {
+    it('should return undefined when hooks are disabled', async () => {
+      vi.mocked(mockConfig.getEnableHooks).mockReturnValue(false);
+
+      const result = await triggerPreCompressHook(
+        mockConfig,
+        PreCompressTrigger.Auto,
+      );
+
+      expect(result).toBeUndefined();
+      expect(mockEventHandler.firePreCompressEvent).not.toHaveBeenCalled();
+    });
+
+    it('should return undefined when hook system is not available', async () => {
+      vi.mocked(mockConfig.getHookSystem).mockReturnValue(undefined);
+
+      const result = await triggerPreCompressHook(
+        mockConfig,
+        PreCompressTrigger.Auto,
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should pass trigger value through to firePreCompressEvent', async () => {
+      const mockResult: AggregatedHookResult = {
+        success: true,
+        finalOutput: {
+          continue: true,
+          hookSpecificOutput: {
+            hookEventName: 'PreCompress',
+          },
+        },
+        allOutputs: [],
+        errors: [],
+        totalDuration: 100,
+      };
+      vi.mocked(mockEventHandler.firePreCompressEvent).mockResolvedValue(
+        mockResult,
+      );
+
+      await triggerPreCompressHook(mockConfig, PreCompressTrigger.Manual);
+
+      expect(mockHookSystem.initialize).toHaveBeenCalled();
+      expect(mockEventHandler.firePreCompressEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          trigger: PreCompressTrigger.Manual,
+        }),
+      );
+    });
+
+    it('should return undefined and not throw on hook error (fail-open)', async () => {
+      vi.mocked(mockEventHandler.firePreCompressEvent).mockRejectedValue(
+        new Error('Hook failed'),
+      );
+
+      const result = await triggerPreCompressHook(
+        mockConfig,
+        PreCompressTrigger.Auto,
       );
 
       expect(result).toBeUndefined();

@@ -178,6 +178,7 @@ rpc.on('tools/call', async (params) => {
             args: ['mcp-server.cjs'],
           },
         },
+        tools: { core: [] },
       },
     });
 

@@ -513,6 +513,7 @@ export async function main() {
     });
 
     // Detect and enable Kitty keyboard protocol once at startup.
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     detectAndEnableKittyProtocol();
   }
   if (argv.sessionSummary) {

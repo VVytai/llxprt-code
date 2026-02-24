@@ -393,7 +393,7 @@ describe('FileOutput', () => {
 
     // Write all entries
     for (const entry of entries) {
-      fileOutput.write(entry); // Don't await to allow queueing
+      void fileOutput.write(entry); // Don't await to allow queueing
     }
 
     // Queue should be limited to max size

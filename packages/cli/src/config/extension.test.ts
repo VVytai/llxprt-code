@@ -4,7 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { vi } from 'vitest';
+import {
+  vi,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -733,6 +741,329 @@ describe('extension tests', () => {
     });
   });
 
+  describe('hook schema and validation', () => {
+    it('should reject invalid hook names', async () => {
+      const invalidNames = [
+        '../evil',
+        '',
+        '   ',
+        'hook; rm -rf /',
+        'my hook', // spaces
+        'my\thook', // tabs
+        'my\nhook', // newlines
+      ];
+
+      for (const hookName of invalidNames) {
+        const sourceExtDir = path.join(tempHomeDir, 'bad-hook-name-ext');
+        fs.mkdirSync(sourceExtDir, { recursive: true });
+        const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+        fs.writeFileSync(
+          configPath,
+          JSON.stringify({
+            name: 'bad-hook-name-ext',
+            version: '1.0.0',
+            hooks: {
+              [hookName]: { command: 'echo test' },
+            },
+          }),
+        );
+
+        await expect(
+          installOrUpdateExtension(
+            { source: sourceExtDir, type: 'local' },
+            async (_) => true,
+          ),
+        ).rejects.toThrow();
+
+        fs.rmSync(sourceExtDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should reject reserved keys in hook names', async () => {
+      const reservedKeys = ['__proto__', 'constructor', 'prototype'];
+
+      for (const hookName of reservedKeys) {
+        const sourceExtDir = path.join(tempHomeDir, 'reserved-key-ext');
+        fs.mkdirSync(sourceExtDir, { recursive: true });
+        const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+        fs.writeFileSync(
+          configPath,
+          JSON.stringify({
+            name: 'reserved-key-ext',
+            version: '1.0.0',
+            hooks: {
+              [hookName]: { command: 'echo test' },
+            },
+          }),
+        );
+
+        await expect(
+          installOrUpdateExtension(
+            { source: sourceExtDir, type: 'local' },
+            async (_) => true,
+          ),
+        ).rejects.toThrow();
+
+        fs.rmSync(sourceExtDir, { recursive: true, force: true });
+      }
+    });
+
+    it('should reject non-object hook definitions', async () => {
+      const sourceExtDir = path.join(tempHomeDir, 'non-object-hook-ext');
+      fs.mkdirSync(sourceExtDir, { recursive: true });
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          name: 'non-object-hook-ext',
+          version: '1.0.0',
+          hooks: {
+            'my-hook': 'not-an-object',
+          },
+        }),
+      );
+
+      await expect(
+        installOrUpdateExtension(
+          { source: sourceExtDir, type: 'local' },
+          async (_) => true,
+        ),
+      ).rejects.toThrow();
+
+      fs.rmSync(sourceExtDir, { recursive: true, force: true });
+    });
+
+    it('should reject oversized hook payloads', async () => {
+      const longHookName = 'a'.repeat(129); // > 128 chars
+      const sourceExtDir = path.join(tempHomeDir, 'oversized-hook-ext');
+      fs.mkdirSync(sourceExtDir, { recursive: true });
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          name: 'oversized-hook-ext',
+          version: '1.0.0',
+          hooks: {
+            [longHookName]: { command: 'echo test' },
+          },
+        }),
+      );
+
+      await expect(
+        installOrUpdateExtension(
+          { source: sourceExtDir, type: 'local' },
+          async (_) => true,
+        ),
+      ).rejects.toThrow();
+
+      fs.rmSync(sourceExtDir, { recursive: true, force: true });
+    });
+
+    it('should accept valid hook names and structure', async () => {
+      const sourceExtDir = path.join(tempHomeDir, 'valid-hook-ext');
+      fs.mkdirSync(sourceExtDir, { recursive: true });
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          name: 'valid-hook-ext',
+          version: '1.0.0',
+          hooks: {
+            'pre-commit': { command: 'lint' },
+            'post-install': { command: 'setup' },
+          },
+        }),
+      );
+
+      await expect(
+        installOrUpdateExtension(
+          { source: sourceExtDir, type: 'local' },
+          async (_) => true,
+        ),
+      ).resolves.toBe('valid-hook-ext');
+
+      fs.rmSync(sourceExtDir, { recursive: true, force: true });
+      fs.rmSync(path.join(userExtensionsDir, 'valid-hook-ext'), {
+        recursive: true,
+        force: true,
+      });
+    });
+
+    it('should throw on invalid hooks (hard-fail validation)', async () => {
+      const sourceExtDir = path.join(tempHomeDir, 'invalid-hook-ext');
+      fs.mkdirSync(sourceExtDir, { recursive: true });
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          name: 'invalid-hook-ext',
+          version: '1.0.0',
+          hooks: {
+            '../evil': { command: 'rm -rf /' },
+          },
+        }),
+      );
+
+      // Should throw, not return null or false
+      await expect(
+        installOrUpdateExtension(
+          { source: sourceExtDir, type: 'local' },
+          async (_) => true,
+        ),
+      ).rejects.toThrow();
+
+      fs.rmSync(sourceExtDir, { recursive: true, force: true });
+    });
+  });
+
+  describe('hook lifecycle coverage', () => {
+    it('should prompt for hook consent when hooks exist during install', async () => {
+      const sourceExtDir = createExtension({
+        extensionsDir: tempHomeDir,
+        name: 'hooks-ext',
+        version: '1.0.0',
+      });
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config.hooks = { 'pre-commit': { command: 'lint' } };
+      fs.writeFileSync(configPath, JSON.stringify(config));
+
+      const mockConsent = vi.fn().mockResolvedValue(true);
+
+      await installOrUpdateExtension(
+        { source: sourceExtDir, type: 'local' },
+        mockConsent,
+      );
+
+      // Should have called consent function
+      expect(mockConsent).toHaveBeenCalled();
+
+      fs.rmSync(path.join(userExtensionsDir, 'hooks-ext'), {
+        recursive: true,
+        force: true,
+      });
+    });
+
+    it('should abort install when hook consent declined', async () => {
+      const sourceExtDir = createExtension({
+        extensionsDir: tempHomeDir,
+        name: 'hooks-declined-ext',
+        version: '1.0.0',
+      });
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config.hooks = { 'pre-commit': { command: 'lint' } };
+      fs.writeFileSync(configPath, JSON.stringify(config));
+
+      const mockConsent = vi.fn().mockResolvedValue(false);
+
+      await expect(
+        installOrUpdateExtension(
+          { source: sourceExtDir, type: 'local' },
+          mockConsent,
+        ),
+      ).rejects.toThrow();
+    });
+
+    it('should trigger consent on update with new hooks', async () => {
+      // First install without hooks
+      const sourceExtDir = createExtension({
+        extensionsDir: tempHomeDir,
+        name: 'update-hooks-ext',
+        version: '1.0.0',
+      });
+
+      await installOrUpdateExtension(
+        { source: sourceExtDir, type: 'local' },
+        async (_) => true,
+      );
+
+      // Now add hooks and update
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config.hooks = { 'pre-commit': { command: 'lint' } };
+      fs.writeFileSync(configPath, JSON.stringify(config));
+
+      const mockConsent = vi.fn().mockResolvedValue(true);
+
+      // Update should trigger consent
+      await installOrUpdateExtension(
+        { source: sourceExtDir, type: 'local' },
+        mockConsent,
+        process.cwd(),
+        await import('./extension.js').then((m) =>
+          m.loadExtensionConfig({
+            extensionDir: path.join(userExtensionsDir, 'update-hooks-ext'),
+            workspaceDir: process.cwd(),
+          }),
+        ),
+      );
+
+      expect(mockConsent).toHaveBeenCalled();
+
+      fs.rmSync(path.join(userExtensionsDir, 'update-hooks-ext'), {
+        recursive: true,
+        force: true,
+      });
+    });
+
+    it('should preserve previous version when update declined (rollback)', async () => {
+      // Install version 1.0.0 with no hooks
+      const sourceExtDir = createExtension({
+        extensionsDir: tempHomeDir,
+        name: 'rollback-ext',
+        version: '1.0.0',
+      });
+
+      await installOrUpdateExtension(
+        { source: sourceExtDir, type: 'local' },
+        async (_) => true,
+      );
+
+      // Update config to add hooks and bump version
+      const configPath = path.join(sourceExtDir, EXTENSIONS_CONFIG_FILENAME);
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      config.version = '2.0.0';
+      config.hooks = { 'pre-commit': { command: 'lint' } };
+      fs.writeFileSync(configPath, JSON.stringify(config));
+
+      const mockConsent = vi.fn().mockResolvedValue(false);
+
+      // Update should be declined
+      await expect(
+        installOrUpdateExtension(
+          { source: sourceExtDir, type: 'local' },
+          mockConsent,
+          process.cwd(),
+          await import('./extension.js').then((m) =>
+            m.loadExtensionConfig({
+              extensionDir: path.join(userExtensionsDir, 'rollback-ext'),
+              workspaceDir: process.cwd(),
+            }),
+          ),
+        ),
+      ).rejects.toThrow();
+
+      // Check that version is still 1.0.0
+      const installedConfig = JSON.parse(
+        fs.readFileSync(
+          path.join(
+            userExtensionsDir,
+            'rollback-ext',
+            EXTENSIONS_CONFIG_FILENAME,
+          ),
+          'utf-8',
+        ),
+      );
+      expect(installedConfig.version).toBe('1.0.0');
+
+      fs.rmSync(path.join(userExtensionsDir, 'rollback-ext'), {
+        recursive: true,
+        force: true,
+      });
+    });
+  });
+
   describe('installOrUpdateExtension', () => {
     it('should install an extension from a local path', async () => {
       const sourceExtDir = createExtension({
@@ -826,7 +1157,7 @@ describe('extension tests', () => {
           { source: sourceExtDir, type: 'local' },
           async (_) => true,
         ),
-      ).rejects.toThrow('Invalid configuration');
+      ).rejects.toThrow('Invalid extension');
     });
 
     it('should install an extension from a git URL', async () => {

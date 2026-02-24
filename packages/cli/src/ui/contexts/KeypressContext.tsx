@@ -241,6 +241,7 @@ function bufferPaste(keypressHandler: KeypressHandler): KeypressHandler {
           ctrl: false,
           paste: true,
           sequence: buffer,
+          insertable: false,
         });
       }
     }
@@ -290,6 +291,7 @@ function* emitKeys(
     let shift = false;
     let meta = false;
     let ctrl = false;
+    let insertable = false;
     let code = undefined;
 
     if (ch === ESC) {
@@ -344,6 +346,7 @@ function* emitKeys(
               ctrl: false,
               paste: true,
               sequence: decoded,
+              insertable: false,
             });
           } catch (_e) {
             debugLogger.log('Failed to decode OSC 52 clipboard data');
@@ -533,6 +536,7 @@ function* emitKeys(
     } else if (ch === ' ') {
       name = 'space';
       meta = escaped;
+      insertable = true;
     } else if (!escaped && ch <= '\x1a') {
       // ctrl+letter
       name = String.fromCharCode(ch.charCodeAt(0) + 'a'.charCodeAt(0) - 1);
@@ -542,6 +546,7 @@ function* emitKeys(
       name = ch.toLowerCase();
       shift = /^[A-Z]$/.exec(ch) !== null;
       meta = escaped;
+      insertable = true;
     } else if (MAC_ALT_KEY_CHARACTER_MAP[ch]) {
       // Note: we do this even if we are not on Mac, because mac users may
       // remotely connect to non-Mac systems.
@@ -560,11 +565,15 @@ function* emitKeys(
         ctrl,
         paste: false,
         sequence: ESC,
+        insertable: false,
       });
     } else if (escaped) {
       // Escape sequence timeout
       name = ch.length ? undefined : 'escape';
       meta = true;
+    } else {
+      // Any other character is considered printable.
+      insertable = true;
     }
 
     if (
@@ -578,6 +587,7 @@ function* emitKeys(
         ctrl,
         paste: false,
         sequence,
+        insertable,
       });
     }
     // Unrecognized or broken escape sequence, don't emit anything
@@ -591,6 +601,7 @@ export interface Key {
   shift: boolean;
   paste: boolean;
   sequence: string;
+  insertable?: boolean;
 }
 
 export type KeypressHandler = (key: Key) => void;
@@ -669,7 +680,13 @@ export function KeypressProvider({
           const seq = dragBuffer;
           dragBuffer = '';
           if (seq) {
-            broadcast({ ...key, name: '', paste: true, sequence: seq });
+            broadcast({
+              ...key,
+              name: '',
+              paste: true,
+              sequence: seq,
+              insertable: false,
+            });
           }
         }, DRAG_COMPLETION_TIMEOUT_MS);
 
@@ -702,6 +719,7 @@ export function KeypressProvider({
           shift: false,
           paste: true,
           sequence: dragBuffer,
+          insertable: false,
         });
         dragBuffer = '';
       }

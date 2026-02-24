@@ -32,6 +32,7 @@ import { Config } from '@vybestack/llxprt-code-core';
 import type { SlashCommand } from '../commands/types.js';
 import { ChatList } from './views/ChatList.js';
 import { ExtensionsList } from './views/ExtensionsList.js';
+import { HooksList } from './views/HooksList.js';
 
 interface HistoryItemDisplayProps {
   item: HistoryItem;
@@ -170,6 +171,9 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
       )}
       {itemForDisplay.type === 'extensions_list' && (
         <ExtensionsList extensions={itemForDisplay.extensions} />
+      )}
+      {itemForDisplay.type === 'hooks_list' && (
+        <HooksList hooks={itemForDisplay.hooks} />
       )}
       {itemForDisplay.type === 'tools_list' && (
         <Box>

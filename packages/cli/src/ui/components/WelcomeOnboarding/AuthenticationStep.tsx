@@ -66,6 +66,7 @@ export const AuthenticationStep: React.FC<AuthenticationStepProps> = ({
       }
 
       if (key.name === 'return') {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleApiKeySubmit();
         return;
       }

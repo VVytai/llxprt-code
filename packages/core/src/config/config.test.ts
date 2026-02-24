@@ -28,6 +28,7 @@ import {
 } from '../core/contentGenerator.js';
 import { GeminiClient } from '../core/client.js';
 import { GitService } from '../services/gitService.js';
+import { ResourceRegistry } from '../resources/resource-registry.js';
 import { getSettingsService } from '../settings/settingsServiceInstance.js';
 import type { SettingsService } from '../settings/SettingsService.js';
 
@@ -260,6 +261,25 @@ describe('Server Config (config.ts)', () => {
       await expect(config.initialize()).resolves.toBeUndefined();
       await expect(config.initialize()).rejects.toThrow(
         'Config was already initialized',
+      );
+    });
+
+    it('should initialize and expose a ResourceRegistry instance', async () => {
+      const config = new Config({
+        ...baseParams,
+        checkpointing: false,
+      });
+
+      await config.initialize();
+
+      const getResourceRegistry = (
+        config as unknown as {
+          getResourceRegistry?: () => unknown;
+        }
+      ).getResourceRegistry;
+      expect(getResourceRegistry).toBeTypeOf('function');
+      expect(getResourceRegistry?.call(config)).toBeInstanceOf(
+        ResourceRegistry,
       );
     });
   });

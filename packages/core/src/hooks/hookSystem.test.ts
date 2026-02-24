@@ -52,6 +52,7 @@ describe('HookSystem', () => {
       storage: mockStorage,
       getExtensions: vi.fn().mockReturnValue([]),
       getHooks: vi.fn().mockReturnValue({}),
+      getDisabledHooks: vi.fn().mockReturnValue([]),
       getSessionId: vi.fn().mockReturnValue('test-session-id'),
       getTargetDir: vi.fn().mockReturnValue('/test/project'),
       getEnableHooks: vi.fn().mockReturnValue(true),

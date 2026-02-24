@@ -57,7 +57,7 @@ describe.skipIf(process.platform !== 'win32')(
     });
 
     it('uses PowerShell without shell: true on Windows', async () => {
-      ShellExecutionService.execute(
+      await ShellExecutionService.execute(
         'echo a & echo b',
         '.',
         () => {},
@@ -75,7 +75,7 @@ describe.skipIf(process.platform !== 'win32')(
     });
 
     it('uses PowerShell without shell: true on Windows for simple commands', async () => {
-      ShellExecutionService.execute(
+      await ShellExecutionService.execute(
         'node -v',
         '.',
         () => {},

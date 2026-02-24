@@ -18,7 +18,7 @@ export interface RetryOptions {
   maxAttempts: number;
   initialDelayMs: number;
   maxDelayMs: number;
-  shouldRetryOnError: (error: Error) => boolean;
+  shouldRetryOnError: (error: Error, retryFetchErrors?: boolean) => boolean;
   shouldRetryOnContent?: (content: GenerateContentResponse) => boolean;
   onPersistent429?: (error?: unknown) => Promise<string | boolean | null>;
   trackThrottleWaitTime?: (waitTimeMs: number) => void;
@@ -30,11 +30,15 @@ const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxAttempts: 5,
   initialDelayMs: 5000,
   maxDelayMs: 30000, // 30 seconds
-  shouldRetryOnError: defaultShouldRetry,
+  shouldRetryOnError: isRetryableError,
 };
 
 export const STREAM_INTERRUPTED_ERROR_CODE = 'LLXPRT_STREAM_INTERRUPTED';
 
+/**
+ * Network-level transient errors that are ALWAYS safe to retry.
+ * These represent infrastructure failures, not application-level errors.
+ */
 const TRANSIENT_ERROR_PHRASES = [
   'connection error',
   'connection terminated',
@@ -46,7 +50,6 @@ const TRANSIENT_ERROR_PHRASES = [
   'socket timeout',
   'network timeout',
   'network error',
-  'fetch failed',
   'request aborted',
   'request timeout',
   'stream closed',
@@ -68,6 +71,7 @@ const TRANSIENT_ERROR_CODES = new Set([
   'ECONNABORTED',
   'ENETUNREACH',
   'EHOSTUNREACH',
+  'ENOTFOUND',
   'ETIMEDOUT',
   'EPIPE',
   'EAI_AGAIN',
@@ -217,27 +221,50 @@ export function isNetworkTransientError(error: unknown): boolean {
 }
 
 /**
- * Default predicate function to determine if a retry should be attempted.
- * Retries on 429 (Too Many Requests) and 5xx server errors.
+ * Predicate function to determine if a retry should be attempted.
+ * @plan PLAN-20250219-GMERGE021.R13.P01
+ * @requirement REQ-R13-001 Network error codes retried unconditionally
+ * @requirement REQ-R13-002 isRetryableError exported for reuse
+ *
+ * Decision precedence (CRITICAL - do not reorder):
+ * 1. Network error codes (ETIMEDOUT, ECONNRESET, etc.) → ALWAYS retry (regardless of retryFetchErrors)
+ * 2. retryFetchErrors=true + generic "fetch failed" message → retry
+ * 3. ApiError with status 400 → NEVER retry
+ * 4. ApiError or generic status 429 or 5xx → retry
+ * 5. All others → do not retry
+ *
  * @param error The error object.
- * @returns True if the error is a transient error, false otherwise.
+ * @param retryFetchErrors Whether to retry generic fetch failures (default: false).
+ * @returns True if the error is retryable, false otherwise.
  */
-function defaultShouldRetry(error: Error | unknown): boolean {
-  // Priority check for ApiError
+export function isRetryableError(
+  error: Error | unknown,
+  retryFetchErrors?: boolean,
+): boolean {
+  // PRIORITY 1: Network error codes are ALWAYS retryable (transient infrastructure failures)
+  // This check MUST come before retryFetchErrors to ensure network errors retry unconditionally
+  if (isNetworkTransientError(error)) {
+    return true;
+  }
+
+  // PRIORITY 2: Generic "fetch failed" messages only retry when explicitly enabled
+  if (retryFetchErrors) {
+    const { messages } = collectErrorDetails(error);
+    if (messages.some((msg) => msg.toLowerCase().includes('fetch failed'))) {
+      return true;
+    }
+  }
+
+  // PRIORITY 3: ApiError with deterministic 400 is NEVER retryable
   if (error instanceof ApiError) {
-    // Explicitly do not retry 400 (Bad Request)
     if (error.status === 400) return false;
     return error.status === 429 || (error.status >= 500 && error.status < 600);
   }
 
-  // Check for status using helper (handles other error shapes)
+  // PRIORITY 4: Generic status-based retry (handles non-ApiError shapes)
   const status = getErrorStatus(error);
   if (status !== undefined) {
     return status === 429 || (status >= 500 && status < 600);
-  }
-
-  if (isNetworkTransientError(error)) {
-    return true;
   }
 
   return false;
@@ -272,15 +299,12 @@ export async function retryWithBackoff<T>(
     maxDelayMs,
     shouldRetryOnError,
     shouldRetryOnContent,
-    retryFetchErrors: _retryFetchErrors,
+    retryFetchErrors,
     signal,
   } = {
     ...DEFAULT_RETRY_OPTIONS,
     ...cleanOptions,
   };
-
-  // retryFetchErrors reserved for upstream API compatibility (Google-specific)
-  void _retryFetchErrors;
 
   const logger = new DebugLogger('llxprt:retry');
   let attempt = 0;
@@ -417,7 +441,7 @@ export async function retryWithBackoff<T>(
         );
       }
 
-      const shouldRetry = shouldRetryOnError(error as Error);
+      const shouldRetry = shouldRetryOnError(error as Error, retryFetchErrors);
 
       if (!shouldRetry && !shouldAttemptRefreshRetry) {
         throw error;
@@ -540,8 +564,15 @@ function getRetryAfterDelayMs(error: unknown): number {
         typeof response.headers === 'object' &&
         response.headers !== null
       ) {
-        const headers = response.headers as { 'retry-after'?: unknown };
-        const retryAfterHeader = headers['retry-after'];
+        const headers = response.headers as {
+          'retry-after'?: unknown;
+          get?: (name: string) => string | null;
+        };
+        // Support both plain object and Fetch Headers API
+        const retryAfterHeader =
+          typeof headers.get === 'function'
+            ? headers.get('retry-after')
+            : headers['retry-after'];
         if (typeof retryAfterHeader === 'string') {
           const retryAfterSeconds = parseInt(retryAfterHeader, 10);
           if (!isNaN(retryAfterSeconds)) {

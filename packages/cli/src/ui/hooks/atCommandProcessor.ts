@@ -6,15 +6,17 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { Buffer } from 'buffer';
 import { PartListUnion, PartUnion } from '@google/genai';
 import {
   AnyToolInvocation,
   Config,
+  DEFAULT_AGENT_ID,
   getErrorMessage,
   isNodeError,
   unescapePath,
-  DEFAULT_AGENT_ID,
 } from '@vybestack/llxprt-code-core';
+import type { DiscoveredMCPResource } from '@vybestack/llxprt-code-core';
 import {
   HistoryItem,
   IndividualToolCallDisplay,
@@ -160,6 +162,17 @@ export async function handleAtCommand({
     );
   }
 
+  const resourceRegistry = (
+    config as Config & {
+      getResourceRegistry: () => {
+        findResourceByUri: (
+          identifier: string,
+        ) => DiscoveredMCPResource | undefined;
+      };
+    }
+  ).getResourceRegistry();
+  const mcpClientManager = config.getMcpClientManager();
+
   const commandParts = parseAllAtCommands(query);
   const atPathCommandParts = commandParts.filter(
     (part) => part.type === 'atPath',
@@ -175,6 +188,7 @@ export async function handleAtCommand({
   const respectFileIgnore = config.getFileFilteringOptions();
 
   const pathSpecsToRead: string[] = [];
+  const resourceAttachments: DiscoveredMCPResource[] = [];
   const atPathToResolvedSpecMap = new Map<string, string>();
   const contentLabelsForDisplay: string[] = [];
   const absoluteToRelativePathMap = new Map<string, string>();
@@ -222,7 +236,12 @@ export async function handleAtCommand({
       return { processedQuery: null, shouldProceed: false };
     }
 
-    // Check if path should be ignored based on filtering options
+    const resourceMatch = resourceRegistry.findResourceByUri(pathName);
+    if (resourceMatch) {
+      resourceAttachments.push(resourceMatch);
+      atPathToResolvedSpecMap.set(originalAtPath, pathName);
+      continue;
+    }
 
     const workspaceContext = config.getWorkspaceContext();
     if (!workspaceContext.isPathWithinWorkspace(pathName)) {
@@ -428,7 +447,7 @@ export async function handleAtCommand({
   }
 
   // Fallback for lone "@" or completely invalid @-commands resulting in empty initialQueryText
-  if (pathSpecsToRead.length === 0) {
+  if (pathSpecsToRead.length === 0 && resourceAttachments.length === 0) {
     onDebugMessage('No valid file paths found in @ commands to read.');
     if (initialQueryText === '@' && query.trim() === '@') {
       // If the only thing was a lone @, pass original query (which might have spaces)
@@ -445,6 +464,107 @@ export async function handleAtCommand({
   }
 
   const processedQueryParts: PartUnion[] = [{ text: initialQueryText }];
+  const resourceReadDisplays: IndividualToolCallDisplay[] = [];
+
+  for (const resource of resourceAttachments) {
+    const uri = resource.uri;
+    if (!uri) {
+      continue;
+    }
+    const client = (
+      mcpClientManager as
+        | {
+            getClient: (name: string) =>
+              | {
+                  readResource: (uri: string) => Promise<{
+                    contents?: Array<{
+                      text?: string;
+                      blob?: string;
+                      mimeType?: string;
+                      resource?: {
+                        text?: string;
+                        blob?: string;
+                        mimeType?: string;
+                      };
+                    }>;
+                  }>;
+                }
+              | undefined;
+          }
+        | undefined
+    )?.getClient(resource.serverName);
+    if (!client) {
+      const toolCallDisplay: IndividualToolCallDisplay = {
+        callId: `mcp-resource-${resource.serverName}-${uri}`,
+        name: `resources/read (${resource.serverName})`,
+        description: uri,
+        status: ToolCallStatus.Error,
+        resultDisplay: `Error reading resource ${uri}: MCP client for server '${resource.serverName}' is not available or not connected.`,
+        confirmationDetails: undefined,
+      };
+      resourceReadDisplays.push(toolCallDisplay);
+      addItem(
+        {
+          type: 'tool_group',
+          agentId: DEFAULT_AGENT_ID,
+          tools: resourceReadDisplays,
+        } as Omit<HistoryItem, 'id'>,
+        userMessageTimestamp,
+      );
+      return { processedQuery: null, shouldProceed: false };
+    }
+
+    try {
+      const response = await client.readResource(uri);
+      processedQueryParts.push({
+        text: `\nContent from @${resource.serverName}:${uri}:\n`,
+      });
+      processedQueryParts.push(...convertResourceContentsToParts(response));
+
+      const toolCallDisplay: IndividualToolCallDisplay = {
+        callId: `mcp-resource-${resource.serverName}-${uri}`,
+        name: `resources/read (${resource.serverName})`,
+        description: uri,
+        status: ToolCallStatus.Success,
+        resultDisplay: `Successfully read resource ${uri}`,
+        confirmationDetails: undefined,
+      };
+      resourceReadDisplays.push(toolCallDisplay);
+    } catch (error) {
+      const toolCallDisplay: IndividualToolCallDisplay = {
+        callId: `mcp-resource-${resource.serverName}-${uri}`,
+        name: `resources/read (${resource.serverName})`,
+        description: uri,
+        status: ToolCallStatus.Error,
+        resultDisplay: `Error reading resource ${uri}: ${getErrorMessage(error)}`,
+        confirmationDetails: undefined,
+      };
+      resourceReadDisplays.push(toolCallDisplay);
+      addItem(
+        {
+          type: 'tool_group',
+          agentId: DEFAULT_AGENT_ID,
+          tools: resourceReadDisplays,
+        } as Omit<HistoryItem, 'id'>,
+        userMessageTimestamp,
+      );
+      return { processedQuery: null, shouldProceed: false };
+    }
+  }
+
+  if (pathSpecsToRead.length === 0) {
+    if (resourceReadDisplays.length > 0) {
+      addItem(
+        {
+          type: 'tool_group',
+          agentId: DEFAULT_AGENT_ID,
+          tools: resourceReadDisplays,
+        } as Omit<HistoryItem, 'id'>,
+        userMessageTimestamp,
+      );
+    }
+    return { processedQuery: processedQueryParts, shouldProceed: true };
+  }
 
   const toolArgs = {
     paths: pathSpecsToRead,
@@ -521,7 +641,7 @@ export async function handleAtCommand({
       {
         type: 'tool_group',
         agentId: DEFAULT_AGENT_ID,
-        tools: [toolCallDisplay],
+        tools: [...resourceReadDisplays, toolCallDisplay],
       } as Omit<HistoryItem, 'id'>,
       userMessageTimestamp,
     );
@@ -541,10 +661,40 @@ export async function handleAtCommand({
       {
         type: 'tool_group',
         agentId: DEFAULT_AGENT_ID,
-        tools: [toolCallDisplay],
+        tools: [...resourceReadDisplays, toolCallDisplay],
       } as Omit<HistoryItem, 'id'>,
       userMessageTimestamp,
     );
     return { processedQuery: null, shouldProceed: false };
   }
+}
+
+function convertResourceContentsToParts(response: {
+  contents?: Array<{
+    text?: string;
+    blob?: string;
+    mimeType?: string;
+    resource?: {
+      text?: string;
+      blob?: string;
+      mimeType?: string;
+    };
+  }>;
+}): PartUnion[] {
+  const parts: PartUnion[] = [];
+  for (const content of response.contents ?? []) {
+    const candidate = content.resource ?? content;
+    if (candidate.text) {
+      parts.push({ text: candidate.text });
+      continue;
+    }
+    if (candidate.blob) {
+      const sizeBytes = Buffer.from(candidate.blob, 'base64').length;
+      const mimeType = candidate.mimeType ?? 'application/octet-stream';
+      parts.push({
+        text: `[Binary resource content ${mimeType}, ${sizeBytes} bytes]`,
+      });
+    }
+  }
+  return parts;
 }

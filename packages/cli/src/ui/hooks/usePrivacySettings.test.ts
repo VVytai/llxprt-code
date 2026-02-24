@@ -6,11 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '../../test-utils/render.js';
-import type {
-  Config,
-  CodeAssistServer,
-  LoadCodeAssistResponse,
-} from '@vybestack/llxprt-code-core';
+import type { Config, CodeAssistServer } from '@vybestack/llxprt-code-core';
 import { UserTierId } from '@vybestack/llxprt-code-core';
 import { usePrivacySettings } from './usePrivacySettings.js';
 
@@ -40,9 +36,7 @@ describe('usePrivacySettings', () => {
     // Mock paid tier response
     const mockCodeAssistServer = {
       projectId: 'test-project-id',
-      loadCodeAssist: vi.fn().mockResolvedValue({
-        currentTier: { id: UserTierId.STANDARD },
-      } as LoadCodeAssistResponse),
+      userTier: UserTierId.STANDARD,
     } as unknown as CodeAssistServer;
 
     const testConfig = {
@@ -64,10 +58,8 @@ describe('usePrivacySettings', () => {
 
   it('should throw error when CodeAssistServer has no projectId', async () => {
     const mockCodeAssistServer = {
-      projectId: undefined, // Explicitly set projectId to undefined
-      loadCodeAssist: vi.fn().mockResolvedValue({
-        currentTier: { id: UserTierId.FREE },
-      } as LoadCodeAssistResponse),
+      projectId: undefined,
+      userTier: UserTierId.FREE,
     } as unknown as CodeAssistServer;
 
     const testConfig = {
@@ -96,9 +88,7 @@ describe('usePrivacySettings', () => {
       setCodeAssistGlobalUserSetting: vi.fn().mockResolvedValue({
         freeTierDataCollectionOptin: false,
       }),
-      loadCodeAssist: vi.fn().mockResolvedValue({
-        currentTier: { id: UserTierId.FREE },
-      } as LoadCodeAssistResponse),
+      userTier: UserTierId.FREE,
     } as unknown as CodeAssistServer;
 
     const testConfig = {

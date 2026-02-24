@@ -17,8 +17,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'node:crypto';
 import type { ExtensionSetting } from './extensionSettings.js';
 import { SecureStore } from '@vybestack/llxprt-code-core';
+import { getWorkspaceIdentity } from '../../utils/gitUtils.js';
 
 /**
  * Returns the path to the .env file for an extension.
@@ -30,10 +32,36 @@ export function getSettingsEnvFilePath(extensionDir: string): string {
 /**
  * Returns the keychain service name for an extension.
  * Sanitizes the extension name and limits length to 255 characters.
+ * For workspace scope, includes the workspace directory in the service name.
+ *
+ * @param extensionName - Extension name
+ * @param extensionDir - Extension directory (used to detect scope)
+ * @returns Keychain service name
  */
-export function getKeychainServiceName(extensionName: string): string {
+export function getKeychainServiceName(
+  extensionName: string,
+  extensionDir?: string,
+): string {
   // Remove special characters, keeping only alphanumeric, dash, and underscore
   const sanitized = extensionName.replace(/[^a-zA-Z0-9-_]/g, '');
+
+  // Check if this is a workspace-scoped path
+  const isWorkspaceScope =
+    extensionDir &&
+    extensionDir.replace(/\\/g, '/').includes('.llxprt/extensions');
+
+  if (isWorkspaceScope) {
+    // Include workspace identifier for workspace scope
+    // Use getWorkspaceIdentity() to get the git root, not process.cwd()
+    const workspaceIdentity = getWorkspaceIdentity();
+    const workspaceHash = crypto
+      .createHash('md5')
+      .update(workspaceIdentity)
+      .digest('hex')
+      .substring(0, 8);
+    const serviceName = `LLxprt Code Extension ${sanitized} Workspace ${workspaceHash}`;
+    return serviceName.substring(0, 255);
+  }
 
   // Format: "LLxprt Code Extension {name}"
   const serviceName = `LLxprt Code Extension ${sanitized}`;
@@ -103,12 +131,16 @@ function formatEnvFile(values: Record<string, string>): string {
  * via SecureStore (keychain + encrypted file fallback).
  */
 export class ExtensionSettingsStorage {
+  private readonly extensionName: string;
   private readonly extensionDir: string;
   private readonly store: SecureStore;
 
   constructor(extensionName: string, extensionDir: string) {
+    this.extensionName = extensionName;
     this.extensionDir = extensionDir;
-    this.store = new SecureStore(getKeychainServiceName(extensionName));
+    this.store = new SecureStore(
+      getKeychainServiceName(extensionName, extensionDir),
+    );
   }
 
   /**
@@ -165,6 +197,7 @@ export class ExtensionSettingsStorage {
   /**
    * Loads settings from appropriate storage.
    * Returns a record with undefined for missing settings.
+   * Falls back to legacy cwd-based path for workspace-scoped settings.
    */
   async loadSettings(
     settings: ExtensionSetting[],
@@ -179,6 +212,20 @@ export class ExtensionSettingsStorage {
       if (fs.existsSync(envPath)) {
         const content = await fs.promises.readFile(envPath, 'utf-8');
         envValues = parseEnvFile(content);
+      } else {
+        // Backward compatibility: try legacy cwd-based path
+        // This supports migration from cwd-based to git-root-based workspace paths
+        const legacyPath = path.join(
+          process.cwd(),
+          '.llxprt',
+          'extensions',
+          this.extensionName,
+          '.env',
+        );
+        if (fs.existsSync(legacyPath)) {
+          const content = await fs.promises.readFile(legacyPath, 'utf-8');
+          envValues = parseEnvFile(content);
+        }
       }
     } catch (error) {
       // Handle missing file gracefully

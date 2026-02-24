@@ -12,6 +12,7 @@ import {
   createContentGeneratorConfig,
 } from '../core/contentGenerator.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
+import { ResourceRegistry } from '../resources/resource-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
@@ -294,6 +295,18 @@ export class MCPServerConfig {
     readonly headers?: Record<string, string>,
     // For websocket transport
     readonly tcp?: string,
+    /**
+     * Transport type for URL-based servers.
+     * When set, disables automatic HTTP→SSE fallback.
+     * - 'http' → StreamableHTTPClientTransport
+     * - 'sse'  → SSEClientTransport
+     * - omitted → defaults to HTTP with SSE fallback (deprecated; add type explicitly)
+     *
+     * Note: 'httpUrl' is deprecated; use 'url' + 'type: "http"' instead.
+     * @plan PLAN-20250219-GMERGE021.R3.P03
+     * @requirement REQ-GMERGE021-R3-001
+     */
+    readonly type?: 'sse' | 'http',
     // Common
     readonly timeout?: number,
     readonly trust?: boolean,
@@ -471,7 +484,6 @@ export interface ConfigParameters {
   enableShellOutputEfficiency?: boolean;
   continueSession?: boolean | string;
   disableYoloMode?: boolean;
-  enableMessageBusIntegration?: boolean;
   enableHooks?: boolean;
   hooks?: {
     [K in HookEventName]?: HookDefinition[];
@@ -485,6 +497,7 @@ export class Config {
   private allowedMcpServers: string[];
   private blockedMcpServers: Array<{ name: string; extensionName: string }>;
   private promptRegistry!: PromptRegistry;
+  private resourceRegistry!: ResourceRegistry;
   private readonly sessionId: string;
   private adoptedSessionId: string | undefined;
   private readonly settingsService: SettingsService;
@@ -661,6 +674,7 @@ export class Config {
   private readonly hooks:
     | { [K in HookEventName]?: HookDefinition[] }
     | undefined;
+  private disabledHooks: string[] = [];
   /**
    * @plan:PLAN-20260216-HOOKSYSTEMREWRITE.P03
    * @requirement:HOOK-001,HOOK-002
@@ -850,23 +864,7 @@ export class Config {
     this.enableHooks = params.enableHooks ?? false;
     this.jitContextEnabled = params.jitContextEnabled ?? true;
 
-    // Enable MessageBus integration if:
-    // 1. Explicitly enabled via setting, OR
-    // 2. Hooks are enabled and hooks are configured
-    const hasHooks = params.hooks && Object.keys(params.hooks).length > 0;
-    const hooksNeedMessageBus = this.enableHooks && hasHooks;
-    const messageBusEnabled =
-      params.enableMessageBusIntegration ??
-      (hooksNeedMessageBus ? true : false);
-    // Update messageBus initialization to consider hooks
-    if (messageBusEnabled && !this.messageBus) {
-      // MessageBus is already initialized in constructor, just log that hooks may use it
-      const debugLogger = new DebugLogger('llxprt:config');
-      debugLogger.debug(
-        () =>
-          `MessageBus enabled for hooks (enableHooks=${this.enableHooks}, hasHooks=${hasHooks})`,
-      );
-    }
+    // MessageBus is always enabled; constructed unconditionally above.
     this.hooks = params.hooks;
 
     if (params.contextFileName) {
@@ -923,6 +921,7 @@ export class Config {
       await this.getGitService();
     }
     this.promptRegistry = new PromptRegistry();
+    this.resourceRegistry = new ResourceRegistry();
     this.toolRegistry = await this.createToolRegistry();
     this.mcpClientManager = new McpClientManager(
       this.toolRegistry,
@@ -1260,6 +1259,10 @@ export class Config {
 
   getPromptRegistry(): PromptRegistry {
     return this.promptRegistry;
+  }
+
+  getResourceRegistry(): ResourceRegistry {
+    return this.resourceRegistry;
   }
 
   getDebugMode(): boolean {
@@ -1729,11 +1732,11 @@ export class Config {
   }
 
   setIdeClientDisconnected(): void {
-    this.ideClient?.disconnect();
+    void this.ideClient?.disconnect();
   }
 
   setIdeClientConnected(): void {
-    this.ideClient?.connect();
+    void this.ideClient?.connect();
   }
 
   getComplexityAnalyzerSettings(): ComplexityAnalyzerSettings {
@@ -2437,6 +2440,31 @@ ${trimmed}
    */
   getHooks(): { [K in HookEventName]?: HookDefinition[] } | undefined {
     return this.hooks;
+  }
+
+  /**
+   * Get disabled hooks list
+   */
+  getDisabledHooks(): string[] {
+    if (this.disabledHooks.length === 0) {
+      const persisted = this.settingsService.get('hooks.disabled') as
+        | string[]
+        | undefined;
+      if (persisted && persisted.length > 0) {
+        this.disabledHooks = persisted;
+      }
+    }
+    return this.disabledHooks;
+  }
+
+  /**
+   * Set disabled hooks list
+   * Updates both in-memory state and persists to settings
+   */
+  setDisabledHooks(hooks: string[]): void {
+    this.disabledHooks = hooks;
+    // Persist to settings service
+    this.settingsService.set('hooks.disabled', hooks);
   }
 
   /**

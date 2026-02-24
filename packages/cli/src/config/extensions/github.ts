@@ -214,10 +214,10 @@ export async function checkForExtensionUpdate(
         workspaceDir: cwd,
       });
       if (!newExtension) {
-        console.error(
+        console.warn(
           `Failed to check for update for local extension "${extension.name}". Could not load extension from source path: ${installMetadata.source}`,
         );
-        setExtensionUpdateState(ExtensionUpdateState.ERROR);
+        setExtensionUpdateState(ExtensionUpdateState.NOT_UPDATABLE);
         return;
       }
       if (newExtension.version !== extension.version) {
@@ -329,7 +329,7 @@ export async function downloadFromGitHubRelease(
     const releaseData = await fetchReleaseFromGithub(owner, repo, ref);
     if (!releaseData) {
       throw new Error(
-        `No release data found for ${owner}/${repo} at tag ${ref}`,
+        `No release data found for ${owner}/${repo}${ref ? ` at tag ${ref}` : ''}`,
       );
     }
 
@@ -366,7 +366,17 @@ export async function downloadFromGitHubRelease(
       downloadedAssetPath += '.zip';
     }
 
-    await downloadFile(archiveUrl, downloadedAssetPath);
+    // GitHub API requires different Accept headers for different types of downloads:
+    // 1. Binary Assets (e.g. release artifacts): Require 'application/octet-stream' to return the raw content.
+    // 2. Source Tarballs (e.g. /tarball/{ref}): Require 'application/vnd.github+json' (or similar) to return
+    //    a 302 Redirect to the actual download location (codeload.github.com).
+    //    Sending 'application/octet-stream' for tarballs results in a 415 Unsupported Media Type error.
+    const headers = {
+      ...(asset
+        ? { Accept: 'application/octet-stream' }
+        : { Accept: 'application/vnd.github+json' }),
+    };
+    await downloadFile(archiveUrl, downloadedAssetPath, { headers });
 
     await extractFile(downloadedAssetPath, destination);
 
@@ -468,7 +478,7 @@ export function findReleaseAsset(assets: Asset[]): Asset | undefined {
 
 async function fetchJson<T>(url: string): Promise<T> {
   const headers: { 'User-Agent': string; Authorization?: string } = {
-    'User-Agent': 'gemini-cli',
+    'User-Agent': 'llxprt-code',
   };
   const token = getGitHubToken();
   if (token) {
@@ -493,24 +503,53 @@ async function fetchJson<T>(url: string): Promise<T> {
   });
 }
 
-async function downloadFile(url: string, dest: string): Promise<void> {
-  const headers: {
-    'User-agent': string;
-    Accept: string;
-    Authorization?: string;
-  } = {
-    'User-agent': 'gemini-cli',
+export interface DownloadOptions {
+  headers?: Record<string, string>;
+}
+
+export async function downloadFile(
+  url: string,
+  dest: string,
+  options?: DownloadOptions,
+  redirectCount: number = 0,
+): Promise<void> {
+  const headers: Record<string, string> = {
+    'User-agent': 'llxprt-code',
     Accept: 'application/octet-stream',
+    ...options?.headers,
   };
   const token = getGitHubToken();
   if (token) {
-    headers.Authorization = `token ${token}`;
+    headers['Authorization'] = `token ${token}`;
   }
+
   return new Promise((resolve, reject) => {
+    const cleanupAndReject = (error: Error) => {
+      // Try to clean up the partial file, but don't mask the original error
+      fs.unlink(dest, (unlinkErr) => {
+        if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+          // Log cleanup failure but still reject with original error
+          console.error(`Failed to clean up partial file ${dest}:`, unlinkErr);
+        }
+        reject(error);
+      });
+    };
+
     https
       .get(url, { headers }, (res) => {
         if (res.statusCode === 302 || res.statusCode === 301) {
-          downloadFile(res.headers.location!, dest).then(resolve).catch(reject);
+          if (redirectCount >= 10) {
+            return reject(new Error('Too many redirects'));
+          }
+
+          if (!res.headers.location) {
+            return reject(
+              new Error('Redirect response missing Location header'),
+            );
+          }
+          downloadFile(res.headers.location, dest, options, redirectCount + 1)
+            .then(resolve)
+            .catch(reject);
           return;
         }
         if (res.statusCode !== 200) {
@@ -519,10 +558,25 @@ async function downloadFile(url: string, dest: string): Promise<void> {
           );
         }
         const file = fs.createWriteStream(dest);
+
+        // Handle file write errors
+        file.on('error', (err) => {
+          res.destroy();
+          cleanupAndReject(err);
+        });
+
+        // Handle response stream errors
+        res.on('error', (err) => {
+          file.destroy();
+          cleanupAndReject(err);
+        });
+
         res.pipe(file);
         file.on('finish', () => file.close(resolve as () => void));
       })
-      .on('error', reject);
+      .on('error', (err) => {
+        cleanupAndReject(err);
+      });
   });
 }
 

@@ -47,6 +47,7 @@ export const SubagentDeleteDialog: React.FC<SubagentDeleteDialogProps> = ({
       }
 
       if (key.name === 'return') {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleConfirm();
         return;
       }

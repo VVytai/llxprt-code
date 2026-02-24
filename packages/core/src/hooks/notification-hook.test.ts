@@ -48,6 +48,7 @@ function createTestConfigWithNotificationHook(command: string): Config {
     getWorkingDir: () => '/tmp/test',
     getTargetDir: () => '/tmp/test',
     getExtensions: () => [],
+    getDisabledHooks: () => [],
     getModel: () => 'test-model',
     getHookSystem: () => {
       if (!hookSystem) {
@@ -114,6 +115,7 @@ describe('Notification Hook (ToolPermission)', () => {
       const config = {
         getEnableHooks: () => false,
         getHooks: () => ({}),
+        getDisabledHooks: () => [],
         getSessionId: () => 'test-session-disabled',
         getWorkingDir: () => '/tmp/test',
         getTargetDir: () => '/tmp/test',

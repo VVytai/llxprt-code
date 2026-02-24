@@ -354,7 +354,7 @@ describe('stdin EIO error handling', () => {
       expect(result).toBe('async-result');
     });
 
-    it('should cleanup on error', () => {
+    it('should cleanup on error', async () => {
       stdin.isTTY = true;
       stdin.isRaw = false;
 
@@ -363,15 +363,13 @@ describe('stdin EIO error handling', () => {
       });
       const safeFn = withSafeRawMode(fn);
 
-      expect(() => {
-        safeFn();
-      }).toThrow('test error');
+      expect(() => safeFn()).toThrow('test error');
 
       expect(mockSetRawMode).toHaveBeenCalledWith(true);
       expect(mockSetRawMode).toHaveBeenCalledWith(false); // Cleanup
     });
 
-    it('should install error handler while function runs', () => {
+    it('should install error handler while function runs', async () => {
       stdin.isTTY = true;
       stdin.isRaw = false;
 
@@ -382,7 +380,7 @@ describe('stdin EIO error handling', () => {
       });
       const safeFn = withSafeRawMode(fn);
 
-      safeFn();
+      await safeFn();
 
       expect(fn).toHaveBeenCalled();
     });

@@ -27,6 +27,7 @@ describe('statsCommand - load balancer stats', () => {
       );
       if (!lbSubCommand?.action) throw new Error('lb subcommand has no action');
 
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       lbSubCommand.action(mockContext, '');
 
       expect(mockContext.ui.addItem).toHaveBeenCalledWith(
@@ -95,6 +96,7 @@ describe('statsCommand - load balancer stats', () => {
       vi.clearAllMocks();
 
       // Test lb
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       lbSubCommand.action(mockContext, '');
       const lbCall = (mockContext.ui.addItem as ReturnType<typeof vi.fn>).mock
         .calls[0][0];

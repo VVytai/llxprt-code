@@ -370,7 +370,10 @@ function makeGeminiChat(
   });
   vi.spyOn(historyService, 'startCompression').mockImplementation(() => {});
   vi.spyOn(historyService, 'endCompression').mockImplementation(() => {});
-  vi.spyOn(historyService, 'getCurated').mockReturnValue([]);
+  vi.spyOn(historyService, 'getCurated').mockReturnValue([
+    { role: 'user', parts: [{ text: 'hello' }] },
+    { role: 'model', parts: [{ text: 'hi' }] },
+  ]);
   vi.spyOn(historyService, 'clear').mockImplementation(() => {});
   vi.spyOn(historyService, 'add').mockImplementation(() => {});
   vi.spyOn(historyService, 'estimateTokensForContents').mockResolvedValue(0);

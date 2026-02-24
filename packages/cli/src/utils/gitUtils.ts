@@ -5,6 +5,7 @@
  */
 
 import { execSync } from 'child_process';
+import * as path from 'path';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
 /**
@@ -118,4 +119,26 @@ export function getGitHubRepoInfo(): { owner: string; repo: string } {
   }
 
   return { owner: match[1], repo: match[2] };
+}
+
+/**
+ * getWorkspaceIdentity returns a stable workspace identifier.
+ * Uses git repository root if available, falls back to cwd.
+ * Returns an absolute, normalized path.
+ *
+ * @param cwd - Optional working directory (defaults to process.cwd())
+ * @returns Absolute path to workspace identity (git root or cwd fallback)
+ */
+export function getWorkspaceIdentity(cwd?: string): string {
+  const effectiveCwd = cwd ?? process.cwd();
+  try {
+    const gitRoot = execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf-8',
+      cwd: effectiveCwd,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    return path.resolve(gitRoot);
+  } catch {
+    return path.resolve(effectiveCwd);
+  }
 }

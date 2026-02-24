@@ -91,7 +91,7 @@ export function toFriendlyError(error: unknown): unknown {
   if (error && typeof error === 'object' && 'response' in error) {
     const gaxiosError = error as GaxiosError;
     const data = parseResponseData(gaxiosError);
-    if (data.error && data.error.message && data.error.code) {
+    if (data && data.error && data.error.message && data.error.code) {
       switch (data.error.code) {
         case 400:
           return new BadRequestError(data.error.message);
@@ -109,14 +109,97 @@ export function toFriendlyError(error: unknown): unknown {
   return error;
 }
 
-function parseResponseData(error: GaxiosError): ResponseData {
+function parseResponseData(error: GaxiosError): ResponseData | undefined {
   // Inexplicably, Gaxios sometimes doesn't JSONify the response data.
   if (typeof error.response?.data === 'string') {
     try {
       return JSON.parse(error.response?.data) as ResponseData;
     } catch {
-      return {};
+      return undefined;
     }
   }
-  return error.response?.data as ResponseData;
+  return error.response?.data as ResponseData | undefined;
+}
+
+/**
+ * Checks if an error is a 401 authentication error.
+ * Uses structured error properties from MCP SDK errors first.
+ *
+ * @plan PLAN-20250219-GMERGE021.R3.P03
+ * @requirement REQ-GMERGE021-R3-002
+ */
+export function isAuthenticationError(error: unknown): boolean {
+  if (error == null || typeof error !== 'object') {
+    return false;
+  }
+
+  // MCP SDK errors (SseError, StreamableHTTPError) carry numeric 'code'
+  if ('code' in error) {
+    const errorCode = (error as { code: unknown }).code;
+    if (errorCode === 401) {
+      return true;
+    }
+  }
+
+  // Class identity check
+  if (error instanceof UnauthorizedError) {
+    return true;
+  }
+
+  // Cross-realm duck-typing (check both constructor name and error name)
+  if (error instanceof Error) {
+    if (
+      error.constructor.name === 'UnauthorizedError' ||
+      error.name === 'UnauthorizedError'
+    ) {
+      return true;
+    }
+  }
+
+  // Anchored message pattern — must not match '401' appearing in model names, IDs, etc.
+  const message = getErrorMessage(error);
+  if (
+    /\bHTTP 401\b/.test(message) ||
+    /\bstatus 401\b/i.test(message) ||
+    /\b401 Unauthorized\b/i.test(message)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if an error is a 404 Not Found error with proper detection.
+ * Uses typed error checking first, falls back to anchored pattern matching.
+ * Avoids false positives from strings like "port 40404" or "code 4040".
+ *
+ * @param error - The error to check
+ * @returns True if the error is a 404 error
+ */
+export function is404Error(error: unknown): boolean {
+  if (error == null || typeof error !== 'object') {
+    return false;
+  }
+
+  // MCP SDK errors (SseError, StreamableHTTPError) carry numeric 'code'
+  if ('code' in error) {
+    const errorCode = (error as { code: unknown }).code;
+    if (errorCode === 404) {
+      return true;
+    }
+  }
+
+  // Anchored message pattern — must not match '404' appearing in ports, IDs, etc.
+  const message = getErrorMessage(error);
+  if (
+    /\bHTTP 404\b/i.test(message) ||
+    /\bstatus[:\s]+404\b/i.test(message) ||
+    /\b404 Not Found\b/i.test(message) ||
+    /\bNot Found\b/.test(message)
+  ) {
+    return true;
+  }
+
+  return false;
 }

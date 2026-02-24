@@ -136,7 +136,7 @@ export async function activate(context: vscode.ExtensionContext) {
     detectIdeFromEnv().name,
   );
 
-  checkForUpdates(context, log, isManagedExtensionSurface);
+  void checkForUpdates(context, log, isManagedExtensionSurface);
 
   const diffContentProvider = new DiffContentProvider();
   const diffManager = new DiffManager(log, diffContentProvider);
@@ -144,7 +144,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidCloseTextDocument((doc) => {
       if (doc.uri.scheme === DIFF_SCHEME) {
-        diffManager.cancelDiff(doc.uri);
+        void diffManager.cancelDiff(doc.uri);
       }
     }),
     vscode.workspace.registerTextDocumentContentProvider(
@@ -156,7 +156,7 @@ export async function activate(context: vscode.ExtensionContext) {
       (uri?: vscode.Uri) => {
         const docUri = uri ?? vscode.window.activeTextEditor?.document.uri;
         if (docUri && docUri.scheme === DIFF_SCHEME) {
-          diffManager.acceptDiff(docUri);
+          void diffManager.acceptDiff(docUri);
         }
       },
     ),
@@ -165,7 +165,7 @@ export async function activate(context: vscode.ExtensionContext) {
       (uri?: vscode.Uri) => {
         const docUri = uri ?? vscode.window.activeTextEditor?.document.uri;
         if (docUri && docUri.scheme === DIFF_SCHEME) {
-          diffManager.cancelDiff(docUri);
+          void diffManager.cancelDiff(docUri);
         }
       },
     ),
@@ -192,10 +192,10 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       updateWorkspacePath(context);
-      ideServer.syncEnvVars();
+      void ideServer.syncEnvVars();
     }),
     vscode.workspace.onDidGrantWorkspaceTrust(() => {
-      ideServer.syncEnvVars();
+      void ideServer.syncEnvVars();
     }),
     vscode.commands.registerCommand('llxprt-code.runLLxprtCode', async () => {
       const workspaceFolders = vscode.workspace.workspaceFolders;

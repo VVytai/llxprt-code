@@ -269,7 +269,7 @@ export class IdeClient {
       IDEConnectionStatus.Disconnected,
       'IDE integration disabled. To enable it again, run /ide enable.',
     );
-    this.client?.close();
+    void this.client?.close();
   }
 
   getCurrentIde(): IdeInfo | undefined {

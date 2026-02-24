@@ -741,9 +741,9 @@ In addition to a project settings file, a project's `.llxprt` directory can cont
 
 #### `hooks`
 
-- **`hooks`** (object):
-  - **Description:** Hook configurations for intercepting and customizing agent behavior.
-  - **Default:** `{}`
+- **`hooks.disabled`** (array):
+  - **Description:** List of hook names to disable
+  - **Default:** `[]`
   <!-- SETTINGS-AUTOGEN:END -->
 
 - **`contextFileName`** (string or array of strings):

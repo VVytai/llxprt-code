@@ -1112,7 +1112,17 @@
       "markdownDescription": "Hook configurations for intercepting and customizing agent behavior.\n\n- Category: `Advanced`\n- Requires restart: `no`\n- Default: `{}`",
       "default": {},
       "type": "object",
-      "additionalProperties": true
+      "properties": {
+        "disabled": {
+          "title": "Disabled Hooks",
+          "description": "List of hook names to disable",
+          "markdownDescription": "List of hook names to disable\n\n- Category: `Advanced`\n- Requires restart: `no`\n- Default: `[]`",
+          "default": [],
+          "type": "array",
+          "items": {}
+        }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {

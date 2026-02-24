@@ -46,6 +46,18 @@ const isMessageAction = (result: unknown): result is MessageActionReturn =>
   typeof result === 'object' &&
   'type' in result &&
   result.type === 'message';
+const createMockMCPResource = (
+  serverName: string,
+  uri: string,
+  name: string,
+) => ({
+  serverName,
+  uri,
+  name,
+  mimeType: 'text/plain',
+  description: `Description for ${name}`,
+  discoveredAt: Date.now(),
+});
 
 // Helper function to create a mock DiscoveredMCPTool
 const createMockMCPTool = (
@@ -72,6 +84,7 @@ describe('mcpCommand', () => {
     getMcpServers: ReturnType<typeof vi.fn>;
     getBlockedMcpServers: ReturnType<typeof vi.fn>;
     getPromptRegistry: ReturnType<typeof vi.fn>;
+    getResourceRegistry: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -97,6 +110,9 @@ describe('mcpCommand', () => {
       getPromptRegistry: vi.fn().mockResolvedValue({
         getAllPrompts: vi.fn().mockReturnValue([]),
         getPromptsByServer: vi.fn().mockReturnValue([]),
+      }),
+      getResourceRegistry: vi.fn().mockReturnValue({
+        getAllResources: vi.fn().mockReturnValue([]),
       }),
       getGeminiClient: vi.fn().mockReturnValue(null),
     };
@@ -279,6 +295,64 @@ describe('mcpCommand', () => {
       expect(message).toContain('Ctrl+T');
     });
 
+    it('should include resource counts and resource names in MCP status output', async () => {
+      vi.mocked(getMCPServerStatus).mockImplementation((serverName) => {
+        if (serverName === 'server1') return MCPServerStatus.CONNECTED;
+        if (serverName === 'server2') return MCPServerStatus.CONNECTED;
+        return MCPServerStatus.DISCONNECTED;
+      });
+
+      const mockServer1Tools = [createMockMCPTool('server1_tool1', 'server1')];
+      const mockServer2Tools: DiscoveredMCPTool[] = [];
+      const allTools = [...mockServer1Tools, ...mockServer2Tools];
+
+      mockConfig.getToolRegistry = vi.fn().mockReturnValue({
+        getAllTools: vi.fn().mockReturnValue(allTools),
+        discoverAllTools: vi.fn().mockResolvedValue(undefined),
+      });
+
+      mockConfig.getResourceRegistry = vi.fn().mockReturnValue({
+        getAllResources: vi
+          .fn()
+          .mockReturnValue([
+            createMockMCPResource(
+              'server1',
+              'file:///docs/readme.md',
+              'README',
+            ),
+            createMockMCPResource(
+              'server2',
+              'file:///docs/changelog.md',
+              'CHANGELOG',
+            ),
+          ]),
+      });
+
+      const testContext = createMockCommandContext({
+        services: {
+          config: mockConfig,
+        },
+        ui: {
+          reloadCommands: vi.fn(),
+        },
+      });
+
+      const result = await mcpCommand.action!(testContext, '');
+
+      expect(isMessageAction(result)).toBe(true);
+      expect(isMessageAction(result) && result.content).toBeTruthy();
+
+      const message = isMessageAction(result) ? result.content : '';
+
+      expect(message).toContain('Ready (1 tool, 1 resource)');
+      expect(message).toContain('Ready (1 resource)');
+      expect(message).toContain('Resources:');
+      expect(message).toContain('README');
+      expect(message).toContain('file:///docs/readme.md');
+      expect(message).toContain('CHANGELOG');
+      expect(message).toContain('file:///docs/changelog.md');
+    });
+
     it('should display tool descriptions when desc argument is used', async () => {
       const mockMcpServers = {
         server1: {
@@ -441,7 +515,7 @@ describe('mcpCommand', () => {
       expect(message).toContain(
         '[DISCONNECTED] \u001b[1mserver2\u001b[0m - Disconnected (0 tools cached)',
       );
-      expect(message).toContain('No tools or prompts available');
+      expect(message).toContain('No tools, prompts, or resources available');
     });
 
     it('should show startup indicator when servers are connecting', async () => {

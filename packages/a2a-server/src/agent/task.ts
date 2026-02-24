@@ -16,6 +16,9 @@ import {
   parseAndFormatApiError,
   createAgentRuntimeState,
   DEFAULT_AGENT_ID,
+  DEFAULT_GUI_EDITOR,
+  EDIT_TOOL_NAMES,
+  processRestorableToolCalls,
   type AnsiOutput,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -44,6 +47,7 @@ import type {
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { CoderAgentEvent } from '../types.js';
 import type {
@@ -70,6 +74,8 @@ export class Task {
   eventBus?: ExecutionEventBus;
   completedToolCalls: CompletedToolCall[];
   skipFinalTrueAfterInlineEdit = false;
+  currentPromptId: string | undefined;
+  promptCount = 0;
 
   // For tool waiting logic
   private pendingToolCalls: Map<string, string> = new Map(); //toolCallId --> status
@@ -403,7 +409,9 @@ export class Task {
       logger.info('[Task] YOLO mode enabled. Auto-approving all tool calls.');
       toolCalls.forEach((tc: ToolCall) => {
         if (tc.status === 'awaiting_approval' && tc.confirmationDetails) {
-          tc.confirmationDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+          void tc.confirmationDetails.onConfirm(
+            ToolConfirmationOutcome.ProceedOnce,
+          );
           this.pendingToolConfirmationDetails.delete(tc.request.callId);
         }
       });
@@ -452,7 +460,7 @@ export class Task {
       outputUpdateHandler: this._schedulerOutputUpdate.bind(this),
       onAllToolCallsComplete: this._schedulerAllToolCallsComplete.bind(this),
       onToolCallsUpdate: this._schedulerToolCallsUpdate.bind(this),
-      getPreferredEditor: () => 'vscode',
+      getPreferredEditor: () => DEFAULT_GUI_EDITOR,
       onEditorClose: () => {},
     });
   }
@@ -600,6 +608,78 @@ export class Task {
       kind: CoderAgentEvent.StateChangeEvent,
     };
     this.setTaskStateAndPublishUpdate('working', stateChange);
+
+    // Create checkpoints for restorable tool calls before scheduling
+    if (this.config.getCheckpointingEnabled()) {
+      try {
+        const restorableRequests = updatedRequests.filter((r) =>
+          EDIT_TOOL_NAMES.has(r.name),
+        );
+
+        if (restorableRequests.length > 0) {
+          logger.info(
+            `[Task] Creating checkpoints for ${restorableRequests.length} restorable tool calls.`,
+          );
+
+          const gitService = await this.config.getGitService();
+          const { checkpointsToWrite, toolCallToCheckpointMap, errors } =
+            await processRestorableToolCalls(
+              restorableRequests,
+              gitService,
+              this.geminiClient,
+            );
+
+          if (errors.length > 0) {
+            logger.warn(
+              `[Task] Checkpoint creation had ${errors.length} errors: ${errors.join(', ')}`,
+            );
+          }
+
+          if (checkpointsToWrite.size > 0) {
+            const checkpointDir =
+              this.config.storage.getProjectTempCheckpointsDir();
+
+            await fs.promises.mkdir(checkpointDir, { recursive: true });
+
+            for (const [filename, content] of checkpointsToWrite.entries()) {
+              const checkpointPath = path.join(checkpointDir, filename);
+              const tmpPath = `${checkpointPath}.tmp`;
+
+              try {
+                await fs.promises.writeFile(tmpPath, content, 'utf8');
+                await fs.promises.rename(tmpPath, checkpointPath);
+
+                // Set checkpoint on the matching request
+                const checkpointKey = filename.replace(/\.json$/, '');
+                const callId = Array.from(
+                  toolCallToCheckpointMap.entries(),
+                ).find(([, fname]) => fname === checkpointKey)?.[0];
+
+                if (callId) {
+                  const request = updatedRequests.find(
+                    (req) => req.callId === callId,
+                  );
+                  if (request) {
+                    request.checkpoint = checkpointPath;
+                    logger.info(
+                      `[Task] Checkpoint created for callId ${callId}: ${checkpointPath}`,
+                    );
+                  }
+                }
+              } catch (writeError) {
+                logger.warn(
+                  `[Task] Failed to write checkpoint ${filename}: ${writeError instanceof Error ? writeError.message : String(writeError)}`,
+                );
+              }
+            }
+          }
+        }
+      } catch (checkpointError) {
+        logger.warn(
+          `[Task] Checkpoint creation failed, continuing with tool execution: ${checkpointError instanceof Error ? checkpointError.message : String(checkpointError)}`,
+        );
+      }
+    }
 
     if (!this.scheduler) {
       throw new Error('Scheduler not initialized');
@@ -782,12 +862,23 @@ export class Task {
         // only after the follow-up confirmation completes.
         if (confirmationDetails.type === 'edit') {
           this.skipFinalTrueAfterInlineEdit = payload.newContent !== undefined;
+          try {
+            await confirmationDetails.onConfirm(
+              confirmationOutcome,
+              hasPayload ? payload : undefined,
+            );
+          } finally {
+            // Once confirmationDetails.onConfirm finishes (or fails) with a payload,
+            // reset skipFinalTrueAfterInlineEdit so that external callers receive
+            // their call has been completed.
+            this.skipFinalTrueAfterInlineEdit = false;
+          }
+        } else {
+          await confirmationDetails.onConfirm(
+            confirmationOutcome,
+            hasPayload ? payload : undefined,
+          );
         }
-
-        await confirmationDetails.onConfirm(
-          confirmationOutcome,
-          hasPayload ? payload : undefined,
-        );
       } finally {
         if (gcpProject) {
           process.env['GOOGLE_CLOUD_PROJECT'] = gcpProject;
@@ -856,7 +947,7 @@ export class Task {
       } else {
         parts = [response];
       }
-      this.geminiClient.addHistory({
+      void this.geminiClient.addHistory({
         role: 'user',
         parts,
       });
@@ -894,11 +985,10 @@ export class Task {
     };
     // Set task state to working as we are about to call LLM
     this.setTaskStateAndPublishUpdate('working', stateChange);
-    // TODO: Determine what it mean to have, then add a prompt ID.
     yield* this.geminiClient.sendMessageStream(
       llmParts,
       aborted,
-      /*prompt_id*/ '',
+      completedToolCalls[0]?.request.prompt_id ?? '',
     );
   }
 
@@ -928,17 +1018,18 @@ export class Task {
     }
 
     if (hasContentForLlm) {
+      this.currentPromptId =
+        this.config.getSessionId() + '########' + this.promptCount++;
       logger.info('[Task] Sending new parts to LLM.');
       const stateChange: StateChange = {
         kind: CoderAgentEvent.StateChangeEvent,
       };
       // Set task state to working as we are about to call LLM
       this.setTaskStateAndPublishUpdate('working', stateChange);
-      // TODO: Determine what it mean to have, then add a prompt ID.
       yield* this.geminiClient.sendMessageStream(
         llmParts,
         aborted,
-        /*prompt_id*/ '',
+        this.currentPromptId,
       );
     } else if (anyConfirmationHandled) {
       logger.info(

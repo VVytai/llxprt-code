@@ -103,7 +103,7 @@ function sendIdeContextUpdateNotification(
     params: ideContext,
   });
 
-  transport.send(notification);
+  void transport.send(notification);
 }
 
 export class IDEServer {
@@ -189,7 +189,7 @@ export class IDEServer {
       const onDidChangeDiffSubscription = this.diffManager.onDidChange(
         (notification) => {
           for (const transport of Object.values(this.transports)) {
-            transport.send(notification);
+            void transport.send(notification);
           }
         },
       );
@@ -241,7 +241,7 @@ export class IDEServer {
               delete this.transports[transport.sessionId];
             }
           };
-          mcpServer.connect(transport);
+          void mcpServer.connect(transport);
         } else {
           this.log(
             'Bad Request: No valid session ID provided for non-initialize request.',

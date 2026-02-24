@@ -89,6 +89,7 @@ export function createTestConfigWithHook(options: TestHookOptions): Config {
     getWorkingDir: () => testCwd,
     getTargetDir: () => testCwd,
     getExtensions: () => [],
+    getDisabledHooks: () => [],
     getModel: () => 'test-model',
     getHookSystem: () => {
       // Lazy initialization of HookSystem singleton
@@ -115,6 +116,7 @@ export function createTestConfigWithHooksDisabled(): Config {
     getWorkingDir: () => testCwd,
     getTargetDir: () => testCwd,
     getExtensions: () => [],
+    getDisabledHooks: () => [],
     getModel: () => 'test-model',
     getHookSystem: () => undefined,
   } as unknown as Config;

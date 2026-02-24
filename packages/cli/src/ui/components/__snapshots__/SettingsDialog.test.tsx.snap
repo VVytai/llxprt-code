@@ -3,34 +3,37 @@
 exports[`SettingsDialog > Initial Rendering > should render settings list with visual indicators 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -38,34 +41,37 @@ exports[`SettingsDialog > Initial Rendering > should render settings list with v
 exports[`SettingsDialog > Snapshot Tests > should render 'accessibility settings enabled' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -73,34 +79,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'accessibility settings
 exports[`SettingsDialog > Snapshot Tests > should render 'all boolean settings disabled' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -108,34 +117,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'all boolean settings d
 exports[`SettingsDialog > Snapshot Tests > should render 'default state' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -143,34 +155,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'default state' correct
 exports[`SettingsDialog > Snapshot Tests > should render 'file filtering settings configured' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -178,34 +193,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'file filtering setting
 exports[`SettingsDialog > Snapshot Tests > should render 'focused on scope selector' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -213,34 +231,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'focused on scope selec
 exports[`SettingsDialog > Snapshot Tests > should render 'mixed boolean and number settings' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -248,34 +269,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'mixed boolean and numb
 exports[`SettingsDialog > Snapshot Tests > should render 'tools and security settings' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -283,34 +307,37 @@ exports[`SettingsDialog > Snapshot Tests > should render 'tools and security set
 exports[`SettingsDialog > Snapshot Tests > should render 'various boolean settings enabled' correctly 1`] = `
 "╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │                                                                                                  │
-│ Settings                                                                                         │
+│  > Settings                                                                                      │
 │                                                                                                  │
-│ ▲                                                                                                │
-│ ● Disable Loading Phrases                              false                                     │
+│ ╭──────────────────────────────────────────────────────────────────────────────────────────────╮ │
+│ │ Search to filter                                                                             │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │                                                                                                  │
-│   Screen Reader Mode                                   false                                     │
+│  ▲                                                                                               │
+│  ● Disable Loading Phrases                              false                                    │
 │                                                                                                  │
-│   Emoji Filter                                         auto                                      │
+│    Screen Reader Mode                                   false                                    │
 │                                                                                                  │
-│   Respect .gitignore                                   true                                      │
+│    Experimental LSP Servers                             false                                    │
 │                                                                                                  │
-│   Respect .llxprtignore                                true                                      │
+│    Emoji Filter                                         auto                                     │
 │                                                                                                  │
-│   Enable Recursive File Search                         true                                      │
+│    Respect .gitignore                                   true                                     │
 │                                                                                                  │
-│   Disable Fuzzy Search                                 false                                     │
+│    Respect .llxprtignore                                true                                     │
 │                                                                                                  │
-│   Disable Auto Update                                  false                                     │
+│    Enable Recursive File Search                         true                                     │
 │                                                                                                  │
-│ ▼                                                                                                │
+│    Disable Fuzzy Search                                 false                                    │
 │                                                                                                  │
+│  ▼                                                                                               │
 │                                                                                                  │
-│   Apply To                                                                                       │
-│ ● User Settings                                                                                  │
-│   Workspace Settings                                                                             │
-│   System Settings                                                                                │
+│    Apply To                                                                                      │
+│  ● User Settings                                                                                 │
+│    Workspace Settings                                                                            │
+│    System Settings                                                                               │
 │                                                                                                  │
-│ (Use Enter to select, Tab to change focus, Esc to close)                                         │
+│  (Use Enter to select, Tab to change focus, Esc to close)                                        │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;

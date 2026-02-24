@@ -21,9 +21,14 @@ describe('extensions new command', () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
+    /**
+     * @plan PLAN-20250219-GMERGE021.R9.P01
+     * @requirement REQ-GMERGE-R9-001
+     * Removed custom-commands from fakeFiles — no longer a valid template (upstream 470f3b057f59)
+     */
     const fakeFiles = [
       { name: 'context', isDirectory: () => true },
-      { name: 'custom-commands', isDirectory: () => true },
+      { name: 'exclude-tools', isDirectory: () => true },
       { name: 'mcp-server', isDirectory: () => true },
     ];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

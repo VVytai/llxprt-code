@@ -36,6 +36,15 @@ describe('JSON output', () => {
     expect(typeof parsed.stats).toBe('object');
   });
 
+  it('should include session_id in JSON output', async () => {
+    const result = await rig.run('Say hello', '--output-format', 'json');
+    const parsed = JSON.parse(result);
+
+    expect(parsed).toHaveProperty('session_id');
+    expect(typeof parsed.session_id).toBe('string');
+    expect(parsed.session_id).toBeTruthy();
+  });
+
   // REMOVED (issue #443): Enforced auth type mismatch test removed.
   // The enforced auth type checking was vestigial code that caused
   // more problems than it solved. Providers now handle auth internally.

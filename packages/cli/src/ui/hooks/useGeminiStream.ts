@@ -1523,7 +1523,7 @@ export const useGeminiStream = (
 
             // Add function calls as 'model' role (tool_use blocks)
             if (functionCalls.length > 0) {
-              geminiClient.addHistory({
+              void geminiClient.addHistory({
                 role: 'model',
                 parts: functionCalls,
               });
@@ -1531,7 +1531,7 @@ export const useGeminiStream = (
 
             // Add function responses and other parts as 'user' role (tool_result blocks)
             if (functionResponses.length > 0 || otherParts.length > 0) {
-              geminiClient.addHistory({
+              void geminiClient.addHistory({
                 role: 'user',
                 parts: [...functionResponses, ...otherParts],
               });
@@ -1673,14 +1673,14 @@ export const useGeminiStream = (
           }
 
           if (functionCalls.length > 0) {
-            geminiClient.addHistory({
+            void geminiClient.addHistory({
               role: 'model',
               parts: functionCalls,
             });
           }
 
           if (functionResponses.length > 0 || otherParts.length > 0) {
-            geminiClient.addHistory({
+            void geminiClient.addHistory({
               role: 'user',
               parts: [...functionResponses, ...otherParts],
             });
@@ -1713,7 +1713,7 @@ export const useGeminiStream = (
 
       markToolsAsSubmitted(callIdsToMarkAsSubmitted);
 
-      submitQuery(
+      void submitQuery(
         responsesToSend,
         {
           isContinuation: true,
@@ -1854,7 +1854,7 @@ export const useGeminiStream = (
         }
       }
     };
-    saveRestorableToolCalls();
+    void saveRestorableToolCalls();
   }, [
     toolCalls,
     config,

@@ -178,6 +178,9 @@ describe('InputPrompt', () => {
         isActive: false,
         markSelected: vi.fn(),
       },
+      getCommandFromSuggestion: vi.fn().mockReturnValue(null),
+      isArgumentCompletion: false,
+      leafCommand: null,
     };
     mockedUseCommandCompletion.mockReturnValue(mockCommandCompletion);
 
@@ -706,6 +709,286 @@ describe('InputPrompt', () => {
       stdin.write('\r');
     });
     await waitFor(() => expect(props.onSubmit).toHaveBeenCalledWith('/clear'));
+    unmount();
+  });
+
+  it('should auto-execute commands with autoExecute: true on Enter', async () => {
+    const aboutCommand: SlashCommand = {
+      name: 'about',
+      kind: CommandKind.BUILT_IN,
+      description: 'About command',
+      action: vi.fn(),
+      autoExecute: true,
+    };
+
+    const suggestion = { label: 'about', value: 'about' };
+
+    mockCommandCompletion.handleAutocomplete = vi
+      .fn()
+      .mockReturnValue('/about ');
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(aboutCommand),
+      isArgumentCompletion: false,
+      leafCommand: null,
+    });
+
+    // User typed partial command
+    props.buffer.setText('/ab');
+    props.buffer.lines = ['/ab'];
+    props.buffer.cursor = [0, 3];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\r'); // Enter
+    });
+
+    await waitFor(() => {
+      expect(props.onSubmit).toHaveBeenCalledWith('/about');
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+    });
+    unmount();
+  });
+
+  it('should autocomplete commands with autoExecute: false on Enter', async () => {
+    const shareCommand: SlashCommand = {
+      name: 'share',
+      kind: CommandKind.BUILT_IN,
+      description: 'Share conversation to file',
+      action: vi.fn(),
+      autoExecute: false,
+    };
+
+    const suggestion = { label: 'share', value: 'share' };
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(shareCommand),
+      isArgumentCompletion: false,
+      leafCommand: null,
+    });
+
+    props.buffer.setText('/sh');
+    props.buffer.lines = ['/sh'];
+    props.buffer.cursor = [0, 3];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\r'); // Enter
+    });
+
+    await waitFor(() => {
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+      expect(props.onSubmit).not.toHaveBeenCalled();
+    });
+    unmount();
+  });
+
+  it('should autocomplete on Tab, even for executable commands', async () => {
+    const executableCommand: SlashCommand = {
+      name: 'about',
+      kind: CommandKind.BUILT_IN,
+      description: 'About info',
+      action: vi.fn(),
+      autoExecute: true,
+    };
+
+    const suggestion = { label: 'about', value: 'about' };
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(executableCommand),
+      isArgumentCompletion: false,
+      leafCommand: null,
+    });
+
+    props.buffer.setText('/ab');
+    props.buffer.lines = ['/ab'];
+    props.buffer.cursor = [0, 3];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\t'); // Tab
+    });
+
+    await waitFor(() => {
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+      expect(props.onSubmit).not.toHaveBeenCalled();
+    });
+    unmount();
+  });
+
+  it('should autocomplete custom commands from .toml files on Enter', async () => {
+    const customCommand: SlashCommand = {
+      name: 'find-capital',
+      kind: CommandKind.FILE,
+      description: 'Find capital of a country',
+      action: vi.fn(),
+    };
+
+    const suggestion = { label: 'find-capital', value: 'find-capital' };
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(customCommand),
+      isArgumentCompletion: false,
+      leafCommand: null,
+    });
+
+    props.buffer.setText('/find');
+    props.buffer.lines = ['/find'];
+    props.buffer.cursor = [0, 5];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\r'); // Enter
+    });
+
+    await waitFor(() => {
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+      expect(props.onSubmit).not.toHaveBeenCalled();
+    });
+    unmount();
+  });
+
+  it('should auto-execute argument completion when command has autoExecute: true', async () => {
+    const authCommand: SlashCommand = {
+      name: 'auth',
+      kind: CommandKind.BUILT_IN,
+      description: 'Authenticate with MCP server',
+      action: vi.fn(),
+      autoExecute: true,
+      completion: vi.fn().mockResolvedValue(['server1', 'server2']),
+    };
+
+    const suggestion = { label: 'server1', value: 'server1' };
+
+    mockCommandCompletion.handleAutocomplete = vi
+      .fn()
+      .mockReturnValue('/mcp auth server1 ');
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(authCommand),
+      isArgumentCompletion: true,
+      leafCommand: authCommand,
+    });
+
+    props.buffer.setText('/mcp auth ');
+    props.buffer.lines = ['/mcp auth '];
+    props.buffer.cursor = [0, 10];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\r'); // Enter
+    });
+
+    await waitFor(() => {
+      expect(props.onSubmit).toHaveBeenCalledWith('/mcp auth server1');
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+    });
+    unmount();
+  });
+
+  it('should autocomplete argument completion when command has autoExecute: false', async () => {
+    const enableCommand: SlashCommand = {
+      name: 'enable',
+      kind: CommandKind.BUILT_IN,
+      description: 'Enable an extension',
+      action: vi.fn(),
+      autoExecute: false,
+      completion: vi.fn().mockResolvedValue(['ext1 --scope user']),
+    };
+
+    const suggestion = {
+      label: 'ext1 --scope user',
+      value: 'ext1 --scope user',
+    };
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(enableCommand),
+      isArgumentCompletion: true,
+      leafCommand: enableCommand,
+    });
+
+    props.buffer.setText('/extensions enable ');
+    props.buffer.lines = ['/extensions enable '];
+    props.buffer.cursor = [0, 19];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\r'); // Enter
+    });
+
+    await waitFor(() => {
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+      expect(props.onSubmit).not.toHaveBeenCalled();
+    });
+    unmount();
+  });
+
+  it('should autocomplete command name even with autoExecute: true if command has completion function', async () => {
+    const resumeCommand: SlashCommand = {
+      name: 'resume',
+      kind: CommandKind.BUILT_IN,
+      description: 'Resume a conversation',
+      action: vi.fn(),
+      autoExecute: true,
+      completion: vi.fn().mockResolvedValue(['chat1', 'chat2']),
+    };
+
+    const suggestion = { label: 'resume', value: 'resume' };
+
+    mockedUseCommandCompletion.mockReturnValue({
+      ...mockCommandCompletion,
+      showSuggestions: true,
+      suggestions: [suggestion],
+      activeSuggestionIndex: 0,
+      getCommandFromSuggestion: vi.fn().mockReturnValue(resumeCommand),
+      isArgumentCompletion: false,
+      leafCommand: null,
+    });
+
+    props.buffer.setText('/chat resu');
+    props.buffer.lines = ['/chat resu'];
+    props.buffer.cursor = [0, 10];
+
+    const { stdin, unmount } = renderWithProviders(<InputPrompt {...props} />);
+
+    await act(async () => {
+      stdin.write('\r'); // Enter
+    });
+
+    await waitFor(() => {
+      expect(mockCommandCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
+      expect(props.onSubmit).not.toHaveBeenCalled();
+    });
     unmount();
   });
 

@@ -14,7 +14,6 @@ import {
   MessageActionReturn,
   CommandKind,
   SlashCommandActionReturn,
-  LoadHistoryActionReturn,
 } from './types.js';
 import {
   decodeTagName,
@@ -182,12 +181,8 @@ const resumeCommand: SlashCommand = {
     'Resume a conversation from a checkpoint. Usage: /chat resume <tag>',
   kind: CommandKind.BUILT_IN,
   schema: chatTagSchema,
-  action: async (
-    context,
-    args,
-  ): Promise<
-    SlashCommandActionReturn | MessageActionReturn | LoadHistoryActionReturn
-  > => {
+  autoExecute: true,
+  action: async (context, args): Promise<SlashCommandActionReturn> => {
     const tag = args.trim();
     if (!tag) {
       return {
@@ -266,6 +261,7 @@ const deleteCommand: SlashCommand = {
     'Delete a conversation checkpoint. Usage: /chat delete <tag> [--force]',
   kind: CommandKind.BUILT_IN,
   schema: chatTagSchema,
+  autoExecute: true,
   action: async (context, args): Promise<SlashCommandActionReturn> => {
     const force = args.includes('--force');
     const tag = args.replace('--force', '').trim();
@@ -419,7 +415,7 @@ const clearCommand: SlashCommand = {
 const restoreHistory = async (
   context: CommandContext,
   turns: number,
-): Promise<MessageActionReturn | LoadHistoryActionReturn> => {
+): Promise<SlashCommandActionReturn> => {
   const client = context.services.config?.getGeminiClient();
   if (!client?.hasChatInitialized()) {
     return {
@@ -483,10 +479,7 @@ const restoreCommand: SlashCommand = {
   description:
     'Restore conversation to N turns ago. Usage: /chat restore <number>',
   kind: CommandKind.BUILT_IN,
-  action: async (
-    context,
-    args,
-  ): Promise<MessageActionReturn | LoadHistoryActionReturn> => {
+  action: async (context, args): Promise<SlashCommandActionReturn> => {
     const turnsStr = args.trim();
     if (!turnsStr) {
       return {

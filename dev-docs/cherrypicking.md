@@ -84,6 +84,8 @@ These upstream features have been reimplemented in llxprt with our own approach:
 
 - **Conversation Logging (commit `36f58a34`)** - Reimplemented as privacy-first, multi-provider conversation logging via `/logging` command with local storage, granular controls, and sensitive data redaction
 - **Tool Scheduler Request Queue (commit `69322e12`)** - llxprt has superior parallel batching that queues and processes multiple requests in parallel for better multi-provider performance, while upstream processes serially
+- **History Compression** - LLxprt completely rewrote the compression system using a strategy pattern (`packages/core/src/core/compression/`). Upstream compression commits (e.g., `hasFailedCompressionAttempt` fixes like `2d1c1ac5672e`) will NOT apply. When encountering compression-related commits, evaluate if the conceptual fix is useful for LLxprt's architecture, but expect to skip or reimplement rather than cherry-pick.
+- **Restore Command** - LLxprt uses `/continue` instead of `/restore` for session restoration. Commits moving restore logic (e.g., `b27cf0b0a8dd`) should be reimplemented adapting for `/continue`.
 
 #### Features Completely Removed (Don't Cherry-pick):
 

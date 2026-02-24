@@ -160,7 +160,21 @@ export async function createApp() {
             .json({ error: `Command not found: ${command}` });
         }
 
-        const result = await commandToExecute.execute(config, args ?? []);
+        // Validate workspace path for commands that require it
+        if (commandToExecute.requiresWorkspace) {
+          if (!process.env['CODER_AGENT_WORKSPACE_PATH']) {
+            return res.status(400).json({
+              error:
+                'CODER_AGENT_WORKSPACE_PATH environment variable is required for this command',
+            });
+          }
+        }
+
+        // Get git service for commands that may need it
+        const git = await config.getGitService();
+        const context = { config, git };
+
+        const result = await commandToExecute.execute(context, args ?? []);
         return res.status(200).json(result);
       } catch (e) {
         logger.error('Error executing /executeCommand:', e);

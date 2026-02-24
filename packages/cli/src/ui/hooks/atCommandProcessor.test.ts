@@ -16,6 +16,7 @@ import {
   COMMON_IGNORE_PATTERNS,
   DEFAULT_FILE_EXCLUDES,
 } from '@vybestack/llxprt-code-core';
+import type { DiscoveredMCPResource } from '@vybestack/llxprt-code-core';
 import * as os from 'os';
 import { ToolCallStatus } from '../types.js';
 import { UseHistoryManagerReturn } from './useHistoryManager.js';
@@ -109,6 +110,10 @@ describe('handleAtCommand', () => {
       getEphemeralSettings: () => ({}), // No disabled tools
       getMcpServers: () => ({}),
       getMcpServerCommand: () => undefined,
+      getResourceRegistry: () => ({
+        findResourceByUri: () => undefined,
+      }),
+      getMcpClientManager: () => undefined,
       getPromptRegistry: () => ({
         getPromptsByServer: () => [],
       }),
@@ -128,6 +133,78 @@ describe('handleAtCommand', () => {
     registry.registerTool(new ReadManyFilesTool(mockConfig));
     registry.registerTool(new GlobTool(mockConfig));
     getToolRegistry.mockReturnValue(registry);
+  });
+
+  it('should include MCP resource content for @server:uri references', async () => {
+    const serverName = 'docs';
+    const resourceUri = 'file:///docs/readme.md';
+    const query = `Summarize @${serverName}:${resourceUri}`;
+
+    const findResourceByUri = vi
+      .fn()
+      .mockImplementation((identifier: string) => {
+        if (identifier === `${serverName}:${resourceUri}`) {
+          return {
+            serverName,
+            uri: resourceUri,
+            discoveredAt: Date.now(),
+          } as DiscoveredMCPResource;
+        }
+        return undefined;
+      });
+
+    const readResource = vi.fn().mockResolvedValue({
+      contents: [
+        {
+          uri: resourceUri,
+          mimeType: 'text/plain',
+          text: 'resource content from mcp',
+        },
+      ],
+    });
+
+    const getClient = vi.fn().mockImplementation((name: string) => {
+      if (name === serverName) {
+        return { readResource };
+      }
+      return undefined;
+    });
+
+    mockConfig = {
+      ...mockConfig,
+      getResourceRegistry: () => ({ findResourceByUri }),
+      getMcpClientManager: () => ({ getClient }),
+    } as unknown as Config;
+
+    const result = await handleAtCommand({
+      query,
+      config: mockConfig,
+      addItem: mockAddItem,
+      onDebugMessage: mockOnDebugMessage,
+      messageId: 1001,
+      signal: abortController.signal,
+    });
+
+    expect(findResourceByUri).toHaveBeenCalledWith(
+      `${serverName}:${resourceUri}`,
+    );
+    expect(readResource).toHaveBeenCalledWith(resourceUri);
+    expect(result).toEqual({
+      processedQuery: [
+        { text: query },
+        { text: `\nContent from @${serverName}:${resourceUri}:\n` },
+        { text: 'resource content from mcp' },
+      ],
+      shouldProceed: true,
+    });
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'tool_group',
+        agentId: 'primary',
+        tools: [expect.objectContaining({ status: ToolCallStatus.Success })],
+      }),
+      1001,
+    );
   });
 
   afterEach(async () => {

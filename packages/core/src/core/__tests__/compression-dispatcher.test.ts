@@ -25,6 +25,13 @@ import { createAgentRuntimeContext } from '../../runtime/createAgentRuntimeConte
 import type { AgentRuntimeContext } from '../../runtime/AgentRuntimeContext.js';
 import type { ContentGenerator } from '../contentGenerator.js';
 import type { CompressionContext } from '../compression/types.js';
+import { triggerPreCompressHook } from '../lifecycleHookTriggers.js';
+import { PreCompressTrigger } from '../../hooks/types.js';
+
+// Mock the lifecycle hook triggers
+vi.mock('../lifecycleHookTriggers.js', () => ({
+  triggerPreCompressHook: vi.fn().mockResolvedValue(undefined),
+}));
 
 // ---------------------------------------------------------------------------
 // Message helpers (same pattern as sandwich-compression.test.ts)
@@ -436,6 +443,117 @@ describe('Compression Dispatcher Integration (P13)', () => {
       // and verify 'historyService' is not among its expected fields
       const knownFields = new Set(contextKeys);
       expect(knownFields.has('historyService' as never)).toBe(false);
+    });
+  });
+
+  /**
+   * Group C: PreCompress hook tests
+   * @plan PLAN-20250219-GMERGE021.R4
+   * @requirement REQ-R4-3 (PreCompress hook before compression)
+   *
+   * These tests verify that performCompression triggers the PreCompress hook
+   * before compression logic runs. These tests WILL FAIL in RED phase because
+   * performCompression does not currently call triggerPreCompressHook.
+   */
+  describe('PreCompress hook integration', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should trigger PreCompress hook before compression', async () => {
+      const historyService = new HistoryService(8000);
+      // Add a message to trigger compression
+      historyService.add(createUserMessage('Test message'), 'test-model');
+
+      const mockContentGenerator: ContentGenerator = vi.fn();
+      const mockProvider = {
+        generateChatCompletion: mockContentGenerator,
+      };
+
+      const runtimeContext = buildRuntimeContext(historyService, {
+        compressionStrategy: 'middle-out',
+      });
+
+      const chat = new GeminiChat(runtimeContext, mockContentGenerator, {}, []);
+      vi.spyOn(chat as never, 'resolveProviderForRuntime').mockReturnValue(
+        mockProvider as never,
+      );
+      vi.spyOn(chat as never, 'providerSupportsIContent').mockReturnValue(true);
+
+      // Mock the compression to return valid history
+      vi.mocked(mockContentGenerator).mockResolvedValueOnce({
+        content: 'Compressed summary',
+        usage: {},
+      } as never);
+
+      await chat.performCompression('test-prompt-id');
+
+      // Assert: triggerPreCompressHook was called
+      expect(triggerPreCompressHook).toHaveBeenCalledTimes(1);
+
+      // Assert: triggerPreCompressHook was called with correct parameters
+      expect(triggerPreCompressHook).toHaveBeenCalledWith(
+        expect.anything(), // config
+        PreCompressTrigger.Manual, // or Auto - depends on context
+      );
+    });
+
+    it('should proceed with compression even if PreCompress hook throws', async () => {
+      const localHistoryService = new HistoryService(8000);
+      populateHistory(localHistoryService);
+
+      const localContentGenerator = buildMockContentGenerator();
+      const summaryText =
+        '<state_snapshot><overall_goal>Hook failure recovery</overall_goal></state_snapshot>';
+      const localMockProvider = buildMockProvider(summaryText);
+
+      const runtimeContext = buildRuntimeContext(localHistoryService, {
+        compressionStrategy: 'middle-out',
+      });
+
+      const chat = new GeminiChat(
+        runtimeContext,
+        localContentGenerator,
+        {},
+        [],
+      );
+      vi.spyOn(chat as never, 'resolveProviderForRuntime').mockReturnValue(
+        localMockProvider as never,
+      );
+      vi.spyOn(chat as never, 'providerSupportsIContent').mockReturnValue(true);
+
+      // Mock triggerPreCompressHook to throw
+      vi.mocked(triggerPreCompressHook).mockRejectedValueOnce(
+        new Error('Hook failed'),
+      );
+
+      // Compression should still succeed despite hook failure
+      await expect(
+        chat.performCompression('test-prompt-id'),
+      ).resolves.toBeUndefined();
+
+      // Verify compression still ran (provider was called to generate summary)
+      expect(localMockProvider.generateChatCompletion).toHaveBeenCalled();
+    });
+
+    it('should not call PreCompress hook when compression is skipped (empty history)', async () => {
+      const historyService = new HistoryService(8000);
+      // Empty history - compression should be skipped
+
+      const mockContentGenerator: ContentGenerator = vi.fn();
+
+      const runtimeContext = buildRuntimeContext(historyService, {
+        compressionStrategy: 'middle-out',
+      });
+
+      const chat = new GeminiChat(runtimeContext, mockContentGenerator, {}, []);
+
+      await chat.performCompression('test-prompt-id');
+
+      // Assert: triggerPreCompressHook was NOT called when compression is skipped
+      // Note: This test may already pass if there's no hook call at all
+      // but it documents the expected behavior
+      expect(triggerPreCompressHook).not.toHaveBeenCalled();
     });
   });
 });

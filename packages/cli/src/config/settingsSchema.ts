@@ -1651,11 +1651,24 @@ export const SETTINGS_SCHEMA = {
     label: 'Hooks',
     category: 'Advanced',
     requiresRestart: false,
-    default: {} as { [K in HookEventName]?: HookDefinition[] },
+    default: {} as
+      | { [K in HookEventName]?: HookDefinition[] }
+      | { disabled?: string[] },
     description:
       'Hook configurations for intercepting and customizing agent behavior.',
     showInDialog: false,
     mergeStrategy: MergeStrategy.SHALLOW_MERGE,
+    properties: {
+      disabled: {
+        type: 'array',
+        label: 'Disabled Hooks',
+        category: 'Advanced',
+        requiresRestart: false,
+        default: [] as string[],
+        description: 'List of hook names to disable',
+        showInDialog: false,
+      },
+    },
   },
 } as const;
 

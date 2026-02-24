@@ -84,7 +84,7 @@ export function useShellHistory(
       const loadedHistory = await readHistoryFile(filePath);
       setHistory(loadedHistory.reverse()); // Newest first
     }
-    loadHistory();
+    void loadHistory();
   }, [projectRoot, storage]);
 
   const addCommandToHistory = useCallback(
@@ -97,7 +97,7 @@ export function useShellHistory(
         .filter(Boolean);
       setHistory(newHistory);
       // Write to file in reverse order (oldest first)
-      writeHistoryFile(historyFilePath, [...newHistory].reverse());
+      void writeHistoryFile(historyFilePath, [...newHistory].reverse());
       setHistoryIndex(-1);
     },
     [history, historyFilePath],

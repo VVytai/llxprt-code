@@ -335,6 +335,7 @@ describe('Correlated responses (DELTA-HEVT-002)', () => {
 
       localHandler.dispose();
     },
+    15000,
   );
 });
 
@@ -455,6 +456,7 @@ describe('Unsupported event name (DELTA-HEVT-003)', () => {
 
       localHandler.dispose();
     },
+    15000,
   );
 });
 
@@ -623,6 +625,7 @@ describe('correlationId generation (DELTA-HBUS-003)', () => {
 
       localHandler.dispose();
     },
+    15000,
   );
 });
 
@@ -719,5 +722,6 @@ describe('Model translation (DELTA-HPAY-003)', () => {
 
       localHandler.dispose();
     },
+    15000,
   );
 });

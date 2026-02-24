@@ -246,6 +246,68 @@ describe('Issue 913: OAuth Manager Prompt Mode', () => {
         process.stdin.setRawMode = originalSetRawMode;
       }
     });
+
+    it('should preserve stdin state when falling back to TTY prompt without MessageBus', async () => {
+      setMockEphemeralSetting('auth-bucket-prompt', true);
+
+      const originalIsTTY = process.stdin.isTTY;
+      const originalIsRaw = process.stdin.isRaw;
+      const originalSetRawMode = process.stdin.setRawMode;
+
+      Object.defineProperty(process.stdin, 'isTTY', {
+        configurable: true,
+        value: true,
+      });
+      Object.defineProperty(process.stdin, 'isRaw', {
+        configurable: true,
+        value: true,
+      });
+      Object.defineProperty(process.stdin, 'setRawMode', {
+        configurable: true,
+        value: vi.fn(),
+      });
+
+      const setRawModeSpy = vi.mocked(process.stdin.setRawMode);
+      const pauseSpy = vi
+        .spyOn(process.stdin, 'pause')
+        .mockImplementation(() => process.stdin);
+      vi.spyOn(process.stdin, 'resume').mockImplementation(() => process.stdin);
+      vi.spyOn(process.stdin, 'isPaused').mockReturnValue(false);
+      const onceSpy = vi.spyOn(process.stdin, 'once');
+      onceSpy.mockImplementation(((
+        event: string | symbol,
+        listener: (...args: unknown[]) => void,
+      ) => {
+        if (event === 'data') {
+          queueMicrotask(() => {
+            listener();
+          });
+        }
+        return process.stdin;
+      }) as typeof process.stdin.once);
+
+      try {
+        await manager.toggleOAuthEnabled('anthropic');
+        await manager.getToken('anthropic');
+
+        // If stdin was already in interactive raw mode, auth fallback must not alter it.
+        expect(setRawModeSpy).not.toHaveBeenCalled();
+        expect(pauseSpy).not.toHaveBeenCalled();
+      } finally {
+        Object.defineProperty(process.stdin, 'isTTY', {
+          configurable: true,
+          value: originalIsTTY,
+        });
+        Object.defineProperty(process.stdin, 'isRaw', {
+          configurable: true,
+          value: originalIsRaw,
+        });
+        Object.defineProperty(process.stdin, 'setRawMode', {
+          configurable: true,
+          value: originalSetRawMode,
+        });
+      }
+    });
   });
 
   describe('Eager Multi-Bucket Authentication', () => {

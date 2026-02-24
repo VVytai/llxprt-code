@@ -83,6 +83,7 @@ export const ProfileSaveStep: React.FC<ProfileSaveStepProps> = ({
         setExistingProfiles([]);
       }
     };
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     loadExistingProfiles();
   }, []);
 
@@ -162,6 +163,7 @@ export const ProfileSaveStep: React.FC<ProfileSaveStepProps> = ({
       } else if (value === 'overwrite') {
         // Clear validation error and force save
         setValidationError(null);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleProfileNameSubmit(true);
       } else if (value === 'back') {
         onBack();

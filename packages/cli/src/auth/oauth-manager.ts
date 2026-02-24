@@ -2257,25 +2257,51 @@ export class OAuthManager {
         // Interactive terminal - wait for keypress
         console.log(`\nReady to authenticate bucket: ${bucket}`);
         console.log('Press ENTER to continue, or Ctrl+C to cancel...\n');
-        let rawModeSet = false;
+
+        const stdinWasPaused = process.stdin.isPaused();
+        const stdinHadRawMode =
+          process.stdin.isTTY &&
+          typeof process.stdin.isRaw === 'boolean' &&
+          process.stdin.isRaw;
+        let rawModeChanged = false;
+        let stdinStateRestored = false;
+
+        const restoreStdinState = (): void => {
+          if (stdinStateRestored) {
+            return;
+          }
+          stdinStateRestored = true;
+
+          if (rawModeChanged && process.stdin.isTTY) {
+            try {
+              process.stdin.setRawMode(stdinHadRawMode);
+            } catch {
+              // Issue #1020: Ignore EIO errors during cleanup
+            }
+          }
+
+          if (stdinWasPaused) {
+            try {
+              process.stdin.pause();
+            } catch {
+              // Ignore pause cleanup errors
+            }
+          }
+        };
+
         try {
           await new Promise<void>((resolve, reject) => {
             const cleanup = (): void => {
               process.stdin.removeListener('data', onData);
               process.stdin.removeListener('error', onError);
-              if (rawModeSet && process.stdin.isTTY) {
-                try {
-                  process.stdin.setRawMode(false);
-                } catch {
-                  // Issue #1020: Ignore EIO errors during cleanup
-                }
-              }
-              process.stdin.pause();
+              restoreStdinState();
             };
+
             const onData = (): void => {
               cleanup();
               resolve();
             };
+
             // Issue #1020: Make error handler defensive against EIO errors
             const onError = (err: Error): void => {
               cleanup();
@@ -2296,11 +2322,12 @@ export class OAuthManager {
                 reject(err);
               }
             };
-            if (process.stdin.isTTY) {
+
+            if (!stdinHadRawMode && process.stdin.isTTY) {
               try {
                 // Issue #1020: Wrap setRawMode in try-catch
                 process.stdin.setRawMode(true);
-                rawModeSet = true;
+                rawModeChanged = true;
               } catch (err) {
                 // If setRawMode fails, EIO-style errors should not crash
                 logger.debug('Failed to set raw mode for prompt:', err);
@@ -2309,19 +2336,15 @@ export class OAuthManager {
                 return; // Don't continue setting up listeners
               }
             }
-            process.stdin.resume();
+
+            if (stdinWasPaused) {
+              process.stdin.resume();
+            }
             process.stdin.once('data', onData);
             process.stdin.once('error', onError);
           });
         } catch (error) {
-          // Issue #1020: Ensure raw mode is reset even on unexpected errors
-          if (rawModeSet && process.stdin.isTTY) {
-            try {
-              process.stdin.setRawMode(false);
-            } catch {
-              // Ignore cleanup errors (likely EIO)
-            }
-          }
+          restoreStdinState();
           throw error;
         }
         return true;

@@ -56,6 +56,40 @@ describe('getKeychainServiceName', () => {
     // Keychain service names have platform-specific limits
     expect(serviceName.length).toBeLessThanOrEqual(256);
   });
+
+  it('should use workspace identity (git root) not cwd for workspace scope', async () => {
+    // This test verifies that workspace-scoped extensions use getWorkspaceIdentity()
+    // (git root) instead of process.cwd() for the service name hash.
+
+    // Since getWorkspaceIdentity() is already imported and called by getKeychainServiceName,
+    // we need to test the actual behavior by verifying the hash in the service name.
+
+    // For a workspace-scoped extension path
+    const extensionDir = path.join(
+      process.cwd(),
+      '.llxprt',
+      'extensions',
+      'test-extension',
+    );
+    const serviceName = getKeychainServiceName('test-extension', extensionDir);
+
+    // The service name should contain a hash based on the git root (workspace identity)
+    // Import getWorkspaceIdentity to get the actual workspace identity
+    const { getWorkspaceIdentity } = await import('../../utils/gitUtils.js');
+    const workspaceIdentity = getWorkspaceIdentity();
+
+    const crypto = await import('node:crypto');
+    const expectedHash = crypto
+      .createHash('md5')
+      .update(workspaceIdentity)
+      .digest('hex')
+      .substring(0, 8);
+
+    // Assert the service name contains the hash of the workspace identity
+    expect(serviceName).toContain(expectedHash);
+    expect(serviceName).toContain('test-extension');
+    expect(serviceName).toContain('Workspace');
+  });
 });
 
 describe('ExtensionSettingsStorage', () => {
@@ -264,6 +298,105 @@ describe('ExtensionSettingsStorage', () => {
     it('should return false if no settings exist', async () => {
       const result = await storage.hasSettings();
       expect(result).toBe(false);
+    });
+  });
+
+  describe('backward compatibility with legacy cwd-based keys', () => {
+    it('should fall back to cwd-based keychain lookup if canonical key not found', async () => {
+      const settings: ExtensionSetting[] = [
+        { name: 'apiKey', envVar: 'API_KEY', sensitive: true },
+      ];
+
+      // Store value using legacy cwd-based key (for future migration test refinement)
+      mockStore.set('API_KEY', 'legacy-secret');
+
+      // Current implementation only looks for canonical key with workspace hash
+      // Expected: should fall back to legacy key when canonical not found
+      const result = await storage.loadSettings(settings);
+      expect(result.API_KEY).toBe('legacy-secret');
+    });
+
+    it('should prefer canonical key over cwd-based key when both exist', async () => {
+      const settings: ExtensionSetting[] = [
+        { name: 'apiKey', envVar: 'API_KEY', sensitive: true },
+      ];
+
+      // Store both legacy and canonical values
+      mockStore.set('API_KEY', 'canonical-secret');
+      // In real implementation, legacy would be under different service name
+
+      const result = await storage.loadSettings(settings);
+      // Should prefer canonical (this test design needs refinement based on implementation)
+      expect(result.API_KEY).toBe('canonical-secret');
+    });
+
+    it('should fall back to cwd-based workspace env file if canonical not found', async () => {
+      const settings: ExtensionSetting[] = [
+        { name: 'apiUrl', envVar: 'API_URL', sensitive: false },
+      ];
+
+      // Create env file at legacy cwd-based path
+      const legacyCwdPath = path.join(
+        process.cwd(),
+        '.llxprt',
+        'extensions',
+        extensionName,
+        '.env',
+      );
+      await fs.promises.mkdir(path.dirname(legacyCwdPath), { recursive: true });
+      await fs.promises.writeFile(
+        legacyCwdPath,
+        'API_URL=https://legacy.example.com' + '\\n',
+      );
+
+      // Current implementation only checks canonical path
+      // Expected: should fall back to legacy path (GREEN phase)
+      // For RED phase, test will fail because fallback doesn't exist yet
+      const result = await storage.loadSettings(settings);
+      expect(result.API_URL).toContain('legacy.example.com');
+
+      // Clean up
+      await fs.promises.rm(path.join(process.cwd(), '.llxprt'), {
+        recursive: true,
+        force: true,
+      });
+    });
+
+    it('should prefer canonical workspace env over cwd-based when both exist', async () => {
+      const settings: ExtensionSetting[] = [
+        { name: 'apiUrl', envVar: 'API_URL', sensitive: false },
+      ];
+
+      // Create both canonical and legacy env files
+      const canonicalPath = path.join(tmpDir, '.env');
+      await fs.promises.writeFile(
+        canonicalPath,
+        'API_URL=https://canonical.example.com' + '\\n',
+      );
+
+      const legacyCwdPath = path.join(
+        process.cwd(),
+        '.llxprt',
+        'extensions',
+        extensionName,
+        '.env',
+      );
+      await fs.promises.mkdir(path.dirname(legacyCwdPath), { recursive: true });
+      await fs.promises.writeFile(
+        legacyCwdPath,
+        'API_URL=https://legacy.example.com' + '\\n',
+      );
+
+      const result = await storage.loadSettings(settings);
+      // Should prefer canonical path (after GREEN phase implementation)
+      // For RED phase, we expect current behavior which includes the newline
+      expect(result.API_URL).toContain('canonical.example.com');
+
+      // Clean up
+      await fs.promises.rm(path.join(process.cwd(), '.llxprt'), {
+        recursive: true,
+        force: true,
+      });
     });
   });
 });

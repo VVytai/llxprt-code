@@ -13,6 +13,7 @@ import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
 import process from 'node:process';
 import { mcpCommand } from '../commands/mcp.js';
+import { hooksCommand } from '../commands/hooks.js';
 import {
   Config,
   loadServerHierarchicalMemory,
@@ -587,7 +588,9 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
         'If true, when refreshing memory, LLXPRT.md files should be loaded from all directories that are added. If false, LLXPRT.md files should only be loaded from the primary working directory.',
     })
     // Register MCP subcommands
-    .command(mcpCommand);
+    .command(mcpCommand)
+    // Register hooks subcommands
+    .command(hooksCommand);
 
   if (settings?.extensionManagement ?? false) {
     yargsInstance.command(extensionsCommand);
@@ -624,6 +627,11 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
   // The _ array contains the commands that were run
   if (result._ && result._.length > 0 && result._[0] === 'mcp') {
     // An MCP subcommand was executed (like 'mcp list'), exit cleanly
+    process.exit(0);
+  }
+
+  if (result._ && result._.length > 0 && result._[0] === 'hooks') {
+    // A hooks subcommand was executed (like 'hooks list'), exit cleanly
     process.exit(0);
   }
 
@@ -1444,10 +1452,27 @@ export async function loadCliConfig(
         : argv.continue || false,
     // TODO: loading of hooks based on workspace trust
     enableHooks: effectiveSettings.tools?.enableHooks ?? false,
-    hooks: effectiveSettings.hooks || {},
+    hooks: (() => {
+      const hooksConfig = effectiveSettings.hooks || {};
+      // Filter out the 'disabled' property from hooks config as it's handled separately
+      const { disabled: _disabled, ...eventHooks } = hooksConfig as {
+        disabled?: string[];
+        [key: string]: unknown;
+      };
+      return eventHooks;
+    })(),
   });
 
   const enhancedConfig = config;
+
+  // Set disabled hooks from settings if present
+  if (effectiveSettings.hooks && 'disabled' in effectiveSettings.hooks) {
+    const disabledHooks = (effectiveSettings.hooks as { disabled?: unknown })
+      .disabled;
+    if (Array.isArray(disabledHooks)) {
+      enhancedConfig.setDisabledHooks(disabledHooks as string[]);
+    }
+  }
 
   const bootstrapRuntimeId =
     runtimeState.runtime.runtimeId ?? 'cli.runtime.bootstrap';

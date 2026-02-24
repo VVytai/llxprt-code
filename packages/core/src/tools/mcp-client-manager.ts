@@ -15,7 +15,7 @@ import {
   MCPDiscoveryState,
   populateMcpServerCommand,
 } from './mcp-client.js';
-import { getErrorMessage } from '../utils/errors.js';
+import { getErrorMessage, isAuthenticationError } from '../utils/errors.js';
 import type { EventEmitter } from 'node:events';
 import { coreEvents } from '../utils/events.js';
 import { DebugLogger } from '../debug/index.js';
@@ -160,7 +160,7 @@ export class McpClientManager {
     }
 
     const currentDiscoveryPromise = new Promise<void>((resolve, _reject) => {
-      (async () => {
+      void (async () => {
         try {
           if (existing) {
             await existing.disconnect();
@@ -173,8 +173,17 @@ export class McpClientManager {
               config,
               this.toolRegistry,
               this.cliConfig.getPromptRegistry(),
+              this.cliConfig.getResourceRegistry(),
               this.cliConfig.getWorkspaceContext(),
+              this.cliConfig,
               this.cliConfig.getDebugMode(),
+              async () => {
+                logger.log('Tools changed, updating Gemini context...');
+                const geminiClient = this.cliConfig.getGeminiClient();
+                if (geminiClient?.isInitialized()) {
+                  await geminiClient.setTools();
+                }
+              },
             );
           if (!existing) {
             this.clients.set(name, client);
@@ -187,13 +196,16 @@ export class McpClientManager {
           } catch (error) {
             this.eventEmitter?.emit('mcp-client-update', this.clients);
             // Log the error but don't let a single failed server stop the others
-            coreEvents.emitFeedback(
-              'error',
-              `Error during discovery for server '${name}': ${getErrorMessage(
+            // Skip emitting feedback for authentication errors (they're handled by connectToMcpServer)
+            if (!isAuthenticationError(error)) {
+              coreEvents.emitFeedback(
+                'error',
+                `Error during discovery for server '${name}': ${getErrorMessage(
+                  error,
+                )}`,
                 error,
-              )}`,
-              error,
-            );
+              );
+            }
           }
         } finally {
           // This is required to update the content generator configuration with the
@@ -219,7 +231,7 @@ export class McpClientManager {
     }
     this.eventEmitter?.emit('mcp-client-update', this.clients);
     const currentPromise = this.discoveryPromise;
-    currentPromise.then((_) => {
+    void currentPromise.then((_) => {
       // If we are the last recorded discoveryPromise, then we are done, reset
       // the world.
       if (currentPromise === this.discoveryPromise) {
@@ -329,6 +341,10 @@ export class McpClientManager {
    * Instructions are formatted with server name headers for attribution.
    * Returns empty string if no servers have instructions.
    */
+  getClient(name: string): McpClient | undefined {
+    return this.clients.get(name);
+  }
+
   getMcpInstructions(): string {
     const sections: string[] = [];
 

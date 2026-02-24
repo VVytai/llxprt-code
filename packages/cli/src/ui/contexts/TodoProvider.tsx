@@ -53,6 +53,7 @@ export const TodoProvider: React.FC<TodoProviderProps> = ({
 
   // Load initial data
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     refreshTodos();
   }, [refreshTodos]);
 

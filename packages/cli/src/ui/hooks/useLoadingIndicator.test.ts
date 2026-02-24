@@ -17,9 +17,9 @@ describe('useLoadingIndicator', () => {
     vi.useFakeTimers();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers(); // Restore real timers after each test
-    act(() => vi.runOnlyPendingTimers);
+    await act(() => vi.runOnlyPendingTimers);
   });
 
   it('should initialize with default values when Idle', () => {

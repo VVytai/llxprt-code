@@ -13,6 +13,7 @@ import {
 } from './types.js';
 import { type CommandArgumentSchema } from './schema/types.js';
 import {
+  Config,
   DiscoveredMCPPrompt,
   DiscoveredMCPTool,
   getMCPDiscoveryState,
@@ -23,6 +24,7 @@ import {
   getErrorMessage,
   AnyDeclarativeTool,
   MCPServerConfig,
+  DiscoveredMCPResource,
 } from '@vybestack/llxprt-code-core';
 import { appEvents, AppEvent } from '../../utils/events.js';
 import { withFuzzyFilter } from '../utils/fuzzyFilter.js';
@@ -120,16 +122,32 @@ const getMcpStatus = async (
   message += 'Configured MCP servers:\n\n';
 
   const allTools = toolRegistry.getAllTools();
+  const promptRegistry = await config.getPromptRegistry();
+  const allResources = ((
+    config as Config & {
+      getResourceRegistry?: () => {
+        getAllResources: () => DiscoveredMCPResource[];
+      };
+    }
+  )
+    .getResourceRegistry?.()
+    ?.getAllResources?.() ?? []) as DiscoveredMCPResource[];
+
   for (const serverName of serverNames) {
     const serverTools = allTools.filter((tool: AnyDeclarativeTool) => {
       const isMcpTool = tool instanceof DiscoveredMCPTool;
       return isMcpTool && (tool as DiscoveredMCPTool).serverName === serverName;
     }) as DiscoveredMCPTool[];
-    const promptRegistry = await config.getPromptRegistry();
     const serverPrompts = promptRegistry.getPromptsByServer(serverName) || [];
+    const serverResources = allResources.filter(
+      (resource) => resource.serverName === serverName,
+    );
 
     const originalStatus = getMCPServerStatus(serverName);
-    const hasCachedItems = serverTools.length > 0 || serverPrompts.length > 0;
+    const hasCachedItems =
+      serverTools.length > 0 ||
+      serverPrompts.length > 0 ||
+      serverResources.length > 0;
 
     // If the server is "disconnected" but has prompts or cached tools, display it as Ready
     // by using CONNECTED as the display status.
@@ -169,7 +187,7 @@ const getMcpStatus = async (
 
     let needsAuthHint = mcpServerRequiresOAuth.get(serverName) || false;
     // Add OAuth status if applicable
-    if (server?.oauth?.enabled) {
+    if (server?.oauth?.enabled || mcpServerRequiresOAuth.has(serverName)) {
       needsAuthHint = true;
       try {
         const { MCPOAuthTokenStorage } = await import(
@@ -205,6 +223,13 @@ const getMcpStatus = async (
         parts.push(
           `${serverPrompts.length} ${
             serverPrompts.length === 1 ? 'prompt' : 'prompts'
+          }`,
+        );
+      }
+      if (serverResources.length > 0) {
+        parts.push(
+          `${serverResources.length} ${
+            serverResources.length === 1 ? 'resource' : 'resources'
           }`,
         );
       }
@@ -300,9 +325,33 @@ const getMcpStatus = async (
         }
       });
     }
+    if (serverResources.length > 0) {
+      if (serverTools.length > 0 || serverPrompts.length > 0) {
+        message += '\n';
+      }
+      message += `  ${COLOR_CYAN}Resources:${RESET_COLOR}\n`;
+      serverResources.forEach((resource) => {
+        const resourceName = resource.name ?? resource.uri;
+        const resourceUri = resource.uri;
 
-    if (serverTools.length === 0 && serverPrompts.length === 0) {
-      message += '  No tools or prompts available\n';
+        if (showDescriptions && resource.description) {
+          message += `  - ${COLOR_CYAN}${resourceName}${RESET_COLOR} (${resourceUri}):\n`;
+          const descLines = resource.description.trim().split('\n');
+          for (const descLine of descLines) {
+            message += `      ${COLOR_GREEN}${descLine}${RESET_COLOR}\n`;
+          }
+        } else {
+          message += `  - ${COLOR_CYAN}${resourceName}${RESET_COLOR} (${resourceUri})\n`;
+        }
+      });
+    }
+
+    if (
+      serverTools.length === 0 &&
+      serverPrompts.length === 0 &&
+      serverResources.length === 0
+    ) {
+      message += '  No tools, prompts, or resources available\n';
     } else if (serverTools.length === 0) {
       message += '  No tools available';
       if (originalStatus === MCPServerStatus.DISCONNECTED && needsAuthHint) {
@@ -354,6 +403,7 @@ const authCommand: SlashCommand = {
   description: 'Authenticate with an OAuth-enabled MCP server',
   kind: CommandKind.BUILT_IN,
   schema: mcpAuthSchema,
+  autoExecute: true,
   action: async (
     context: CommandContext,
     args: string,
@@ -372,14 +422,24 @@ const authCommand: SlashCommand = {
     const mcpServers = config.getMcpServers() || {};
 
     if (!serverName) {
-      // List servers that support OAuth
-      const oauthServers = Object.entries(mcpServers)
+      // List servers that support OAuth (from config or discovered)
+      const oauthServersFromConfig = Object.entries(mcpServers)
         .filter(
           ([_, server]: [string, MCPServerConfig]) => server.oauth?.enabled,
         )
         .map(([name, _]) => name);
 
-      if (oauthServers.length === 0) {
+      // Include servers discovered to require OAuth
+      const discoveredOAuthServers = Array.from(
+        mcpServerRequiresOAuth.keys(),
+      ).filter((name) => mcpServers[name]); // Only include configured servers
+
+      // Combine and deduplicate
+      const allOAuthServers = [
+        ...new Set([...oauthServersFromConfig, ...discoveredOAuthServers]),
+      ];
+
+      if (allOAuthServers.length === 0) {
         return {
           type: 'message',
           messageType: 'info',
@@ -390,7 +450,7 @@ const authCommand: SlashCommand = {
       return {
         type: 'message',
         messageType: 'info',
-        content: `MCP servers with OAuth authentication:\n${oauthServers.map((s) => `  - ${s}`).join('\n')}\n\nUse /mcp auth <server-name> to authenticate.`,
+        content: `MCP servers with OAuth authentication:\n${allOAuthServers.map((s) => `  - ${s}`).join('\n')}\n\nUse /mcp auth <server-name> to authenticate.`,
       };
     }
 

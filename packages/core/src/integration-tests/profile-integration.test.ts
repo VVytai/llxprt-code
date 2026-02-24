@@ -61,7 +61,7 @@ class MockSettingsService {
 
   constructor(repository: MockSettingsRepository) {
     this.settings = {};
-    repository.load().then((settings) => {
+    void repository.load().then((settings) => {
       this.settings = settings;
       this.emit('initialized', {});
     });

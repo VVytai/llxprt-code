@@ -16,10 +16,11 @@ import {
 import EventEmitter from 'events';
 import { Readable } from 'stream';
 import { type ChildProcess } from 'child_process';
-import {
-  ShellExecutionService,
+import type {
   ShellOutputEvent,
+  ShellExecutionConfig,
 } from './shellExecutionService.js';
+import { ShellExecutionService } from './shellExecutionService.js';
 
 // Hoisted Mocks
 const mockPtySpawn = vi.hoisted(() => vi.fn());
@@ -69,6 +70,14 @@ vi.mock('../utils/getPty.js', () => ({
 const mockProcessKill = vi
   .spyOn(process, 'kill')
   .mockImplementation(() => true);
+
+const shellExecutionConfig: ShellExecutionConfig = {
+  terminalWidth: 80,
+  terminalHeight: 24,
+  pager: 'cat',
+  showColor: false,
+  disableDynamicLineTrimming: true,
+};
 
 describe('ShellExecutionService', () => {
   let mockPtyProcess: EventEmitter & {
@@ -122,6 +131,7 @@ describe('ShellExecutionService', () => {
       ptyProcess: typeof mockPtyProcess,
       ac: AbortController,
     ) => void | Promise<void>,
+    config = defaultShellConfig,
   ) => {
     const abortController = new AbortController();
     const handle = await ShellExecutionService.execute(
@@ -130,7 +140,7 @@ describe('ShellExecutionService', () => {
       onOutputEventMock,
       abortController.signal,
       true,
-      defaultShellConfig,
+      config,
     );
 
     await new Promise((resolve) => setImmediate(resolve));
@@ -213,44 +223,106 @@ describe('ShellExecutionService', () => {
       expect(onOutputEventMock).not.toHaveBeenCalled();
     });
 
-    // Note: PTY mode with xterm terminal uses scrollback lines for truncation,
-    // not raw buffer size. This test is for the rawOutput Buffer truncation.
-    // The truncation warning is added to rawOutput, not the terminal output.
-    it.skip('should truncate PTY output using a sliding window and show a warning', async () => {
-      const MAX_SIZE = 16 * 1024 * 1024;
-      const chunk1 = 'a'.repeat(MAX_SIZE / 2 - 5);
-      const chunk2 = 'b'.repeat(MAX_SIZE / 2 - 5);
-      const chunk3 = 'c'.repeat(20);
+    it('should capture large output (10000 lines)', async () => {
+      const lineCount = 10000;
+      const lines = Array.from({ length: lineCount }, (_, i) => `line ${i}`);
+      const expectedOutput = lines.join('\n');
 
       const { result } = await simulateExecution(
-        'large-output',
-        async (pty) => {
-          pty.onData.mock.calls[0][0](chunk1);
-          await new Promise((resolve) => setImmediate(resolve));
-          pty.onData.mock.calls[0][0](chunk2);
-          await new Promise((resolve) => setImmediate(resolve));
-          pty.onData.mock.calls[0][0](chunk3);
-          await new Promise((resolve) => setImmediate(resolve));
+        'large-output-command',
+        (pty) => {
+          const chunkSize = 1000;
+          for (let i = 0; i < lineCount; i += chunkSize) {
+            const chunk = lines.slice(i, i + chunkSize).join('\r\n') + '\r\n';
+            pty.onData.mock.calls[0][0](chunk);
+          }
           pty.onExit.mock.calls[0][0]({ exitCode: 0, signal: null });
         },
       );
 
-      const truncationMessage =
-        '[LLXPRT_CODE_WARNING: Output truncated. The buffer is limited to 16MB.]';
-      expect(result.output).toContain(truncationMessage);
+      expect(result.exitCode).toBe(0);
+      const processedOutput = result.output
+        .split('\n')
+        .map((l) => l.trimEnd())
+        .join('\n')
+        .trim();
+      expect(processedOutput).toBe(expectedOutput);
+      expect(result.output.split('\n').length).toBeGreaterThanOrEqual(
+        lineCount,
+      );
+    });
 
-      const outputWithoutMessage = result.output
-        .substring(0, result.output.indexOf(truncationMessage))
-        .trimEnd();
+    it('should not wrap long lines in the final output', async () => {
+      // Set a small width to force wrapping
+      const narrowConfig = { ...shellExecutionConfig, terminalWidth: 10 };
+      const longString = '123456789012345'; // 15 chars, should wrap at 10
 
-      expect(outputWithoutMessage.length).toBe(MAX_SIZE);
+      const { result } = await simulateExecution(
+        'long-line-command',
+        (pty) => {
+          pty.onData.mock.calls[0][0](longString);
+          pty.onExit.mock.calls[0][0]({ exitCode: 0, signal: null });
+        },
+        narrowConfig,
+      );
 
-      const expectedStart = (chunk1 + chunk2 + chunk3).slice(-MAX_SIZE);
-      expect(
-        outputWithoutMessage.startsWith(expectedStart.substring(0, 10)),
-      ).toBe(true);
-      expect(outputWithoutMessage.endsWith('c'.repeat(20))).toBe(true);
-    }, 20000);
+      expect(result.exitCode).toBe(0);
+      expect(result.output.trim()).toBe(longString);
+    });
+
+    it('should not add extra padding but preserve explicit trailing whitespace', async () => {
+      const { result } = await simulateExecution('cmd', (pty) => {
+        pty.onData.mock.calls[0][0]('value\r\nvalue2    ');
+        pty.onExit.mock.calls[0][0]({ exitCode: 0, signal: null });
+      });
+
+      expect(result.output).toBe('value\nvalue2    ');
+    });
+
+    it('should truncate output exceeding the scrollback limit', async () => {
+      const scrollbackLimit = 100;
+      const totalLines = 150;
+      const lines = Array.from({ length: totalLines }, (_, i) => `line ${i}`);
+
+      const { result } = await simulateExecution(
+        'overflow-command',
+        (pty) => {
+          const chunk = lines.join('\r\n') + '\r\n';
+          pty.onData.mock.calls[0][0](chunk);
+          pty.onExit.mock.calls[0][0]({ exitCode: 0, signal: null });
+        },
+        { ...shellExecutionConfig, scrollback: scrollbackLimit },
+      );
+
+      expect(result.exitCode).toBe(0);
+
+      const outputLines = result.output
+        .trim()
+        .split('\n')
+        .map((l) => l.trimEnd());
+
+      expect(outputLines.length).toBeLessThan(totalLines);
+      expect(outputLines[0]).not.toBe('line 0');
+
+      expect(outputLines[outputLines.length - 1]).toBe(
+        `line ${totalLines - 1}`,
+      );
+    });
+
+    it('should call onPid with the process id', async () => {
+      const abortController = new AbortController();
+      const handle = await ShellExecutionService.execute(
+        'ls -l',
+        '/test/dir',
+        onOutputEventMock,
+        abortController.signal,
+        true,
+        shellExecutionConfig,
+      );
+      mockPtyProcess.onExit.mock.calls[0][0]({ exitCode: 0, signal: null });
+      await handle.result;
+      expect(handle.pid).toBe(12345);
+    });
   });
 
   describe('Failed Execution', () => {

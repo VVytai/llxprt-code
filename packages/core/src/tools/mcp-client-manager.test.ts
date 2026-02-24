@@ -10,6 +10,7 @@ import { McpClient } from './mcp-client.js';
 import type { Config } from '../config/config.js';
 import type { ToolRegistry } from './tool-registry.js';
 import type { PromptRegistry } from '../prompts/prompt-registry.js';
+import type { ResourceRegistry } from '../resources/resource-registry.js';
 import type { WorkspaceContext } from '../utils/workspaceContext.js';
 
 vi.mock('./mcp-client.js', () => ({
@@ -41,6 +42,7 @@ describe('McpClientManager', () => {
       }),
       getMcpServerCommand: () => '',
       getPromptRegistry: () => ({}) as PromptRegistry,
+      getResourceRegistry: () => ({}) as ResourceRegistry,
       getDebugMode: () => false,
       getWorkspaceContext: () => ({}) as WorkspaceContext,
       getEnableExtensionReloading: () => false,
@@ -75,6 +77,7 @@ describe('McpClientManager', () => {
       }),
       getMcpServerCommand: () => '',
       getPromptRegistry: () => ({}) as PromptRegistry,
+      getResourceRegistry: () => ({}) as ResourceRegistry,
       getDebugMode: () => false,
       getWorkspaceContext: () => ({}) as WorkspaceContext,
       getEnableExtensionReloading: () => false,
@@ -112,6 +115,7 @@ describe('McpClientManager', () => {
       }),
       getMcpServerCommand: () => '',
       getPromptRegistry: () => ({}) as PromptRegistry,
+      getResourceRegistry: () => ({}) as ResourceRegistry,
       getDebugMode: () => false,
       getWorkspaceContext: () => ({}) as WorkspaceContext,
       getEnableExtensionReloading: () => false,
@@ -163,6 +167,7 @@ describe('McpClientManager', () => {
         }),
         getMcpServerCommand: () => '',
         getPromptRegistry: () => ({}) as PromptRegistry,
+        getResourceRegistry: () => ({}) as ResourceRegistry,
         getDebugMode: () => false,
         getWorkspaceContext: () => ({}) as WorkspaceContext,
         getEnableExtensionReloading: () => false,
@@ -205,6 +210,7 @@ describe('McpClientManager', () => {
         }),
         getMcpServerCommand: () => '',
         getPromptRegistry: () => ({}) as PromptRegistry,
+        getResourceRegistry: () => ({}) as ResourceRegistry,
         getDebugMode: () => false,
         getWorkspaceContext: () => ({}) as WorkspaceContext,
         getEnableExtensionReloading: () => false,
@@ -260,6 +266,7 @@ describe('McpClientManager', () => {
         }),
         getMcpServerCommand: () => '',
         getPromptRegistry: () => ({}) as PromptRegistry,
+        getResourceRegistry: () => ({}) as ResourceRegistry,
         getDebugMode: () => false,
         getWorkspaceContext: () => ({}) as WorkspaceContext,
         getEnableExtensionReloading: () => false,

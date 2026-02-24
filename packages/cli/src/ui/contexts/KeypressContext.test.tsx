@@ -414,6 +414,7 @@ describe('KeypressContext - Kitty Protocol', () => {
       });
 
       // Wait for the ESC timeout to flush the incomplete sequence
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       act(() => vi.advanceTimersByTime(ESC_TIMEOUT + 10));
 
       keyHandler.mockClear();
@@ -675,6 +676,7 @@ describe('Kitty Sequence Parsing', () => {
     act(() => stdin.write(INCOMPLETE_KITTY_SEQUENCE));
 
     // Wait for ESC timeout to flush the incomplete sequence
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(ESC_TIMEOUT + 10));
 
     // The incomplete sequence should be emitted after timeout
@@ -752,6 +754,7 @@ describe('Kitty Sequence Parsing', () => {
     act(() => stdin.write(INCOMPLETE_KITTY_SEQUENCE));
 
     // Wait for the incomplete sequence to timeout and be flushed
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(KITTY_SEQUENCE_TIMEOUT_MS + 10));
 
     keyHandler.mockClear();
@@ -857,12 +860,14 @@ describe('Kitty Sequence Parsing', () => {
     act(() => stdin.write('\x1b[97;13'));
 
     // Advance time partway
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(30));
 
     // Add more to sequence
     act(() => stdin.write('5'));
 
     // Advance time from the first timeout point
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(25));
 
     // Complete the sequence
@@ -886,6 +891,7 @@ describe('Kitty Sequence Parsing', () => {
     act(() => stdin.write(INCOMPLETE_KITTY_SEQUENCE));
 
     // Wait for ESC timeout to flush the incomplete sequence
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(ESC_TIMEOUT + 10));
 
     // The incomplete sequence should be emitted after timeout
@@ -906,6 +912,7 @@ describe('Kitty Sequence Parsing', () => {
     act(() => stdin.write(INCOMPLETE_KITTY_SEQUENCE));
 
     // Wait for ESC timeout to flush the incomplete sequence
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(ESC_TIMEOUT + 10));
 
     // The incomplete sequence should be emitted after timeout
@@ -926,6 +933,7 @@ describe('Kitty Sequence Parsing', () => {
     act(() => stdin.write(INCOMPLETE_KITTY_SEQUENCE));
 
     // Wait for ESC timeout to flush the incomplete sequence
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     act(() => vi.advanceTimersByTime(ESC_TIMEOUT + 10));
 
     // The incomplete sequence should be emitted after timeout
@@ -943,7 +951,7 @@ describe('Kitty Sequence Parsing', () => {
       stdin.write(PASTE_MODE_SUFFIX);
     });
 
-    act(() => vi.runAllTimers());
+    await act(() => vi.runAllTimers());
 
     // The paste event should be broadcast
     expect(keyHandler).toHaveBeenCalledWith(

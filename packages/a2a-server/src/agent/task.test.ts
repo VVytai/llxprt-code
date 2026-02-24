@@ -9,10 +9,11 @@ import { Task } from './task.js';
 import {
   type Config,
   type ToolCallRequestInfo,
+  type CompletedToolCall,
   GeminiEventType,
 } from '@vybestack/llxprt-code-core';
 import { createMockConfig } from '../utils/testing_utils.js';
-import type { ExecutionEventBus } from '@a2a-js/sdk/server';
+import type { ExecutionEventBus, RequestContext } from '@a2a-js/sdk/server';
 
 describe('Task', () => {
   it('scheduleToolCalls should not modify the input requests array', async () => {
@@ -283,6 +284,114 @@ describe('Task', () => {
       expect((task as any).modelInfo).toEqual({
         model: 'gemini-2.0-flash-exp',
       });
+    });
+  });
+
+  describe('currentPromptId and promptCount', () => {
+    it('should correctly initialize and update promptId and promptCount', async () => {
+      const mockConfig = createMockConfig();
+      mockConfig.getSessionId = () => 'test-session-id';
+
+      const mockEventBus: ExecutionEventBus = {
+        publish: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+        once: vi.fn(),
+        removeAllListeners: vi.fn(),
+        finished: vi.fn(),
+      };
+
+      const sendMessageStreamMock = vi
+        .fn()
+        .mockReturnValue((async function* () {})());
+
+      // @ts-expect-error - Calling private constructor
+      const task = new Task(
+        'task-id',
+        'context-id',
+        mockConfig as Config,
+        mockEventBus,
+      );
+      // Avoid real GeminiClient initialization path in unit test.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (task as any).geminiClient = {
+        sendMessageStream: sendMessageStreamMock,
+        getUserTier: vi.fn(),
+      };
+
+      // Initial state
+      expect(task.currentPromptId).toBeUndefined();
+      expect(task.promptCount).toBe(0);
+
+      // First user message should set prompt_id
+      const userMessage1 = {
+        userMessage: {
+          parts: [{ kind: 'text', text: 'hello' }],
+        },
+      } as RequestContext;
+      const abortController1 = new AbortController();
+      for await (const _ of task.acceptUserMessage(
+        userMessage1,
+        abortController1.signal,
+      )) {
+        // no-op
+      }
+
+      const expectedPromptId1 = 'test-session-id########0';
+      expect(task.promptCount).toBe(1);
+      expect(task.currentPromptId).toBe(expectedPromptId1);
+      expect(sendMessageStreamMock).toHaveBeenNthCalledWith(
+        1,
+        expect.any(Array),
+        abortController1.signal,
+        expectedPromptId1,
+      );
+
+      // A new user message should generate a new prompt_id
+      const userMessage2 = {
+        userMessage: {
+          parts: [{ kind: 'text', text: 'world' }],
+        },
+      } as RequestContext;
+      const abortController2 = new AbortController();
+      for await (const _ of task.acceptUserMessage(
+        userMessage2,
+        abortController2.signal,
+      )) {
+        // no-op
+      }
+
+      const expectedPromptId2 = 'test-session-id########1';
+      expect(task.promptCount).toBe(2);
+      expect(task.currentPromptId).toBe(expectedPromptId2);
+      expect(sendMessageStreamMock).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Array),
+        abortController2.signal,
+        expectedPromptId2,
+      );
+
+      // Subsequent tool call processing should use the same prompt_id
+      const completedTool = {
+        request: { callId: 'tool-1', prompt_id: expectedPromptId2 },
+        response: { responseParts: [{ text: 'tool output' }] },
+      } as CompletedToolCall;
+      const abortController3 = new AbortController();
+      for await (const _ of task.sendCompletedToolsToLlm(
+        [completedTool],
+        abortController3.signal,
+      )) {
+        // no-op
+      }
+
+      expect(task.promptCount).toBe(2);
+      expect(task.currentPromptId).toBe(expectedPromptId2);
+      expect(sendMessageStreamMock).toHaveBeenNthCalledWith(
+        3,
+        expect.any(Array),
+        abortController3.signal,
+        expectedPromptId2,
+      );
     });
   });
 });

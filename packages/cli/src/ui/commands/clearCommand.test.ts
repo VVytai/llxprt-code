@@ -17,6 +17,8 @@ vi.mock('@vybestack/llxprt-code-core', async () => {
     uiTelemetryService: {
       setLastPromptTokenCount: vi.fn(),
     },
+    triggerSessionEndHook: vi.fn().mockResolvedValue(undefined),
+    triggerSessionStartHook: vi.fn().mockResolvedValue(undefined),
   };
 });
 
@@ -28,6 +30,10 @@ import {
   Config,
   GeminiClient,
   uiTelemetryService,
+  triggerSessionEndHook,
+  triggerSessionStartHook,
+  SessionEndReason,
+  SessionStartSource,
 } from '@vybestack/llxprt-code-core';
 
 describe('clearCommand', () => {
@@ -154,5 +160,89 @@ describe('clearCommand', () => {
     expect(uiTelemetryService.setLastPromptTokenCount).toHaveBeenCalledWith(0);
     expect(uiTelemetryService.setLastPromptTokenCount).toHaveBeenCalledTimes(1);
     expect(nullConfigContext.ui.clear).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Group A: Session hook tests for clearCommand
+   * @plan PLAN-20250219-GMERGE021.R4
+   * @requirement REQ-R4-1 (SessionEnd before clear, SessionStart after clear)
+   *
+   * These tests verify that clearCommand triggers session lifecycle hooks
+   * in the correct order. These tests WILL FAIL in RED phase because
+   * clearCommand does not currently call triggerSessionEndHook or
+   * triggerSessionStartHook.
+   */
+
+  it('should trigger SessionEnd hook before resetChat when clearing', async () => {
+    if (!clearCommand.action) {
+      throw new Error('clearCommand must have an action.');
+    }
+
+    vi.clearAllMocks();
+
+    await clearCommand.action(mockContext, '');
+
+    // Assert: triggerSessionEndHook called with SessionEndReason.Clear
+    expect(triggerSessionEndHook).toHaveBeenCalledWith(
+      mockContext.services.config,
+      SessionEndReason.Clear,
+    );
+
+    // Assert: triggerSessionStartHook called with SessionStartSource.Clear
+    expect(triggerSessionStartHook).toHaveBeenCalledWith(
+      mockContext.services.config,
+      SessionStartSource.Clear,
+    );
+
+    // Assert: triggerSessionEndHook called BEFORE resetChat
+    const endHookOrder = (triggerSessionEndHook as Mock).mock
+      .invocationCallOrder[0];
+    const resetChatOrder = mockResetChat.mock.invocationCallOrder[0];
+    expect(endHookOrder).toBeLessThan(resetChatOrder);
+
+    // Assert: triggerSessionStartHook called AFTER resetChat
+    const startHookOrder = (triggerSessionStartHook as Mock).mock
+      .invocationCallOrder[0];
+    expect(resetChatOrder).toBeLessThan(startHookOrder);
+  });
+
+  it('should complete clear even if SessionEnd hook throws', async () => {
+    if (!clearCommand.action) {
+      throw new Error('clearCommand must have an action.');
+    }
+
+    vi.clearAllMocks();
+
+    // Mock triggerSessionEndHook to throw
+    vi.mocked(triggerSessionEndHook).mockRejectedValueOnce(
+      new Error('Hook failed'),
+    );
+
+    // Execute clear and ensure it doesn't throw
+    await clearCommand.action(mockContext, '');
+
+    // Assert: clear still completes, resetChat still called
+    expect(mockResetChat).toHaveBeenCalledTimes(1);
+    expect(mockContext.ui.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('should complete clear even if SessionStart hook throws', async () => {
+    if (!clearCommand.action) {
+      throw new Error('clearCommand must have an action.');
+    }
+
+    vi.clearAllMocks();
+
+    // Mock triggerSessionStartHook to throw
+    vi.mocked(triggerSessionStartHook).mockRejectedValueOnce(
+      new Error('Hook failed'),
+    );
+
+    // Execute clear and ensure it doesn't throw
+    await clearCommand.action(mockContext, '');
+
+    // Assert: clear still completes
+    expect(mockResetChat).toHaveBeenCalledTimes(1);
+    expect(mockContext.ui.clear).toHaveBeenCalledTimes(1);
   });
 });

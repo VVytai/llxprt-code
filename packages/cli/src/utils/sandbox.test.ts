@@ -10,6 +10,8 @@ import {
   getPassthroughEnvVars,
   mountGitConfigFiles,
   setupSshAgentLinux,
+  isSandboxDebugModeEnabled,
+  shouldAllocateSandboxTty,
 } from './sandbox.js';
 
 import fs from 'node:fs';
@@ -144,6 +146,23 @@ describe('getPassthroughEnvVars', () => {
     const result = getPassthroughEnvVars(env);
 
     expect(result).not.toBe(env);
+  });
+});
+describe('isSandboxDebugModeEnabled', () => {
+  it('returns true for DEBUG=true', () => {
+    expect(isSandboxDebugModeEnabled('true')).toBe(true);
+  });
+
+  it('returns true for DEBUG=1', () => {
+    expect(isSandboxDebugModeEnabled('1')).toBe(true);
+  });
+
+  it('returns false for DEBUG=verbose', () => {
+    expect(isSandboxDebugModeEnabled('verbose')).toBe(false);
+  });
+
+  it('returns false for undefined DEBUG', () => {
+    expect(isSandboxDebugModeEnabled(undefined)).toBe(false);
   });
 });
 
@@ -431,5 +450,55 @@ describe('setupSshAgentLinux', () => {
     const vol = args.find((a) => a.includes('/tmp/ssh-agent.sock'));
     expect(vol).toBeDefined();
     expect(vol).toMatch(/:z$/);
+  });
+});
+
+describe('sandbox tty allocation heuristic', () => {
+  const setStdinIsTty = (value: boolean | undefined): void => {
+    Object.defineProperty(process.stdin, 'isTTY', {
+      configurable: true,
+      value,
+    });
+  };
+
+  const setStdoutIsTty = (value: boolean | undefined): void => {
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value,
+    });
+  };
+
+  let originalStdinIsTty: boolean | undefined;
+  let originalStdoutIsTty: boolean | undefined;
+
+  beforeEach(() => {
+    originalStdinIsTty = process.stdin.isTTY;
+    originalStdoutIsTty = process.stdout.isTTY;
+  });
+
+  afterEach(() => {
+    setStdinIsTty(originalStdinIsTty);
+    setStdoutIsTty(originalStdoutIsTty);
+  });
+
+  it('allocates tty when stdin/stdout are undefined but TERM indicates interactive shell', () => {
+    setStdinIsTty(undefined);
+    setStdoutIsTty(undefined);
+
+    const hasParentTty = shouldAllocateSandboxTty({ TERM: 'xterm-256color' });
+
+    expect(hasParentTty).toBe(true);
+  });
+
+  it('does not allocate tty for non-interactive CI environments based on TERM alone', () => {
+    setStdinIsTty(undefined);
+    setStdoutIsTty(undefined);
+
+    const hasParentTty = shouldAllocateSandboxTty({
+      TERM: 'xterm-256color',
+      CI: 'true',
+    });
+
+    expect(hasParentTty).toBe(false);
   });
 });

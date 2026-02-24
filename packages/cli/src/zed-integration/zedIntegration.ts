@@ -57,6 +57,7 @@ import {
   setActiveModelParam,
   clearActiveModelParam,
   getActiveModelParams,
+  getActiveProfileName,
   loadProfileByName,
 } from '../runtime/runtimeSettings.js';
 import { runExitCleanup } from '../utils/cleanup.js';
@@ -206,7 +207,13 @@ export class GeminiAgent {
       ? await profileManager.listProfiles()
       : [];
     const profileName = parseZedAuthMethodId(methodId, availableProfiles);
-    await clearCachedCredentialFile();
+
+    // Only clear credential cache if switching to a different profile
+    const currentProfile = getActiveProfileName();
+    if (!currentProfile || currentProfile !== profileName) {
+      await clearCachedCredentialFile();
+    }
+
     await loadProfileByName(profileName);
     await this.applyRuntimeProviderOverrides();
   }

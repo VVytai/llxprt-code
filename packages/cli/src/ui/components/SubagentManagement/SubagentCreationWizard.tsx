@@ -222,6 +222,7 @@ export const SubagentCreationWizard: React.FC<SubagentCreationWizardProps> = ({
 
       // Quick save with 's'
       if (input === 's') {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleSave();
         return;
       }

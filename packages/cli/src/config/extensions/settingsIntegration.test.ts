@@ -6,359 +6,648 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import {
+  getEnvContents,
+  updateSetting,
   loadExtensionSettingsFromManifest,
-  maybePromptAndSaveSettings,
-  getExtensionEnvironment,
+  ExtensionSettingScope,
 } from './settingsIntegration.js';
 import type { ExtensionSetting } from './extensionSettings.js';
+import { getWorkspaceIdentity } from '../../utils/gitUtils.js';
 
-// In-memory store used by the mock SecureStore instances
-const mockSecureStore = new Map<string, string>();
-
-vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import('@vybestack/llxprt-code-core')>();
+vi.mock('../../utils/gitUtils.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../utils/gitUtils.js')>();
   return {
-    ...original,
-    SecureStore: vi.fn().mockImplementation(() => ({
-      get: vi.fn(async (key: string) => mockSecureStore.get(key) ?? null),
-      set: vi.fn(async (key: string, value: string) => {
-        mockSecureStore.set(key, value);
-      }),
-      delete: vi.fn(async (key: string) => mockSecureStore.delete(key)),
-      list: vi.fn(async () => Array.from(mockSecureStore.keys())),
-      has: vi.fn(async (key: string) => mockSecureStore.has(key)),
-    })),
+    ...actual,
+    getWorkspaceIdentity: vi.fn(actual.getWorkspaceIdentity),
   };
 });
 
-// Create temp directory for tests
-let tempDir: string;
+describe('settingsIntegration', () => {
+  let tempDir: string;
 
-beforeEach(async () => {
-  mockSecureStore.clear();
-  tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'settings-int-'));
-});
-
-afterEach(async () => {
-  await fs.promises.rm(tempDir, { recursive: true, force: true });
-});
-
-describe('loadExtensionSettingsFromManifest', () => {
-  it('should load settings from llxprt-extension.json', () => {
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'test-ext',
-        version: '1.0.0',
-        settings: [{ name: 'API Key', envVar: 'API_KEY', sensitive: true }],
-      }),
+  beforeEach(async () => {
+    vi.mocked(getWorkspaceIdentity).mockRestore();
+    tempDir = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'llxprt-settings-test-'),
     );
-
-    const settings = loadExtensionSettingsFromManifest(extDir);
-
-    expect(settings).toHaveLength(1);
-    expect(settings[0].envVar).toBe('API_KEY');
-    expect(settings[0].sensitive).toBe(true);
   });
 
-  it('should load settings from gemini-extension.json fallback', () => {
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(extDir, 'gemini-extension.json'),
-      JSON.stringify({
-        name: 'test-ext',
-        version: '1.0.0',
-        settings: [{ name: 'API URL', envVar: 'API_URL', sensitive: false }],
-      }),
-    );
-
-    const settings = loadExtensionSettingsFromManifest(extDir);
-
-    expect(settings).toHaveLength(1);
-    expect(settings[0].envVar).toBe('API_URL');
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    if (tempDir && fs.existsSync(tempDir)) {
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+    }
   });
 
-  it('should prefer llxprt-extension.json over gemini-extension.json', () => {
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-
-    // Create both files with different settings
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'test-ext',
+  describe('loadExtensionSettingsFromManifest', () => {
+    it('should load settings from llxprt-extension.json', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
         version: '1.0.0',
         settings: [
-          { name: 'LLxprt Setting', envVar: 'LLXPRT_VAR', sensitive: false },
+          {
+            name: 'API Key',
+            envVar: 'API_KEY',
+            sensitive: true,
+          },
+          {
+            name: 'API URL',
+            description: 'The API endpoint URL',
+            envVar: 'API_URL',
+            sensitive: false,
+          },
         ],
-      }),
-    );
-    fs.writeFileSync(
-      path.join(extDir, 'gemini-extension.json'),
-      JSON.stringify({
-        name: 'test-ext',
-        version: '1.0.0',
-        settings: [
-          { name: 'Gemini Setting', envVar: 'GEMINI_VAR', sensitive: false },
-        ],
-      }),
-    );
+      };
 
-    const settings = loadExtensionSettingsFromManifest(extDir);
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
 
-    // Should have loaded llxprt-extension.json
-    expect(settings).toHaveLength(1);
-    expect(settings[0].envVar).toBe('LLXPRT_VAR');
-  });
+      const settings = loadExtensionSettingsFromManifest(tempDir);
 
-  it('should return empty array when no settings defined', () => {
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'test-ext',
-        version: '1.0.0',
-        // No settings field
-      }),
-    );
-
-    const settings = loadExtensionSettingsFromManifest(extDir);
-
-    expect(settings).toEqual([]);
-  });
-
-  it('should return empty array when manifest not found', () => {
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-    // No manifest file
-
-    const settings = loadExtensionSettingsFromManifest(extDir);
-
-    expect(settings).toEqual([]);
-  });
-
-  it('should validate settings schema', () => {
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'test-ext',
-        version: '1.0.0',
-        settings: [
-          { name: '', envVar: 'X' }, // Invalid: empty name
-        ],
-      }),
-    );
-
-    const settings = loadExtensionSettingsFromManifest(extDir);
-
-    // Should filter out invalid settings or return empty
-    expect(settings).toEqual([]);
-  });
-});
-
-// Mock readline module at the top level
-vi.mock('node:readline', () => ({
-  createInterface: vi.fn(() => ({
-    question: vi.fn(),
-    close: vi.fn(),
-  })),
-}));
-
-describe('maybePromptAndSaveSettings', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should prompt for missing settings and save', async () => {
-    const settings: ExtensionSetting[] = [
-      { name: 'API Key', envVar: 'API_KEY', sensitive: true },
-    ];
-    const existingValues: Record<string, string | undefined> = {};
-
-    // Mock readline to simulate user entering value
-    const mockReadline = await import('node:readline');
-    const mockQuestion = vi.fn((prompt, callback) => {
-      callback('user-api-key');
-    });
-    const mockClose = vi.fn();
-
-    vi.mocked(mockReadline.createInterface).mockReturnValue({
-      question: mockQuestion,
-      close: mockClose,
-    } as unknown as ReturnType<typeof mockReadline.createInterface>);
-
-    const result = await maybePromptAndSaveSettings(
-      'test-ext',
-      settings,
-      existingValues,
-      tempDir,
-    );
-
-    expect(result).toBe(true);
-    expect(mockQuestion).toHaveBeenCalled();
-  });
-
-  it('should skip when all settings present', async () => {
-    const settings: ExtensionSetting[] = [
-      { name: 'API Key', envVar: 'API_KEY', sensitive: true },
-    ];
-    const existingValues = { API_KEY: 'already-set' };
-
-    const mockReadline = await import('node:readline');
-    const mockQuestion = vi.fn();
-
-    vi.mocked(mockReadline.createInterface).mockReturnValue({
-      question: mockQuestion,
-      close: vi.fn(),
-    } as unknown as ReturnType<typeof mockReadline.createInterface>);
-
-    const result = await maybePromptAndSaveSettings(
-      'test-ext',
-      settings,
-      existingValues,
-      tempDir,
-    );
-
-    // Should succeed but not prompt
-    expect(result).toBe(true);
-    expect(mockQuestion).not.toHaveBeenCalled();
-  });
-
-  it('should return false when user cancels', async () => {
-    const settings: ExtensionSetting[] = [
-      { name: 'API Key', envVar: 'API_KEY', sensitive: true },
-    ];
-
-    const mockReadline = await import('node:readline');
-    const mockQuestion = vi.fn((prompt, callback) => {
-      callback('');
+      expect(settings).toHaveLength(2);
+      expect(settings[0]).toEqual({
+        name: 'API Key',
+        envVar: 'API_KEY',
+        sensitive: true,
+      });
+      expect(settings[1]).toEqual({
+        name: 'API URL',
+        description: 'The API endpoint URL',
+        envVar: 'API_URL',
+        sensitive: false,
+      });
     });
 
-    vi.mocked(mockReadline.createInterface).mockReturnValue({
-      question: mockQuestion,
-      close: vi.fn(),
-    } as unknown as ReturnType<typeof mockReadline.createInterface>);
+    it('should return empty array if no settings in manifest', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+      };
 
-    const result = await maybePromptAndSaveSettings(
-      'test-ext',
-      settings,
-      {},
-      tempDir,
-    );
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
 
-    expect(result).toBe(false);
-  });
-});
+      const settings = loadExtensionSettingsFromManifest(tempDir);
 
-describe('getExtensionEnvironment', () => {
-  it('should return env vars from saved non-sensitive settings', async () => {
-    // Setup: create an extension with saved settings
-    const extDir = path.join(tempDir, 'test-ext');
-    fs.mkdirSync(extDir, { recursive: true });
+      expect(settings).toEqual([]);
+    });
 
-    // Write .env file
-    const envPath = path.join(extDir, '.env');
-    fs.writeFileSync(envPath, 'API_URL=https://api.example.com\n');
-
-    const env = await getExtensionEnvironment(extDir);
-
-    expect(env['API_URL']).toBe('https://api.example.com');
+    it('should return empty array if manifest not found', () => {
+      const settings = loadExtensionSettingsFromManifest(tempDir);
+      expect(settings).toEqual([]);
+    });
   });
 
-  it('should include sensitive settings from keychain', async () => {
-    // Setup: create extension with manifest defining sensitive setting
-    const extDir = path.join(tempDir, 'secure-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-
-    // Create manifest with sensitive setting
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'secure-ext',
+  describe('getEnvContents', () => {
+    it('should return settings with display values', async () => {
+      // Create manifest
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
         version: '1.0.0',
         settings: [
-          { name: 'API Key', envVar: 'API_KEY', sensitive: true },
-          { name: 'API URL', envVar: 'API_URL', sensitive: false },
+          {
+            name: 'Public Setting',
+            envVar: 'PUBLIC_VAR',
+            sensitive: false,
+          },
+          {
+            name: 'Secret Setting',
+            envVar: 'SECRET_VAR',
+            sensitive: true,
+          },
+          {
+            name: 'Unset Setting',
+            envVar: 'UNSET_VAR',
+            sensitive: false,
+          },
+        ] as ExtensionSetting[],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      // Create .env file with non-sensitive value
+      const envPath = path.join(tempDir, '.env');
+      await fs.promises.writeFile(
+        envPath,
+        'PUBLIC_VAR=public-value\n',
+        'utf-8',
+      );
+
+      const contents = await getEnvContents('test-ext', tempDir);
+
+      expect(contents).toHaveLength(3);
+      expect(contents[0]).toEqual({
+        name: 'Public Setting',
+        value: 'public-value',
+      });
+      expect(contents[1]).toEqual({
+        name: 'Secret Setting',
+        value: '[not set]',
+      });
+      expect(contents[2]).toEqual({
+        name: 'Unset Setting',
+        value: '[not set]',
+      });
+    });
+
+    it('should return empty array if no settings', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
+        version: '1.0.0',
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const contents = await getEnvContents('test-ext', tempDir);
+      expect(contents).toEqual([]);
+    });
+  });
+
+  describe('updateSetting', () => {
+    it('should find setting by name and update it', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'API Key',
+            envVar: 'API_KEY',
+            sensitive: false,
+          },
+        ] as ExtensionSetting[],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('new-value');
+
+      const result = await updateSetting(
+        'test-ext',
+        tempDir,
+        'API Key',
+        mockPrompt,
+      );
+
+      expect(result).toBe(true);
+      expect(mockPrompt).toHaveBeenCalledWith('API Key: ', false);
+
+      // Verify the value was written to .env
+      const envPath = path.join(tempDir, '.env');
+      const envContent = await fs.promises.readFile(envPath, 'utf-8');
+      expect(envContent).toContain('API_KEY=new-value');
+    });
+
+    it('should find setting by envVar and update it', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'API Key',
+            envVar: 'API_KEY',
+            sensitive: false,
+          },
+        ] as ExtensionSetting[],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('new-value');
+
+      const result = await updateSetting(
+        'test-ext',
+        tempDir,
+        'API_KEY',
+        mockPrompt,
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false if setting not found', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'API Key',
+            envVar: 'API_KEY',
+            sensitive: false,
+          },
+        ] as ExtensionSetting[],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('new-value');
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const result = await updateSetting(
+        'test-ext',
+        tempDir,
+        'NonExistent',
+        mockPrompt,
+      );
+
+      expect(result).toBe(false);
+      expect(mockPrompt).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Setting "NonExistent" not found'),
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should return false if user cancels (empty value)', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'API Key',
+            envVar: 'API_KEY',
+            sensitive: false,
+          },
+        ] as ExtensionSetting[],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('');
+
+      const result = await updateSetting(
+        'test-ext',
+        tempDir,
+        'API Key',
+        mockPrompt,
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should handle values with spaces by quoting them', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-ext',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Display Name',
+            envVar: 'DISPLAY_NAME',
+            sensitive: false,
+          },
+        ] as ExtensionSetting[],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockPrompt = vi.fn().mockResolvedValue('My Cool Extension');
+
+      await updateSetting('test-ext', tempDir, 'Display Name', mockPrompt);
+
+      const envPath = path.join(tempDir, '.env');
+      const envContent = await fs.promises.readFile(envPath, 'utf-8');
+      expect(envContent).toContain('DISPLAY_NAME="My Cool Extension"');
+    });
+  });
+
+  describe('scoped settings', () => {
+    it('should support user-scoped settings', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'User Setting',
+            envVar: 'USER_SETTING',
+            sensitive: false,
+          },
         ],
-      }),
-    );
+      };
 
-    // Create .env with non-sensitive value
-    fs.writeFileSync(
-      path.join(extDir, '.env'),
-      'API_URL=https://api.example.com\n',
-    );
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
 
-    // Pre-populate SecureStore with sensitive value
-    mockSecureStore.set('API_KEY', 'secret-api-key');
+      const mockPrompt = vi.fn().mockResolvedValue('user-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'User Setting',
+        mockPrompt,
+        ExtensionSettingScope.USER,
+      );
 
-    const env = await getExtensionEnvironment(extDir);
+      const userEnvPath = path.join(tempDir, '.env');
+      expect(fs.existsSync(userEnvPath)).toBe(true);
+      const envContent = await fs.promises.readFile(userEnvPath, 'utf-8');
+      expect(envContent).toContain('USER_SETTING=user-value');
+    });
 
-    // Should have both values
-    expect(env['API_URL']).toBe('https://api.example.com');
-    expect(env['API_KEY']).toBe('secret-api-key');
-  });
+    it('should support workspace-scoped settings', async () => {
+      // Mock workspace identity to a temp dir so the test doesn't write to the real project
+      const workspaceRoot = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'llxprt-ws-test-'),
+      );
+      vi.mocked(getWorkspaceIdentity).mockReturnValue(workspaceRoot);
 
-  it('should handle extensions with only sensitive settings', async () => {
-    const extDir = path.join(tempDir, 'secret-only-ext');
-    fs.mkdirSync(extDir, { recursive: true });
-
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'secret-only-ext',
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
         version: '1.0.0',
-        settings: [{ name: 'Secret', envVar: 'SECRET', sensitive: true }],
-      }),
-    );
+        settings: [
+          {
+            name: 'Workspace Setting',
+            envVar: 'WORKSPACE_SETTING',
+            sensitive: false,
+          },
+        ],
+      };
 
-    // No .env file
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
 
-    // Pre-populate SecureStore with sensitive value
-    mockSecureStore.set('SECRET', 'my-secret');
+      const mockPrompt = vi.fn().mockResolvedValue('workspace-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Workspace Setting',
+        mockPrompt,
+        ExtensionSettingScope.WORKSPACE,
+      );
 
-    const env = await getExtensionEnvironment(extDir);
+      const workspaceEnvPath = path.join(
+        workspaceRoot,
+        '.llxprt',
+        'extensions',
+        'test-extension',
+        '.env',
+      );
+      expect(fs.existsSync(workspaceEnvPath)).toBe(true);
+      const envContent = await fs.promises.readFile(workspaceEnvPath, 'utf-8');
+      expect(envContent).toContain('WORKSPACE_SETTING=workspace-value');
 
-    expect(env['SECRET']).toBe('my-secret');
-  });
+      // Clean up
+      await fs.promises.rm(workspaceRoot, { recursive: true, force: true });
+    });
 
-  it('should gracefully handle missing keychain values', async () => {
-    const extDir = path.join(tempDir, 'missing-secret-ext');
-    fs.mkdirSync(extDir, { recursive: true });
+    it('should merge user and workspace scopes with workspace override', async () => {
+      // Mock workspace identity to a temp dir
+      const workspaceRoot = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'llxprt-ws-merge-test-'),
+      );
+      vi.mocked(getWorkspaceIdentity).mockReturnValue(workspaceRoot);
 
-    fs.writeFileSync(
-      path.join(extDir, 'llxprt-extension.json'),
-      JSON.stringify({
-        name: 'missing-secret-ext',
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
         version: '1.0.0',
-        settings: [{ name: 'Secret', envVar: 'SECRET', sensitive: true }],
-      }),
-    );
+        settings: [
+          {
+            name: 'Shared Setting',
+            envVar: 'SHARED_SETTING',
+            sensitive: false,
+          },
+        ],
+      };
 
-    // SecureStore has no value for SECRET (mockSecureStore is cleared in beforeEach)
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
 
-    const env = await getExtensionEnvironment(extDir);
+      // Set user-level setting
+      const mockPromptUser = vi.fn().mockResolvedValue('user-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Shared Setting',
+        mockPromptUser,
+        ExtensionSettingScope.USER,
+      );
 
-    // Should return object without the missing value
-    expect(env['SECRET']).toBeUndefined();
+      // Set workspace-level setting (should override)
+      const mockPromptWorkspace = vi.fn().mockResolvedValue('workspace-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Shared Setting',
+        mockPromptWorkspace,
+        ExtensionSettingScope.WORKSPACE,
+      );
+
+      // Get merged contents
+      const contents = await getEnvContents('test-extension', tempDir);
+
+      const sharedSetting = contents.find((s) => s.name === 'Shared Setting');
+      expect(sharedSetting?.value).toBe('workspace-value');
+
+      // Clean up
+      await fs.promises.rm(workspaceRoot, { recursive: true, force: true });
+    });
+
+    it('should list settings for specific scope', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Setting',
+            envVar: 'SETTING',
+            sensitive: false,
+          },
+        ],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      // Set user-level setting
+      const mockPromptUser = vi.fn().mockResolvedValue('user-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Setting',
+        mockPromptUser,
+        ExtensionSettingScope.USER,
+      );
+
+      // Get user scope contents
+      const userContents = await getEnvContents(
+        'test-extension',
+        tempDir,
+        ExtensionSettingScope.USER,
+      );
+
+      expect(userContents).toHaveLength(1);
+      expect(userContents[0].value).toBe('user-value');
+    });
   });
 
-  it('should return empty object for extension without settings', async () => {
-    const extDir = path.join(tempDir, 'no-settings-ext');
-    fs.mkdirSync(extDir, { recursive: true });
+  describe('workspace identity stability', () => {
+    it('should resolve workspace settings path from repo root, not cwd', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Workspace Setting',
+            envVar: 'WORKSPACE_SETTING',
+            sensitive: false,
+          },
+        ],
+      };
 
-    const env = await getExtensionEnvironment(extDir);
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
 
-    expect(env).toEqual({});
+      // Use a separate temp dir as the mock repo root (must be writable)
+      const mockRepoRoot = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'llxprt-mock-repo-'),
+      );
+
+      // Mock getWorkspaceIdentity to return the mock repo root
+      vi.mocked(getWorkspaceIdentity).mockReturnValue(mockRepoRoot);
+
+      const mockPrompt = vi.fn().mockResolvedValue('workspace-value');
+      await updateSetting(
+        'test-extension',
+        tempDir,
+        'Workspace Setting',
+        mockPrompt,
+        ExtensionSettingScope.WORKSPACE,
+      );
+
+      // The workspace .env should be in the repo root, not process.cwd()
+      const expectedPath = path.join(
+        mockRepoRoot,
+        '.llxprt',
+        'extensions',
+        'test-extension',
+        '.env',
+      );
+
+      // Verify the settings file was written to the mock repo root
+      expect(fs.existsSync(expectedPath)).toBe(true);
+
+      // Cleanup
+      await fs.promises.rm(mockRepoRoot, { recursive: true, force: true });
+    });
+
+    it('should use same keychain service from any subdirectory', async () => {
+      const manifestPath = path.join(tempDir, 'llxprt-extension.json');
+      const manifest = {
+        name: 'test-extension',
+        version: '1.0.0',
+        settings: [
+          {
+            name: 'Secret',
+            envVar: 'SECRET',
+            sensitive: true,
+          },
+        ],
+      };
+
+      await fs.promises.writeFile(
+        manifestPath,
+        JSON.stringify(manifest),
+        'utf-8',
+      );
+
+      const mockRepoRoot = '/Users/test/repo';
+      vi.doMock('./../../utils/gitUtils.js', () => ({
+        getWorkspaceIdentity: vi.fn(() => mockRepoRoot),
+      }));
+
+      // Import getKeychainServiceName to test
+      const { getKeychainServiceName } = await import('./settingsStorage.js');
+
+      // Current implementation will produce different service names from different cwds
+      // Expected: same service name regardless of subdirectory
+      const serviceName1 = getKeychainServiceName(
+        'test-extension',
+        path.join(mockRepoRoot, '.llxprt', 'extensions', 'test-extension'),
+      );
+
+      // Simulate from subdirectory
+      const serviceName2 = getKeychainServiceName(
+        'test-extension',
+        path.join(
+          mockRepoRoot,
+          'packages',
+          'cli',
+          '.llxprt',
+          'extensions',
+          'test-extension',
+        ),
+      );
+
+      // This will fail because current implementation hashes process.cwd() directly
+      expect(serviceName1).toBe(serviceName2);
+    });
   });
 });
