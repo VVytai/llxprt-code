@@ -17,6 +17,7 @@ import type { HookRegistry } from './hookRegistry.js';
 import type { HookPlanner } from './hookPlanner.js';
 import type { HookRunner } from './hookRunner.js';
 import type { HookAggregator, AggregatedHookResult } from './hookAggregator.js';
+import type { SessionRecordingService } from '../recording/SessionRecordingService.js';
 
 // Mock DebugLogger
 vi.mock('../debug/index.js', () => ({
@@ -50,6 +51,13 @@ describe('HookEventHandler', () => {
     mockConfig = {
       getSessionId: vi.fn().mockReturnValue('test-session-123'),
       getTargetDir: vi.fn().mockReturnValue('/test/target'),
+      getSessionRecordingService: vi.fn().mockReturnValue({
+        getFilePath: vi
+          .fn()
+          .mockReturnValue(
+            '/test/target/.llxprt/tmp/chats/session-2025-01-20-test-session-123.jsonl',
+          ),
+      }),
     } as unknown as Config;
 
     mockRegistry = {} as unknown as HookRegistry;
@@ -240,6 +248,8 @@ describe('HookEventHandler', () => {
           session_id: 'test-session-123',
           cwd: '/test/target',
           hook_event_name: 'BeforeModel',
+          transcript_path:
+            '/test/target/.llxprt/tmp/chats/session-2025-01-20-test-session-123.jsonl',
         }),
       );
     });
@@ -401,6 +411,158 @@ describe('HookEventHandler', () => {
       expect(result.success).toBe(false);
       expect(result.errors).toBeDefined();
       expect(result.errors.length).toBeGreaterThan(0);
+    });
+  });
+
+  /**
+   * @plan PLAN-20250219-GMERGE022.B2
+   * @requirement R1, R2, R3
+   */
+  describe('transcript_path population', () => {
+    it('should include transcript_path from SessionRecordingService when available', async () => {
+      // ARRANGE
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'echo test' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+
+      // ACT
+      await eventHandler.fireBeforeModelEvent({ messages: [] });
+
+      // ASSERT
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalledWith(
+        plan.hookConfigs,
+        'BeforeModel',
+        expect.objectContaining({
+          transcript_path:
+            '/test/target/.llxprt/tmp/chats/session-2025-01-20-test-session-123.jsonl',
+        }),
+      );
+    });
+
+    it('should use empty string for transcript_path when SessionRecordingService is undefined', async () => {
+      // ARRANGE
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'echo test' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+      vi.mocked(mockConfig.getSessionRecordingService).mockReturnValue(
+        undefined,
+      );
+
+      // ACT
+      await eventHandler.fireBeforeModelEvent({ messages: [] });
+
+      // ASSERT
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalledWith(
+        plan.hookConfigs,
+        'BeforeModel',
+        expect.objectContaining({
+          transcript_path: '',
+        }),
+      );
+    });
+
+    it('should use empty string for transcript_path when getFilePath returns null', async () => {
+      // ARRANGE
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'echo test' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+      vi.mocked(mockConfig.getSessionRecordingService).mockReturnValue({
+        getFilePath: vi.fn().mockReturnValue(null),
+      } as unknown as SessionRecordingService);
+
+      // ACT
+      await eventHandler.fireBeforeModelEvent({ messages: [] });
+
+      // ASSERT
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalledWith(
+        plan.hookConfigs,
+        'BeforeModel',
+        expect.objectContaining({
+          transcript_path: '',
+        }),
+      );
+    });
+
+    it('should include transcript_path in BeforeTool events', async () => {
+      // ARRANGE
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'echo test' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+
+      // ACT
+      await eventHandler.fireBeforeToolEvent('read_file', {
+        path: '/test.txt',
+      });
+
+      // ASSERT
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalledWith(
+        plan.hookConfigs,
+        'BeforeTool',
+        expect.objectContaining({
+          transcript_path:
+            '/test/target/.llxprt/tmp/chats/session-2025-01-20-test-session-123.jsonl',
+          tool_name: 'read_file',
+          tool_input: { path: '/test.txt' },
+        }),
+      );
+    });
+
+    it('should include transcript_path in AfterTool events', async () => {
+      // ARRANGE
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'echo test' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+
+      // ACT
+      await eventHandler.fireAfterToolEvent(
+        'write_file',
+        { path: '/out.txt', content: 'data' },
+        { success: true },
+      );
+
+      // ASSERT
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalledWith(
+        plan.hookConfigs,
+        'AfterTool',
+        expect.objectContaining({
+          transcript_path:
+            '/test/target/.llxprt/tmp/chats/session-2025-01-20-test-session-123.jsonl',
+          tool_name: 'write_file',
+        }),
+      );
+    });
+
+    it('should include transcript_path in SessionStart events', async () => {
+      // ARRANGE
+      const plan = {
+        hookConfigs: [{ type: 'command', command: 'echo test' }],
+        sequential: false,
+      };
+      vi.mocked(mockPlanner.createExecutionPlan).mockReturnValue(plan);
+
+      // ACT
+      await eventHandler.fireSessionStartEvent({ source: 'startup' as const });
+
+      // ASSERT
+      expect(mockRunner.executeHooksParallel).toHaveBeenCalledWith(
+        plan.hookConfigs,
+        'SessionStart',
+        expect.objectContaining({
+          transcript_path:
+            '/test/target/.llxprt/tmp/chats/session-2025-01-20-test-session-123.jsonl',
+          source: 'startup',
+        }),
+      );
     });
   });
 });

@@ -162,14 +162,20 @@ export class HookEventHandler {
   /**
    * Build base HookInput fields from Config
    * @requirement:HOOK-144
+   * @plan PLAN-20250219-GMERGE022.B2
+   * @requirement R2
    */
   private buildBaseInput(eventName: string): HookInput {
+    // Get transcript path from SessionRecordingService if available
+    const recordingService = this.config.getSessionRecordingService();
+    const transcriptPath = recordingService?.getFilePath() ?? '';
+
     return {
       session_id: this.config.getSessionId(),
       cwd: this.config.getTargetDir(),
       timestamp: new Date().toISOString(),
       hook_event_name: eventName,
-      transcript_path: '',
+      transcript_path: transcriptPath,
     };
   }
 
