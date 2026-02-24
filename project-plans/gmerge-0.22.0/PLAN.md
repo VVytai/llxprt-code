@@ -52,8 +52,9 @@ Follow `dev-docs/COORDINATING.md`. For each batch:
 Per `dev-docs/cherrypicking.md`:
 1. **Multi-provider architecture preserved** — `USE_PROVIDER` not `USE_GEMINI`
 2. **Import paths** — `@vybestack/llxprt-code-core` not `@google/gemini-cli-core`
-3. **Branding** — LLxprt, not Gemini CLI
-4. **No ClearcutLogger** — zero Google telemetry
+3. **Branding** — LLxprt, not Gemini CLI (applies to imports, user-facing names, env vars, config paths — NOT copyright headers)
+4. **Copyright headers preserved** — `Copyright Google LLC` headers stay on Google-sourced files; `Copyright Vybestack LLC` on Vybestack-created files
+5. **No ClearcutLogger** — zero Google telemetry
 5. **No NextSpeakerChecker, FlashFallback, SmartEdit** — removed features stay removed
 6. **Parallel batching** — LLxprt's coreToolScheduler processes in parallel, not serial
 7. **JSONL session recording** — `SessionRecordingService`, not upstream recording
@@ -69,6 +70,8 @@ Per `dev-docs/cherrypicking.md`:
 | `GEMINI.md` | `LLXPRT.md` |
 | `.gemini/` | `.llxprt/` |
 | `gemini-cli` | `llxprt-code` |
+
+**DO NOT CHANGE copyright/license headers.** Files originating from Google retain their `Copyright 20xx Google LLC` and `SPDX-License-Identifier: Apache-2.0` headers. Files created by Vybestack use `Copyright 20xx Vybestack LLC`. Branding substitutions apply ONLY to import paths, user-facing names, env vars, config paths, and auth types — never to copyright/license blocks.
 
 ## Subagent Config
 
@@ -152,8 +155,8 @@ For EACH commit, verify the code actually landed and does what upstream intended
    Compare with: git show 2d3db9706785ab6b4f699d2e3133f90627d8db65
    Verify: the error detection logic matches upstream intent. Is it checking the right error shape?
 
-5. BRANDING CHECK:
-   Run: grep -rn "@google/gemini-cli\|USE_GEMINI\|GEMINI_CLI_IDE_AUTH_TOKEN\|ClearcutLogger" packages/ --include="*.ts" | grep -v node_modules | grep -v dist | head -20
+5. BRANDING CHECK (exclude copyright headers — Google LLC copyright is correct on Google-sourced files):
+   Run: grep -rn "@google/gemini-cli\|USE_GEMINI\|GEMINI_CLI_IDE_AUTH_TOKEN\|ClearcutLogger" packages/ --include="*.ts" | grep -v node_modules | grep -v dist | grep -v "Copyright" | head -20
    Report any violations found in the changed files.
 
 OUTPUT FORMAT:
@@ -246,8 +249,8 @@ BEHAVIORAL/CODE REVIEW:
    Read the policy TOML file. Verify codebase_investigator is allowed in read-only mode.
    Verify no LLxprt-specific policy entries were accidentally removed.
 
-4. Full branding sweep on changed files:
-   git diff HEAD~3..HEAD --name-only | xargs grep -l "@google/gemini-cli\|USE_GEMINI\|ClearcutLogger" 2>/dev/null
+4. Full branding sweep on changed files (exclude copyright headers — Google LLC copyright is correct):
+   git diff HEAD~3..HEAD --name-only | xargs grep -n "@google/gemini-cli\|USE_GEMINI\|ClearcutLogger" 2>/dev/null | grep -v "Copyright"
 
 OUTPUT FORMAT:
   VERDICT: PASS or FAIL
@@ -339,8 +342,8 @@ For EACH requirement in the plan (R1, R2, R3...):
   d) Are tests present and behavioral (not testing implementation details)?
 
 BRANDING CHECK:
-  git diff HEAD~1 --name-only | xargs grep -l "@google/gemini-cli\|USE_GEMINI\|GEMINI_CLI_IDE_AUTH_TOKEN\|ClearcutLogger" 2>/dev/null
-  Must return empty.
+  git diff HEAD~1 --name-only | xargs grep -n "@google/gemini-cli\|USE_GEMINI\|GEMINI_CLI_IDE_AUTH_TOKEN\|ClearcutLogger" 2>/dev/null | grep -v "Copyright"
+  Must return empty. (Copyright headers with "Google LLC" are correct and must NOT be changed.)
 {EXTRA_REVIEW_CHECKS}
 
 OUTPUT FORMAT:
@@ -529,8 +532,8 @@ BEHAVIORAL/CODE REVIEW:
 4. d2a1a456 (license field): Check package.json files have correct license field.
 5. d9f94103 (error messages): Read the error message changes. Verify they landed in the correct LLxprt file (not a ghost useGeminiStream.ts).
 
-BRANDING CHECK:
-  git diff HEAD~5..HEAD --name-only | xargs grep -l "@google/gemini-cli\|GEMINI_CLI_IDE_AUTH_TOKEN\|ClearcutLogger" 2>/dev/null
+BRANDING CHECK (exclude copyright headers — Google LLC copyright is correct on Google-sourced files):
+  git diff HEAD~5..HEAD --name-only | xargs grep -n "@google/gemini-cli\|GEMINI_CLI_IDE_AUTH_TOKEN\|ClearcutLogger" 2>/dev/null | grep -v "Copyright"
 
 OUTPUT FORMAT:
   VERDICT: PASS or FAIL
