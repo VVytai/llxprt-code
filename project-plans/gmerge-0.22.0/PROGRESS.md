@@ -8,7 +8,7 @@
 | 3 | REIMPLEMENT | 54de6753 (stats polish) | DONE | 31cc66f0f | Labels, colors, uncached math; snapshot gap for StatsDisplay |
 | 4 | REIMPLEMENT | 86134e99 (settings validation) | DONE | 4ec5634d7 | Zod schema from SETTINGS_SCHEMA; 51 new tests |
 | 5 | REIMPLEMENT | 299cc9be (A2A /init) | DONE | 95e0a738f | A2A /init command + streaming + auto-execute |
-| 6 | REIMPLEMENT | 1e734d7e (drag/drop) | TODO | | |
+| 6 | REIMPLEMENT | 1e734d7e (drag/drop) | DONE | faa2af9ba | Multi-file drag/drop with escaped space handling |
 | 7 | REIMPLEMENT | 3b2a4ba2 (IDE ext refactor) | TODO | | |
 | 8 | PICK x5 | e84c4bfb, edbe5480, 20164ebc, d2a1a456, d9f94103 | TODO | | |
 | 9 | REIMPLEMENT | 6dea66f1 (stats flex) | TODO | | |
