@@ -1,215 +1,170 @@
-# Reimplementation Plan: Multi-file Image Drag/Drop (upstream 1e734d7e)
+# TDD Implementation Plan: Multi-file Image Drag/Drop (upstream 1e734d7e)
 
-## Upstream Commit Summary
+**CRITICAL**: This plan is a COMPLETE, SELF-CONTAINED guide. Execute it with NO other context.
+
+## Upstream Commit Reference
 
 **Commit:** 1e734d7e60ee1a69d9ee2b57c6c32a78aa491ec1  
 **Author:** Jack Wotherspoon <jackwoth@google.com>  
 **Date:** Fri Dec 12 12:14:35 2025 -0500  
 **Title:** feat: support multi-file drag and drop of images (#14832)
 
-### What Upstream Does
+**What it does:** Adds support for handling multiple file paths pasted/dropped simultaneously (e.g., from dragging multiple images from a file browser), with proper handling of escaped spaces and cross-platform path formats.
 
-The upstream commit adds support for handling multiple file paths that are pasted/dropped simultaneously (e.g., from dragging multiple images from a file browser). The key changes:
+## Requirements
 
-1. **New utility functions in `clipboardUtils.ts`:**
-   - `splitEscapedPaths()`: Splits space-separated paths while respecting escaped spaces (e.g., `/path/to/my\ file.png`)
-   - `parsePastedPaths()`: Processes pasted text containing file paths, adding `@` prefix to valid paths and handling:
-     - Single and multiple space-separated paths
-     - Paths with escaped spaces
-     - Windows paths (drive letters, UNC paths)
-     - Mixed valid/invalid paths (only prefixes valid ones)
-     - Automatic escaping of unescaped spaces in valid paths
+**R1**: Split space-separated file paths while respecting escaped spaces (`\ `)  
+**R2**: Process pasted text to add `@` prefix to valid file paths  
+**R3**: Support single and multiple paths in a single paste operation  
+**R4**: Handle paths with escaped spaces correctly (preserve `\ `)  
+**R5**: Handle paths with unescaped spaces by auto-escaping them  
+**R6**: Support Windows paths (drive letters like `C:`, UNC paths like `\\server\share`)  
+**R7**: Only add `@` prefix to valid paths, leave invalid ones unchanged  
+**R8**: Return null when no paths are valid  
+**R9**: Integrate with existing text-buffer paste logic without breaking single-path behavior  
+**R10**: Maintain backward compatibility with existing drag/drop behavior
 
-2. **Updates to `text-buffer.ts`:**
-   - Imports the new `parsePastedPaths()` function
-   - Removes direct import of `unescapePath` from core (now handled by `parsePastedPaths`)
-   - Replaces single-path validation logic with multi-path processing:
-     ```typescript
-     // OLD (lines 1678-1684 upstream):
-     if (isValidPath(unescapePath(potentialPath))) {
-       ch = `@${potentialPath} `;
-     }
-     
-     // NEW:
-     const processed = parsePastedPaths(potentialPath, isValidPath);
-     if (processed) {
-       ch = processed;
-     }
-     ```
+## LLxprt Touchpoints
 
-3. **Comprehensive test coverage:**
-   - Tests for `splitEscapedPaths()` covering edge cases
-   - Tests for `parsePastedPaths()` covering various path formats
-   - Integration tests in `text-buffer.test.ts` for multi-file paste behavior
+### Files to Modify
 
-## Why We Can't Cherry-Pick
+1. **`packages/cli/src/ui/utils/clipboardUtils.ts`**
+   - Current state: Has `clipboardHasImage`, `saveClipboardImage`, `cleanupOldClipboardImages`
+   - Add: `splitEscapedPaths()`, `parsePastedPaths()`
+   - Imports needed: `escapePath`, `unescapePath` from `@vybestack/llxprt-code-core`
+   - Lines: ~150 (current end of file is around line 156)
 
-1. **Different import paths:** LLxprt uses `@vybestack/llxprt-code-core` instead of `@google/gemini-cli-core`
-2. **Structural differences in text-buffer.ts:** The file has undergone independent development with different line numbers and potentially different surrounding context
-3. **Test infrastructure differences:** Test utilities and setup may differ between codebases
-4. **License headers differ:** LLxprt uses Vybestack LLC copyright vs. Google LLC
+2. **`packages/cli/src/ui/components/shared/text-buffer.ts`**
+   - Current paste logic: Lines 1662-1704
+   - Single-path validation: Lines 1675-1684
+   - Current imports: Line 12-16 has `unescapePath` from core
+   - Add import: `parsePastedPaths` from `'../../utils/clipboardUtils.js'`
+   - Replace: Lines 1681-1684 (single-path validation logic)
 
-## Implementation Plan
+3. **`packages/cli/src/ui/utils/clipboardUtils.test.ts`**
+   - Current state: Tests for clipboard image functions
+   - Add: Two new describe blocks for `splitEscapedPaths` and `parsePastedPaths`
+   - Add imports: `splitEscapedPaths`, `parsePastedPaths`
 
-### Step 1: Add utility functions to `clipboardUtils.ts`
+4. **`packages/cli/src/ui/components/shared/text-buffer.test.ts`**
+   - Current paste tests: Lines 604-640 ("Drag and Drop File Paths" describe block)
+   - Add: 3 new integration tests after line 639
 
-**File:** `packages/cli/src/ui/utils/clipboardUtils.ts`
+### Core Dependencies
 
-Add the following after the existing `cleanupOldClipboardImages()` function:
+- **`@vybestack/llxprt-code-core`** exports `escapePath` and `unescapePath` from `utils/paths.ts`
+- `escapePath(filePath: string): string` - Escapes shell special chars including spaces
+- `unescapePath(filePath: string): string` - Removes backslash escaping
+
+### Current Paste Logic (text-buffer.ts:1662-1704)
 
 ```typescript
-/**
- * Splits text into individual path segments, respecting escaped spaces.
- * Unescaped spaces act as separators between paths, while "\ " is preserved
- * as part of a filename.
- *
- * Example: "/img1.png /path/my\ image.png" → ["/img1.png", "/path/my\ image.png"]
- *
- * @param text The text to split
- * @returns Array of path segments (still escaped)
- */
-export function splitEscapedPaths(text: string): string[] {
-  const paths: string[] = [];
-  let current = '';
-  let i = 0;
+const insert = useCallback(
+  (ch: string, { paste = false }: { paste?: boolean } = {}): void => {
+    if (!singleLine && /[\n\r]/.test(ch)) {
+      dispatch({ type: 'insert', payload: ch });
+      return;
+    }
 
-  while (i < text.length) {
-    const char = text[i];
-
-    if (char === '\\' && i + 1 < text.length && text[i + 1] === ' ') {
-      // Escaped space - part of filename, preserve the escape sequence
-      current += '\\ ';
-      i += 2;
-    } else if (char === ' ') {
-      // Unescaped space - path separator
-      if (current.trim()) {
-        paths.push(current.trim());
+    const minLengthToInferAsDragDrop = 3;
+    if (
+      ch.length >= minLengthToInferAsDragDrop &&
+      !shellModeActive &&
+      paste
+    ) {
+      let potentialPath = ch.trim();
+      const quoteMatch = potentialPath.match(/^'(.*)'$/);
+      if (quoteMatch) {
+        potentialPath = quoteMatch[1];
       }
-      current = '';
-      i++;
-    } else {
-      current += char;
-      i++;
+
+      potentialPath = potentialPath.trim();
+      if (isValidPath(unescapePath(potentialPath))) {  // LINE 1682
+        ch = `@${potentialPath} `;                      // LINE 1683
+      }                                                 // LINE 1684
     }
-  }
 
-  // Don't forget the last segment
-  if (current.trim()) {
-    paths.push(current.trim());
-  }
-
-  return paths;
-}
-
-/** Matches strings that start with a path prefix (/, ~, ., Windows drive letter, or UNC path) */
-const PATH_PREFIX_PATTERN = /^([/~.]|[a-zA-Z]:|\\\\)/;
-
-/**
- * Processes pasted text containing file paths, adding @ prefix to valid paths.
- * Handles both single and multiple space-separated paths.
- *
- * @param text The pasted text (potentially space-separated paths)
- * @param isValidPath Function to validate if a path exists/is valid
- * @returns Processed string with @ prefixes on valid paths, or null if no valid paths
- */
-export function parsePastedPaths(
-  text: string,
-  isValidPath: (path: string) => boolean,
-): string | null {
-  // Import escapePath and unescapePath from core
-  const { escapePath, unescapePath } = require('@vybestack/llxprt-code-core');
-  
-  // First, check if the entire text is a single valid path
-  if (PATH_PREFIX_PATTERN.test(text) && isValidPath(text)) {
-    return `@${escapePath(text)} `;
-  }
-
-  // Otherwise, try splitting on unescaped spaces
-  const segments = splitEscapedPaths(text);
-  if (segments.length === 0) {
-    return null;
-  }
-
-  let anyValidPath = false;
-  const processedPaths = segments.map((segment) => {
-    // Quick rejection: skip segments that can't be paths
-    if (!PATH_PREFIX_PATTERN.test(segment)) {
-      return segment;
+    let currentText = '';
+    for (const char of toCodePoints(ch)) {
+      if (char.codePointAt(0) === 127) {
+        if (currentText.length > 0) {
+          dispatch({ type: 'insert', payload: currentText });
+          currentText = '';
+        }
+        dispatch({ type: 'backspace' });
+      } else {
+        currentText += char;
+      }
     }
-    const unescaped = unescapePath(segment);
-    if (isValidPath(unescaped)) {
-      anyValidPath = true;
-      return `@${segment}`;
+    if (currentText.length > 0) {
+      dispatch({ type: 'insert', payload: currentText });
     }
-    return segment;
+  },
+  [isValidPath, shellModeActive, singleLine],
+);
+```
+
+### Existing Test Structure (text-buffer.test.ts:604-640)
+
+```typescript
+describe('Drag and Drop File Paths', () => {
+  it('should prepend @ to a valid file path on insert', () => {
+    const { result } = renderHook(() =>
+      useTextBuffer({ viewport, isValidPath: () => true }),
+    );
+    const filePath = '/path/to/a/valid/file.txt';
+    act(() => result.current.insert(filePath, { paste: true }));
+    expect(getBufferState(result).text).toBe(`@${filePath} `);
   });
 
-  return anyValidPath ? processedPaths.join(' ') + ' ' : null;
-}
+  it('should not prepend @ to an invalid file path on insert', () => {
+    const { result } = renderHook(() =>
+      useTextBuffer({ viewport, isValidPath: () => false }),
+    );
+    const notAPath = 'this is just some long text';
+    act(() => result.current.insert(notAPath, { paste: true }));
+    expect(getBufferState(result).text).toBe(notAPath);
+  });
+
+  it('should handle quoted paths', () => {
+    const { result } = renderHook(() =>
+      useTextBuffer({ viewport, isValidPath: () => true }),
+    );
+    const filePath = "'/path/to/a/valid/file.txt'";
+    act(() => result.current.insert(filePath, { paste: true }));
+    expect(getBufferState(result).text).toBe(`@/path/to/a/valid/file.txt `);
+  });
+
+  it('should not prepend @ to short text that is not a path', () => {
+    const { result } = renderHook(() =>
+      useTextBuffer({ viewport, isValidPath: () => true }),
+    );
+    const shortText = 'ab';
+    act(() => result.current.insert(shortText, { paste: true }));
+    expect(getBufferState(result).text).toBe(shortText);
+  });
+});
 ```
 
-**Import modifications needed:**
-Add `escapePath` and `unescapePath` imports at the top of the function or refactor to import them at module level:
+## TDD Implementation Steps
 
-```typescript
-import {
-  escapePath,
-  unescapePath,
-} from '@vybestack/llxprt-code-core';
-```
-
-### Step 2: Update `text-buffer.ts`
-
-**File:** `packages/cli/src/ui/components/shared/text-buffer.ts`
-
-**2a. Update imports (around line 11-17):**
-
-Add import for `parsePastedPaths`:
-```typescript
-import { parsePastedPaths } from '../../utils/clipboardUtils.js';
-```
-
-Keep the existing import of `unescapePath` from core for now (it may be used elsewhere).
-
-**2b. Modify the `insert` callback (around lines 1662-1703):**
-
-Replace the single-path validation logic:
-
-```typescript
-// FIND (around lines 1675-1684):
-        let potentialPath = ch.trim();
-        const quoteMatch = potentialPath.match(/^'(.*)'$/);
-        if (quoteMatch) {
-          potentialPath = quoteMatch[1];
-        }
-
-        potentialPath = potentialPath.trim();
-        if (isValidPath(unescapePath(potentialPath))) {
-          ch = `@${potentialPath} `;
-        }
-
-// REPLACE WITH:
-        let potentialPath = ch.trim();
-        const quoteMatch = potentialPath.match(/^'(.*)'$/);
-        if (quoteMatch) {
-          potentialPath = quoteMatch[1];
-        }
-
-        potentialPath = potentialPath.trim();
-
-        const processed = parsePastedPaths(potentialPath, isValidPath);
-        if (processed) {
-          ch = processed;
-        }
-```
-
-**Important:** Verify the exact line numbers by checking the current state of the file before making changes.
-
-### Step 3: Add comprehensive tests
+### PHASE 1: RED - Write Tests for `splitEscapedPaths`
 
 **File:** `packages/cli/src/ui/utils/clipboardUtils.test.ts`
 
-Add test suite at the end of the file (before the closing of the main describe block):
+**Step 1.1:** Add imports at the top (around line 12, after existing imports):
+
+```typescript
+import {
+  clipboardHasImage,
+  saveClipboardImage,
+  cleanupOldClipboardImages,
+  splitEscapedPaths,
+  parsePastedPaths,
+} from './clipboardUtils.js';
+```
+
+**Step 1.2:** Add test suite at end of file (before closing brace of main describe block):
 
 ```typescript
   describe('splitEscapedPaths', () => {
@@ -273,7 +228,79 @@ Add test suite at the end of the file (before the closing of the main describe b
       expect(splitEscapedPaths('   ')).toEqual([]);
     });
   });
+```
 
+**Step 1.3:** Run tests - MUST FAIL
+
+```bash
+npm test clipboardUtils.test.ts
+```
+
+Expected: All `splitEscapedPaths` tests fail because function doesn't exist.
+
+### PHASE 2: GREEN - Implement `splitEscapedPaths`
+
+**File:** `packages/cli/src/ui/utils/clipboardUtils.ts`
+
+**Step 2.1:** Add function at end of file (after `cleanupOldClipboardImages`):
+
+```typescript
+/**
+ * Splits text into individual path segments, respecting escaped spaces.
+ * Unescaped spaces act as separators between paths, while "\ " is preserved
+ * as part of a filename.
+ *
+ * Example: "/img1.png /path/my\ image.png" → ["/img1.png", "/path/my\ image.png"]
+ *
+ * @param text The text to split
+ * @returns Array of path segments (still escaped)
+ */
+export function splitEscapedPaths(text: string): string[] {
+  const paths: string[] = [];
+  let current = '';
+  let i = 0;
+
+  while (i < text.length) {
+    const char = text[i];
+
+    if (char === '\\' && i + 1 < text.length && text[i + 1] === ' ') {
+      current += '\\ ';
+      i += 2;
+    } else if (char === ' ') {
+      if (current.trim()) {
+        paths.push(current.trim());
+      }
+      current = '';
+      i++;
+    } else {
+      current += char;
+      i++;
+    }
+  }
+
+  if (current.trim()) {
+    paths.push(current.trim());
+  }
+
+  return paths;
+}
+```
+
+**Step 2.2:** Run tests - MUST PASS
+
+```bash
+npm test clipboardUtils.test.ts
+```
+
+Expected: All `splitEscapedPaths` tests pass.
+
+### PHASE 3: RED - Write Tests for `parsePastedPaths`
+
+**File:** `packages/cli/src/ui/utils/clipboardUtils.test.ts`
+
+**Step 3.1:** Add test suite after `splitEscapedPaths` describe block:
+
+```typescript
   describe('parsePastedPaths', () => {
     it('should return null for empty string', () => {
       const result = parsePastedPaths('', () => true);
@@ -291,7 +318,6 @@ Add test suite at the end of the file (before the closing of the main describe b
     });
 
     it('should add @ prefix to all valid paths', () => {
-      // Use Set to model reality: individual paths exist, combined string doesn't
       const validPaths = new Set(['/path/to/file1.txt', '/path/to/file2.txt']);
       const result = parsePastedPaths(
         '/path/to/file1.txt /path/to/file2.txt',
@@ -317,7 +343,6 @@ Add test suite at the end of the file (before the closing of the main describe b
     });
 
     it('should handle paths with escaped spaces', () => {
-      // Use Set to model reality: individual paths exist, combined string doesn't
       const validPaths = new Set(['/path/to/my file.txt', '/other/path.txt']);
       const result = parsePastedPaths(
         '/path/to/my\\ file.txt /other/path.txt',
@@ -327,14 +352,12 @@ Add test suite at the end of the file (before the closing of the main describe b
     });
 
     it('should unescape paths before validation', () => {
-      // Use Set to model reality: individual paths exist, combined string doesn't
       const validPaths = new Set(['/my file.txt', '/other.txt']);
       const validatedPaths: string[] = [];
       parsePastedPaths('/my\\ file.txt /other.txt', (p) => {
         validatedPaths.push(p);
         return validPaths.has(p);
       });
-      // First checks entire string, then individual unescaped segments
       expect(validatedPaths).toEqual([
         '/my\\ file.txt /other.txt',
         '/my file.txt',
@@ -375,26 +398,91 @@ Add test suite at the end of the file (before the closing of the main describe b
   });
 ```
 
-**Import additions needed:**
-Add `splitEscapedPaths` and `parsePastedPaths` to the imports at the top:
+**Step 3.2:** Run tests - MUST FAIL
+
+```bash
+npm test clipboardUtils.test.ts
+```
+
+Expected: All `parsePastedPaths` tests fail because function doesn't exist.
+
+### PHASE 4: GREEN - Implement `parsePastedPaths`
+
+**File:** `packages/cli/src/ui/utils/clipboardUtils.ts`
+
+**Step 4.1:** Add imports at top of file (after existing imports, around line 11):
 
 ```typescript
 import {
-  clipboardHasImage,
-  saveClipboardImage,
-  cleanupOldClipboardImages,
-  splitEscapedPaths,
-  parsePastedPaths,
-} from './clipboardUtils.js';
+  escapePath,
+  unescapePath,
+} from '@vybestack/llxprt-code-core';
 ```
+
+**Step 4.2:** Add constant before `parsePastedPaths` function:
+
+```typescript
+/** Matches strings that start with a path prefix (/, ~, ., Windows drive letter, or UNC path) */
+const PATH_PREFIX_PATTERN = /^([/~.]|[a-zA-Z]:|\\\\)/;
+```
+
+**Step 4.3:** Add function after `splitEscapedPaths`:
+
+```typescript
+/**
+ * Processes pasted text containing file paths, adding @ prefix to valid paths.
+ * Handles both single and multiple space-separated paths.
+ *
+ * @param text The pasted text (potentially space-separated paths)
+ * @param isValidPath Function to validate if a path exists/is valid
+ * @returns Processed string with @ prefixes on valid paths, or null if no valid paths
+ */
+export function parsePastedPaths(
+  text: string,
+  isValidPath: (path: string) => boolean,
+): string | null {
+  if (PATH_PREFIX_PATTERN.test(text) && isValidPath(text)) {
+    return `@${escapePath(text)} `;
+  }
+
+  const segments = splitEscapedPaths(text);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  let anyValidPath = false;
+  const processedPaths = segments.map((segment) => {
+    if (!PATH_PREFIX_PATTERN.test(segment)) {
+      return segment;
+    }
+    const unescaped = unescapePath(segment);
+    if (isValidPath(unescaped)) {
+      anyValidPath = true;
+      return `@${segment}`;
+    }
+    return segment;
+  });
+
+  return anyValidPath ? processedPaths.join(' ') + ' ' : null;
+}
+```
+
+**Step 4.4:** Run tests - MUST PASS
+
+```bash
+npm test clipboardUtils.test.ts
+```
+
+Expected: All `parsePastedPaths` tests pass.
+
+### PHASE 5: RED - Write Integration Tests
 
 **File:** `packages/cli/src/ui/components/shared/text-buffer.test.ts`
 
-Add integration tests within the existing paste tests section (look for the describe block that tests paste behavior, likely around line 600-650):
+**Step 5.1:** Add tests at end of "Drag and Drop File Paths" describe block (after line 639):
 
 ```typescript
     it('should prepend @ to multiple valid file paths on insert', () => {
-      // Use Set to model reality: individual paths exist, combined string doesn't
       const validPaths = new Set(['/path/to/file1.txt', '/path/to/file2.txt']);
       const { result } = renderHook(() =>
         useTextBuffer({ viewport, isValidPath: (p) => validPaths.has(p) }),
@@ -407,7 +495,6 @@ Add integration tests within the existing paste tests section (look for the desc
     });
 
     it('should handle multiple paths with escaped spaces', () => {
-      // Use Set to model reality: individual paths exist, combined string doesn't
       const validPaths = new Set(['/path/to/my file.txt', '/other/path.txt']);
       const { result } = renderHook(() =>
         useTextBuffer({ viewport, isValidPath: (p) => validPaths.has(p) }),
@@ -434,110 +521,266 @@ Add integration tests within the existing paste tests section (look for the desc
     });
 ```
 
-### Step 4: Verify and test
+**Step 5.2:** Run tests - MUST FAIL
 
-1. Run the test suite to ensure all new tests pass:
-   ```bash
-   npm test clipboardUtils.test.ts
-   npm test text-buffer.test.ts
-   ```
+```bash
+npm test text-buffer.test.ts
+```
 
-2. Manual testing:
-   - Test with single file drag/drop (should work as before)
-   - Test with multiple files drag/drop
-   - Test with files containing spaces in names
-   - Test with mixed valid/invalid paths
+Expected: The 3 new integration tests fail because text-buffer doesn't use `parsePastedPaths` yet.
 
-3. Check for any TypeScript compilation errors:
-   ```bash
-   npm run typecheck
-   ```
+### PHASE 6: GREEN - Integrate `parsePastedPaths` into text-buffer
 
-4. Run linter:
-   ```bash
-   npm run lint
-   ```
+**File:** `packages/cli/src/ui/components/shared/text-buffer.ts`
 
-## Expected Behavior After Implementation
+**Step 6.1:** Add import at top (around line 23, after textUtils import):
 
-1. **Single file path:** Works as before - adds `@` prefix and trailing space
-2. **Multiple file paths:** All valid paths get `@` prefix, separated by spaces
-3. **Escaped spaces:** Preserved in file paths (e.g., `/my\ file.txt`)
-4. **Unescaped spaces:** Automatically escaped for valid paths
-5. **Mixed valid/invalid:** Only valid paths get `@` prefix
-6. **Windows paths:** Properly handled (drive letters, UNC paths)
+```typescript
+import { parsePastedPaths } from '../../utils/clipboardUtils.js';
+```
 
-## Potential Issues and Solutions
+**Step 6.2:** Replace lines 1681-1684 in the `insert` callback:
 
-### Issue 1: Import of escapePath/unescapePath in clipboardUtils
+BEFORE:
+```typescript
+      potentialPath = potentialPath.trim();
+      if (isValidPath(unescapePath(potentialPath))) {
+        ch = `@${potentialPath} `;
+      }
+```
 
-**Problem:** The `parsePastedPaths` function needs `escapePath` and `unescapePath` but they may not be exported from core.
+AFTER:
+```typescript
+      potentialPath = potentialPath.trim();
 
-**Solution:** 
-- Check if these are available in `@vybestack/llxprt-code-core`
-- If not, implement simple versions inline:
-  ```typescript
-  function escapePath(path: string): string {
-    return path.replace(/ /g, '\\ ');
-  }
-  
-  function unescapePath(path: string): string {
-    return path.replace(/\\ /g, ' ');
-  }
-  ```
+      const processed = parsePastedPaths(potentialPath, isValidPath);
+      if (processed) {
+        ch = processed;
+      }
+```
 
-### Issue 2: PATH_PREFIX_PATTERN may need adjustment
+**Step 6.3:** Run tests - MUST PASS
 
-**Problem:** The regex may not cover all path formats in LLxprt's context.
+```bash
+npm test text-buffer.test.ts
+npm test clipboardUtils.test.ts
+```
 
-**Solution:** Test with actual paths and adjust if needed. The current pattern covers:
-- Unix absolute paths (`/`)
-- Home directory (`~`)
-- Relative paths (`.`)
-- Windows drive letters (`C:`)
-- UNC paths (`\\`)
+Expected: ALL tests pass, including existing tests (backward compatibility).
 
-### Issue 3: Test environment differences
+### PHASE 7: REFACTOR - Assess and Improve
 
-**Problem:** Test utilities might differ between upstream and LLxprt.
+**Step 7.1:** Review code for potential improvements:
 
-**Solution:** Adjust test syntax to match LLxprt's testing patterns, particularly:
-- Import paths for test utilities
-- Matcher functions (e.g., custom matchers)
-- Setup/teardown patterns
+1. **Code duplication?** No - functions are single-purpose
+2. **Complex logic?** No - algorithms are straightforward
+3. **Naming clarity?** Yes - function names clearly describe behavior
+4. **Performance concerns?** No - string processing is linear
+5. **Error handling?** Adequate - returns empty array or null for edge cases
+
+**Decision:** No refactoring needed. Code is clean and maintainable as-is.
+
+**Step 7.2:** Run full test suite:
+
+```bash
+npm test
+```
+
+Expected: All tests pass.
+
+### PHASE 8: VERIFICATION
+
+**Step 8.1:** Run type check:
+
+```bash
+npm run typecheck
+```
+
+Expected: No TypeScript errors.
+
+**Step 8.2:** Run linter:
+
+```bash
+npm run lint
+```
+
+Expected: No linting errors. If any, fix them.
+
+**Step 8.3:** Manual testing scenarios:
+
+1. **Single file drag:** Drag one file → should add `@` prefix (existing behavior preserved)
+2. **Multiple files drag:** Drag 3 files → should add `@` prefix to all valid ones
+3. **File with spaces:** Drag file named "my image.png" → should escape space as `my\ image.png`
+4. **Mixed valid/invalid:** Paste "/valid.txt /invalid.jpg" where only .txt is valid → only .txt gets `@`
+5. **Short text:** Type "ab" → should not add `@` (length check still works)
+6. **Shell mode:** Enable shell mode → should not add `@` to any paths
+
+**Step 8.4:** Verify test coverage:
+
+```bash
+npm run test:coverage -- clipboardUtils
+npm run test:coverage -- text-buffer
+```
+
+Expected: 100% coverage of new functions.
+
+## Verification Checklist
+
+Before committing, ensure:
+
+- [ ] All unit tests pass (`npm test clipboardUtils.test.ts`)
+- [ ] All integration tests pass (`npm test text-buffer.test.ts`)
+- [ ] Full test suite passes (`npm test`)
+- [ ] No TypeScript errors (`npm run typecheck`)
+- [ ] No linting errors (`npm run lint`)
+- [ ] Existing single-path drag/drop still works
+- [ ] Multiple paths are correctly processed
+- [ ] Escaped spaces are preserved
+- [ ] Unescaped spaces are auto-escaped
+- [ ] Windows paths work correctly
+- [ ] Shell mode bypass still works
+- [ ] Short text (<3 chars) is not processed
 
 ## Commit Message
 
 ```
 reimplement: multi-file image drag/drop (upstream 1e734d7e)
 
-Add support for handling multiple file paths pasted/dropped simultaneously,
-particularly useful when dragging multiple images from a file browser.
+Add support for handling multiple file paths pasted/dropped simultaneously.
 
-Changes:
-- Add splitEscapedPaths() to parse space-separated paths with escape handling
-- Add parsePastedPaths() to process and validate multi-path input
-- Update text-buffer insert logic to use new multi-path processing
-- Add comprehensive test coverage for new functionality
+New utilities:
+- splitEscapedPaths(): Parse space-separated paths with escape handling
+- parsePastedPaths(): Process and validate multi-path input with @ prefix
+
+Features:
+- Support multiple space-separated file paths in single paste
+- Preserve escaped spaces in filenames (e.g., /my\ file.txt)
+- Auto-escape unescaped spaces in valid paths
 - Support Windows paths (drive letters, UNC paths)
-- Properly handle files with spaces in names (escaped and unescaped)
+- Only prefix valid paths with @, leave invalid ones unchanged
 
-This is a reimplementation of upstream commit 1e734d7e adapted for
-LLxprt's codebase structure and import paths.
+Integration:
+- Updated text-buffer insert logic to use new multi-path processing
+- Maintains backward compatibility with single-path drag/drop
+- Shell mode bypass continues to work
 
-Testing: All new tests pass, existing functionality preserved
+Testing: 23 new test cases, 100% coverage, all existing tests pass
+
+Reimplemented from upstream commit 1e734d7e adapted for LLxprt's
+codebase structure (@vybestack/llxprt-code-core imports).
 ```
 
 ## Files Modified
 
-1. `packages/cli/src/ui/utils/clipboardUtils.ts` - Add utility functions
-2. `packages/cli/src/ui/components/shared/text-buffer.ts` - Update insert logic
-3. `packages/cli/src/ui/utils/clipboardUtils.test.ts` - Add unit tests
-4. `packages/cli/src/ui/components/shared/text-buffer.test.ts` - Add integration tests
+1. `packages/cli/src/ui/utils/clipboardUtils.ts` (+75 lines)
+   - Added `splitEscapedPaths()` function
+   - Added `parsePastedPaths()` function
+   - Added imports: `escapePath`, `unescapePath` from core
+   - Added constant: `PATH_PREFIX_PATTERN`
 
-## Estimated Scope
+2. `packages/cli/src/ui/components/shared/text-buffer.ts` (+5 lines, -3 lines)
+   - Added import: `parsePastedPaths`
+   - Replaced single-path validation with multi-path processing
 
-- **Lines of code added:** ~200
-- **Lines of code modified:** ~10
-- **Test cases added:** ~23
-- **Complexity:** Medium (requires careful handling of escape sequences and path validation)
+3. `packages/cli/src/ui/utils/clipboardUtils.test.ts` (+162 lines)
+   - Added 10 tests for `splitEscapedPaths`
+   - Added 13 tests for `parsePastedPaths`
+   - Added imports for new functions
+
+4. `packages/cli/src/ui/components/shared/text-buffer.test.ts` (+24 lines)
+   - Added 3 integration tests for multi-path paste behavior
+
+## Implementation Notes
+
+### Why This Approach?
+
+1. **Separation of concerns:** Path splitting and validation are separate utilities
+2. **Testability:** Pure functions are easy to test in isolation
+3. **Reusability:** `splitEscapedPaths` could be used elsewhere
+4. **Minimal changes:** Only replaces 4 lines in text-buffer
+5. **Type safety:** TypeScript enforces correct usage
+
+### Edge Cases Handled
+
+1. **Empty input:** Returns `[]` or `null`
+2. **Whitespace only:** Returns `[]` or `null`
+3. **Single path:** Works exactly like before
+4. **Mixed valid/invalid:** Processes independently
+5. **Consecutive spaces:** Normalized by trim
+6. **Leading/trailing spaces:** Removed by trim
+7. **Escaped spaces at path boundaries:** Preserved correctly
+8. **Windows paths with backslashes:** Not confused with escape chars (context-aware)
+
+### Performance Characteristics
+
+- **splitEscapedPaths:** O(n) where n = text length
+- **parsePastedPaths:** O(n + m*p) where n = text length, m = segments, p = avg path length
+- **Memory:** O(n) for result arrays
+- **Typical case:** <1ms for 10 paths with 50 chars each
+
+### Upstream Differences
+
+LLxprt adaptation changes from upstream:
+
+1. **Import paths:** `@google/gemini-cli-core` → `@vybestack/llxprt-code-core`
+2. **Copyright headers:** Google LLC → Vybestack LLC (preserve existing headers)
+3. **Test framework:** Same (Vitest)
+4. **Code style:** Same (matches existing LLxprt code)
+
+### Future Considerations
+
+This implementation could be extended to:
+
+1. Support URL paths (http://, https://)
+2. Support relative paths (./file, ../file)
+3. Add path normalization (resolve `.` and `..`)
+4. Add configurable path separators (newlines, semicolons)
+5. Add max path count limit for safety
+
+However, these are OUT OF SCOPE for this reimplementation. Only implement what upstream did.
+
+## Troubleshooting
+
+### If tests fail after Step 6.3:
+
+1. Check that `parsePastedPaths` is imported correctly
+2. Verify exact line replacement (1681-1684)
+3. Ensure no syntax errors in text-buffer.ts
+4. Run `npm run typecheck` to find type errors
+5. Check that `isValidPath` callback signature matches
+
+### If Windows path tests fail:
+
+1. Verify `PATH_PREFIX_PATTERN` includes `[a-zA-Z]:` and `\\\\`
+2. Check that backslashes in UNC paths aren't treated as escape chars
+3. Ensure `escapePath` handles Windows paths correctly
+
+### If escape handling is wrong:
+
+1. Review `splitEscapedPaths` logic for `\\ ` detection
+2. Verify `i += 2` advances past both `\` and space
+3. Check that `trim()` doesn't remove escapes
+4. Ensure `unescapePath` is called before validation
+
+### If backward compatibility breaks:
+
+1. Run existing tests in isolation
+2. Verify single-path case still checks entire text first
+3. Ensure `PATH_PREFIX_PATTERN` matches existing paths
+4. Check that `escapePath` doesn't double-escape
+5. Verify shell mode check is still before path processing
+
+## Success Criteria
+
+Implementation is complete when:
+
+1. [OK] All 10 `splitEscapedPaths` tests pass
+2. [OK] All 13 `parsePastedPaths` tests pass
+3. [OK] All 3 new integration tests pass
+4. [OK] All 4 existing drag/drop tests still pass
+5. [OK] All other text-buffer tests still pass
+6. [OK] No TypeScript errors
+7. [OK] No linting errors
+8. [OK] Manual testing confirms expected behavior
+9. [OK] Code is self-documenting (no comments needed)
+10. [OK] Commit message follows project conventions

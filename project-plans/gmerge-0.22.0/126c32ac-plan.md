@@ -1,392 +1,850 @@
 # Reimplementation Plan: Hook Refresh on Extension Change (Upstream 126c32ac)
 
+**Test-Driven Development (TDD) Approach — COMPLETE SELF-CONTAINED GUIDE**
+
+---
+
+## Executive Summary
+
 **Upstream Commit:** `126c32aca4972deba80a875f749fcee1367c4486`  
 **Author:** Tommaso Sciortino <sciortino@gmail.com>  
 **Date:** Fri Dec 12 16:43:46 2025 -0800  
 **Title:** Refresh hooks when refreshing extensions. (#14918)
 
-## Executive Summary
+**Problem:** Silent bug where hooks from extensions don't reload after enable/disable because initialization guards (`if (this.initialized) return;`) prevent re-initialization.
 
-This fixes a **SILENT BUG** where hooks from extensions don't reload after extension changes because initialization guards (`if (this.initialized) return;`) prevent re-initialization.
+**Solution:**
+1. **Remove initialization guards** from `HookSystem` and `HookRegistry` (upstream)
+2. **Call `hookSystem.initialize()` in extension loader** after refreshMemory() (upstream)
+3. **Dispose old HookEventHandler before re-init** to prevent MessageBus subscription leaks (LLxprt enhancement)
 
-**CRITICAL**: LLxprt has the SAME bug. Our `HookSystem` and `HookRegistry` have `initialized` flags (lines 56, 52) that block re-init.
+**TDD Approach:** Write tests first (RED), implement minimal code (GREEN), refactor if valuable.
 
-**Upstream Solution**:
-1. Remove `initialized` guards from `HookSystem` and `HookRegistry`
-2. Call `hookSystem.initialize()` in extension loader's refresh path
+---
 
-**[CORRECTED] LLxprt Enhancement** (upstream forgot this):
-3. **Dispose old `HookEventHandler` before recreating** to prevent memory leaks
+## Requirements
 
-**[CORRECTED] Note**: LLxprt HookSystem ALREADY has `dispose()` method (line 209-211) that calls `eventHandler?.dispose()`. HookEventHandler ALREADY has proper disposal logic (line 123 subscriptionHandle, dispose() at line 915+). The enhancement is to **CALL** `dispose()` before re-creating the event handler in `initialize()`.
+### R1: Guard Removal (Upstream)
+Remove `initialized` flag and all guard checks from `HookSystem` and `HookRegistry` to allow re-initialization.
 
-## Problem Analysis
+**Why:** Current guards block re-reading configuration, preventing extension hooks from updating.
 
-### Root Cause
+**Files:**
+- `packages/core/src/hooks/hookSystem.ts` — Lines 56, 99-101, 135-138, 149-150, 183-185, 197-199
+- `packages/core/src/hooks/hookRegistry.ts` — Lines 17-22, 52, 62-64, 79-81, 95-97
 
-**Symptom**: After enabling/disabling an extension with hooks, the hook system doesn't pick up changes until CLI restart.
+### R2: Re-Init Support (Upstream)
+`initialize()` methods now re-read configuration on every call, not just the first.
 
-**Why**:
-1. `ExtensionLoader.startExtension()` / `stopExtension()` should trigger hook refresh via `config.getHookSystem()?.initialize()`
-2. `HookSystem.initialize()` has guard: `if (this.initialized) return;` (line 99)
-3. `HookRegistry.initialize()` has guard: `if (this.initialized) return;` (line 62)
-4. Extension hooks live in `extension.hooks` config, loaded by `HookRegistry.processHooksFromConfig()`
-5. Guards prevent registry from re-reading extension config → stale hook list
+**Why:** Extension changes modify config, requiring hook registry to reload.
 
-### LLxprt Specific Context
+**Behavioral Change:**
+- **Before:** `initialize()` idempotent (safe to call multiple times, only runs once)
+- **After:** `initialize()` re-reads config every time (caller responsible for avoiding excess calls)
 
-**Files Affected**:
-- `packages/core/src/hooks/hookSystem.ts` — Lines 56, 99-101
-- `packages/core/src/hooks/hookRegistry.ts` — Lines 52, 62-63
-- `packages/core/src/utils/extensionLoader.ts` — **[CORRECTED]** Line 142 calls `refreshMemory()`, needs to also call `hookSystem.initialize()`
+### R3: Disposal (LLxprt Enhancement)
+Dispose old `HookEventHandler` before creating new one during re-initialization.
 
-**[CORRECTED] Additional Issue** (not in upstream):
-- `HookEventHandler` subscribes to `MessageBus` in constructor (line 152: `this.messageBus.subscribe(...)`)
-- Stores unsubscribe function in `this.subscriptionHandle` (line 158)
-- `dispose()` method exists (lines 915+) and calls `this.subscriptionHandle?.unsubscribe()` to clean up
-- Recreating `HookEventHandler` without disposing old one → **subscription leak**
-- LLxprt HookSystem already has `dispose()` method (line 209-211) that properly calls `eventHandler?.dispose()`
-- **Solution**: Call `this.dispose()` before creating new event handler in `initialize()`
+**Why:** LLxprt's `HookEventHandler` subscribes to MessageBus in constructor (line 152 of hookEventHandler.ts). Without disposal, old subscriptions leak memory.
 
-**[CORRECTED] Disposal Context**:
-The disposal infrastructure already exists:
-- `HookEventHandler.dispose()` unsubscribes from MessageBus (if subscribed)
-- `HookSystem.dispose()` calls `eventHandler?.dispose()`
-- What's missing: calling disposal **before** re-creating event handler in `initialize()`
+**Upstream doesn't need this:** Gemini's HookEventHandler doesn't subscribe to MessageBus.
 
-## Upstream Changes (Git Show Summary)
+**Files:**
+- `packages/core/src/hooks/hookSystem.ts` — Add disposal call in `initialize()` before creating new event handler
 
-### 1. `packages/core/src/hooks/hookSystem.ts`
+### R4: Extension Loader Integration (Upstream)
+Call `hookSystem.initialize()` after `refreshMemory()` when extensions change.
 
-**Removed**:
-- `private initialized = false;` field
-- Guard in `initialize()`: `if (this.initialized) return;`
-- Guard in `getRegistry()`: `if (!this.initialized) throw ...`
-- Guard in `getEventHandler()`: `if (!this.initialized || !this.eventHandler) throw ...`
-- Guard in `setHookEnabled()`: `if (!this.initialized) return;`
-- Guard in `getAllHooks()`: `if (!this.initialized) return [];`
-- `getStatus()` method (returned `{ initialized: boolean; totalHooks: number }`)
+**Why:** After extensions start/stop, hooks must reload to reflect new config.
 
-**Kept**:
-- `private eventHandler: HookEventHandler | null = null;` (used for null check)
+**Files:**
+- `packages/core/src/utils/extensionLoader.ts` — Add hook init call in `maybeRefreshMemory()` after line 141
 
-**Effect**: `initialize()` now re-initializes on every call, no guard.
+### R5: Remove Obsolete Error Class (Upstream)
+Remove `HookRegistryNotInitializedError` class since initialization is no longer guarded.
 
-### 2. `packages/core/src/hooks/hookRegistry.ts`
+**Files:**
+- `packages/core/src/hooks/hookRegistry.ts` — Lines 17-22
 
-**Removed**:
-- `private initialized = false;` field
-- Guard in `initialize()`: `if (this.initialized) return;`
-- Guard in `getHooksForEvent()`: `if (!this.initialized) throw ...`
-- Guard in `getAllHooks()`: `if (!this.initialized) throw ...`
-- `HookRegistryNotInitializedError` class
+### R6: Remove Status API (Upstream)
+Remove `getStatus()` method and `HookSystemStatus` interface from `HookSystem`.
 
-**Effect**: `initialize()` now re-initializes on every call, no guard.
+**Why:** Status based on `initialized` flag is no longer meaningful. Use `isInitialized()` and `getAllHooks().length` instead.
 
-### 3. `packages/core/src/utils/extensionLoader.ts`
+**Files:**
+- `packages/core/src/hooks/hookSystem.ts` — Lines 29-32, 161-166
+- Update docs to remove HOOK-009 requirement
 
-**Added**:
-- `await this.config.getHookSystem()?.initialize();` after `refreshServerHierarchicalMemory()`
-- Made `maybeStartExtension()` and `maybeStopExtension()` async (were returning `Promise<void> | undefined`)
+---
 
-**[CORRECTED] Context**: Upstream calls this in batch refresh path after all extension starts/stops. Upstream has `refreshServerHierarchicalMemory()` helper, LLxprt has `refreshMemory()` method.
+## Current State Analysis
 
-### 4. `packages/core/src/hooks/hookSystem.test.ts`
+### Touchpoint 1: HookSystem.initialize() — Guard Blocks Re-Init
 
-**Removed**:
-- Test: `should not initialize twice` (no longer relevant)
-- Test: `should throw error when not initialized` (no error thrown anymore)
-- Test: `should return correct status when initialized` (no `getStatus()` anymore)
-- Test: `should return uninitialized status` (no `getStatus()` anymore)
+**File:** `packages/core/src/hooks/hookSystem.ts`
 
-**Modified**:
-- Test: `should initialize successfully` — Changed assertion from `status.initialized` to `getAllHooks().length`
-
-### 5. `packages/core/src/hooks/hookRegistry.test.ts`
-
-**Removed**:
-- Test: `should throw error if not initialized` (no error thrown anymore)
-
-### 6. **[CORRECTED]** `packages/cli/src/config/extension-manager.ts`
-
-**This file does NOT exist in LLxprt**. It only exists in upstream Gemini. The upstream change was to await `enableExtension()` instead of firing floating promise. This is not applicable to LLxprt.
-
-## LLxprt Adaptation Strategy
-
-### Convergence: Remove Init Guards
-
-LLxprt will **exactly match upstream** by removing:
-1. `initialized` flags from `HookSystem` and `HookRegistry`
-2. All guard checks
-3. `HookRegistryNotInitializedError` class
-4. `getStatus()` method from `HookSystem`
-5. `HookSystemStatus` interface
-
-### Enhancement: Dispose Before Re-Init
-
-**LLxprt addition** (upstream missed this):
-- In `HookSystem.initialize()`, BEFORE creating new `HookEventHandler`:
-  ```typescript
-  // Dispose old event handler to prevent subscription leaks
-  this.dispose();
-  ```
-
-**[CORRECTED] Why this works**:
-- `HookSystem.dispose()` already exists (line 209-211)
-- It calls `this.eventHandler?.dispose()` which unsubscribes from MessageBus
-- After disposal, we set `eventHandler = null` (already happens when we create new one)
-- This prevents MessageBus subscription leaks
-
-**Why upstream didn't need this**:
-- Gemini's `HookEventHandler` doesn't subscribe to MessageBus (no subscription leak)
-- LLxprt added MessageBus integration in PLAN-20250218-HOOKSYSTEM.P03 (DELTA-HEVT-001)
-
-### **[CORRECTED]** Extension Loader Integration
-
-**File**: `packages/core/src/utils/extensionLoader.ts`
-
-**Current state** (line 129-143):
-- `maybeRefreshMemory()` is called after extensions start/stop
-- It calls `await this.config.refreshMemory()`
-- This refreshes hierarchical memory but NOT hooks
-
-**Required change**:
-- Add `await this.config.getHookSystem()?.initialize();` call
-- **[CORRECTED]** Place it INSIDE `maybeRefreshMemory()` AFTER the memory refresh, matching upstream pattern
-- This ensures hooks reload when extensions change
-
-**[CORRECTED] Upstream pattern**:
+**Lines 98-127:**
 ```typescript
-await refreshServerHierarchicalMemory(this.config);
-await this.config.getHookSystem()?.initialize();
+async initialize(): Promise<void> {
+  if (this.initialized) {                           // Line 99: GUARD BLOCKS RE-INIT
+    debugLogger.debug('HookSystem already initialized, skipping');
+    return;
+  }
+
+  debugLogger.debug('Initializing HookSystem');
+
+  await this.registry.initialize();                  // Line 107: Registry init
+  
+  this.eventHandler = new HookEventHandler(         // Line 111: Creates handler
+    this.config,
+    this.registry,
+    this.planner,
+    this.runner,
+    this.aggregator,
+    this.messageBus,
+    this.injectedDebugLogger,
+  );
+
+  this.initialized = true;                           // Line 121: Sets flag
+
+  const status = this.getStatus();                   // Line 123: Uses getStatus()
+  debugLogger.log(
+    `HookSystem initialized with ${status.totalHooks} registered hook(s)`,
+  );
+}
 ```
 
-**[CORRECTED] LLxprt equivalent**:
+**Problem:** Line 99 guard prevents re-init → hooks can't update after extension changes.
+
+**Missing:** No disposal of old `eventHandler` before creating new one → MessageBus subscription leak.
+
+### Touchpoint 2: HookRegistry.initialize() — Guard Blocks Re-Init
+
+**File:** `packages/core/src/hooks/hookRegistry.ts`
+
+**Lines 61-73:**
 ```typescript
-await this.config.refreshMemory();
-await this.config.getHookSystem()?.initialize();
+async initialize(): Promise<void> {
+  if (this.initialized) {                            // Line 62: GUARD BLOCKS RE-INIT
+    return;
+  }
+
+  this.entries = [];                                 // Line 66: Clears entries
+  this.processHooksFromConfig();                     // Line 67: Reads config
+  this.initialized = true;                           // Line 68: Sets flag
+
+  debugLogger.log(
+    `Hook registry initialized with ${this.entries.length} hook entries`,
+  );
+}
 ```
 
-### Testing: Remove Obsolete Tests
+**Problem:** Line 62 guard prevents re-init → registry can't reload extension hooks.
 
-Remove tests that check for:
-1. "Should only initialize once on multiple calls" (line 94-108 in hookSystem.test.ts) - now valid to re-init
-2. "Should throw error if not initialized" (line 264-270 in hookRegistry.test.ts) - no throws anymore
-3. Tests for `getStatus()` functionality (lines 199-209 in hookSystem.test.ts) - method removed
+### Touchpoint 3: HookRegistry Methods — Throw on Uninitialized
 
-**[CORRECTED]** Note: The test "should report correct status before initialization" (lines 75-80) and "should report correct status after initialization" (lines 127-134) also need removal since `getStatus()` is being removed.
+**File:** `packages/core/src/hooks/hookRegistry.ts`
 
-## Implementation Plan
+**Lines 78-81 (getHooksForEvent):**
+```typescript
+getHooksForEvent(eventName: HookEventName): HookRegistryEntry[] {
+  if (!this.initialized) {                           // Line 79: THROWS ERROR
+    throw new HookRegistryNotInitializedError();
+  }
+  // ...
+}
+```
 
-### Phase 1: Remove Init Guards from HookRegistry
+**Lines 94-97 (getAllHooks):**
+```typescript
+getAllHooks(): HookRegistryEntry[] {
+  if (!this.initialized) {                           // Line 95: THROWS ERROR
+    throw new HookRegistryNotInitializedError();
+  }
+  return [...this.entries];
+}
+```
 
-**File**: `packages/core/src/hooks/hookRegistry.ts`
+**Problem:** Throws error if not initialized. After removing guards, these checks are unnecessary since initialization is cheap and automatic.
 
-**Changes**:
+### Touchpoint 4: ExtensionLoader — No Hook Refresh
 
-1. **Remove class and field** (lines 17-22, 52):
-   ```diff
-   - export class HookRegistryNotInitializedError extends Error {
-   -   constructor(message = 'Hook registry not initialized') {
-   -     super(message);
-   -     this.name = 'HookRegistryNotInitializedError';
-   -   }
-   - }
-   
-   - private initialized = false;
-   ```
+**File:** `packages/core/src/utils/extensionLoader.ts`
 
-2. **Remove guard in `initialize()`** (lines 62-68):
-   ```diff
-   async initialize(): Promise<void> {
-   -   if (this.initialized) {
-   -     return;
-   -   }
-   
-     this.entries = [];
-     this.processHooksFromConfig();
-   -   this.initialized = true;
-   
-     debugLogger.log(
-       `Hook registry initialized with ${this.entries.length} hook entries`,
-     );
-   ```
-
-3. **Remove guards in `getHooksForEvent()`** (lines 79-81):
-   ```diff
-   getHooksForEvent(eventName: HookEventName): HookRegistryEntry[] {
-   -   if (!this.initialized) {
-   -     throw new HookRegistryNotInitializedError();
-   -   }
-   
-     return this.entries
-   ```
-
-4. **Remove guards in `getAllHooks()`** (lines 95-97):
-   ```diff
-   getAllHooks(): HookRegistryEntry[] {
-   -   if (!this.initialized) {
-   -     throw new HookRegistryNotInitializedError();
-   -   }
-   
-     return [...this.entries];
-   ```
-
-### Phase 2: Remove Init Guards from HookSystem
-
-**File**: `packages/core/src/hooks/hookSystem.ts`
-
-**Changes**:
-
-1. **Remove field** (line 56):
-   ```diff
-   - private initialized = false;
-   ```
-
-2. **[CORRECTED] Remove guard in `initialize()` + add disposal** (lines 98-126):
-   ```diff
-   async initialize(): Promise<void> {
-   -   if (this.initialized) {
-   -     debugLogger.debug('HookSystem already initialized, skipping');
-   -     return;
-   -   }
-   
-     debugLogger.debug('Initializing HookSystem');
-   
-   +   // Dispose old event handler to prevent subscription leaks (LLxprt enhancement)
-   +   this.dispose();
-   
-     // Initialize the registry (loads hooks from config)
-     await this.registry.initialize();
-   
-     // Create the event handler now that registry is ready,
-     // forwarding injected dependencies per DELTA-HSYS-001
-     this.eventHandler = new HookEventHandler(
-       this.config,
-       this.registry,
-       this.planner,
-       this.runner,
-       this.aggregator,
-       this.messageBus,
-       this.injectedDebugLogger,
-     );
-   
-   -   this.initialized = true;
-   
-   -   const status = this.getStatus();
-   +   const totalHooks = this.registry.getAllHooks().length;
-     debugLogger.log(
-   -     `HookSystem initialized with ${status.totalHooks} registered hook(s)`,
-   +     `HookSystem initialized with ${totalHooks} registered hook(s)`,
-     );
-   ```
-
-3. **Remove guards in `getRegistry()`** (lines 135-138):
-   ```diff
-   getRegistry(): HookRegistry {
-   -   if (!this.initialized) {
-   -     throw new HookSystemNotInitializedError(
-   -       'Cannot access HookRegistry before HookSystem is initialized',
-   -     );
-   -   }
-     return this.registry;
-   ```
-
-4. **[CORRECTED] Remove guard in `getEventHandler()`** (lines 149-152):
-   ```diff
-   getEventHandler(): HookEventHandler {
-   -   if (!this.initialized || !this.eventHandler) {
-   +   if (!this.eventHandler) {
-       throw new HookSystemNotInitializedError(
-         'Cannot access HookEventHandler before HookSystem is initialized',
-       );
-     }
-     return this.eventHandler;
-   ```
-
-5. **Update `isInitialized()`** (lines 171-173):
-   ```diff
-   isInitialized(): boolean {
-   -   return this.initialized;
-   +   return this.eventHandler !== null;
-   ```
-
-6. **Remove guard in `setHookEnabled()`** (lines 183-185):
-   ```diff
-   setHookEnabled(hookId: string, enabled: boolean): void {
-   -   if (!this.initialized) {
-   -     return;
-   -   }
-     this.registry.setHookEnabled(hookId, enabled);
-   ```
-
-7. **Remove guard in `getAllHooks()`** (lines 197-199):
-   ```diff
-   getAllHooks(): HookRegistryEntry[] {
-   -   if (!this.initialized) {
-   -     return [];
-   -   }
-     return this.registry.getAllHooks();
-   ```
-
-8. **Remove `getStatus()` method** (lines 161-166):
-   ```diff
-   - getStatus(): HookSystemStatus {
-   -   return {
-   -     initialized: this.initialized,
-   -     totalHooks: this.initialized ? this.registry.getAllHooks().length : 0,
-   -   };
-   - }
-   ```
-
-9. **Remove `HookSystemStatus` interface** (lines 29-32):
-   ```diff
-   - export interface HookSystemStatus {
-   -   initialized: boolean;
-   -   totalHooks: number;
-   - }
-   ```
-
-10. **Update docs to remove HOOK-009** (lines 9, 27, 46):
-    ```diff
-    - * @requirement:HOOK-001,HOOK-003,HOOK-004,HOOK-005,HOOK-006,HOOK-007,HOOK-008,HOOK-009,HOOK-142
-    + * @requirement:HOOK-001,HOOK-003,HOOK-004,HOOK-005,HOOK-006,HOOK-007,HOOK-008,HOOK-142
-    
-    - * Status information for the HookSystem
-    - * @requirement:HOOK-009
-    - */
-    
-    - * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler(), getStatus() as public accessors
-    + * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler() as public accessors
-    
-    - * @requirement:HOOK-009 - getStatus() reports { initialized: boolean; totalHooks: number }
-    ```
-
-### Phase 3: **[CORRECTED]** Update Extension Loader
-
-**File**: `packages/core/src/utils/extensionLoader.ts`
-
-**[CORRECTED] Current code** (lines 129-143):
+**Lines 129-143 (maybeRefreshMemory):**
 ```typescript
 private async maybeRefreshMemory(): Promise<void> {
   if (!this.config) {
     throw new Error('Cannot refresh memory prior to calling `start`.');
   }
   if (
-    !this.isStarting && // Don't refresh memories on the first call to `start`.
+    !this.isStarting &&
     this.startingCount === this.startCompletedCount &&
     this.stoppingCount === this.stopCompletedCount
   ) {
-    // Wait until all extensions are done starting and stopping before we
-    // reload memory, this is somewhat expensive and also busts the context
-    // cache, we want to only do it once.
-    await this.config.refreshMemory();
+    await this.config.refreshMemory();               // Line 141: Refreshes memory
+    // MISSING: await this.config.getHookSystem()?.initialize();
   }
 }
 ```
 
-**[CORRECTED] Change**:
-Add hook system initialization AFTER memory refresh:
+**Problem:** After extensions start/stop, memory refreshes but hooks don't → stale hook registry.
+
+### Touchpoint 5: HookEventHandler Subscription
+
+**File:** `packages/core/src/hooks/hookEventHandler.ts`
+
+**Lines 151-159 (constructor):**
+```typescript
+if (this.messageBus !== undefined) {
+  const unsubscribeFn = this.messageBus.subscribe(   // Line 152: SUBSCRIBES
+    'HOOK_EXECUTION_REQUEST' as import('../confirmation-bus/types.js').MessageBusType,
+    (msg: unknown) => {
+      void this.onBusRequest(msg);
+    },
+  );
+  this.subscriptionHandle = { unsubscribe: unsubscribeFn }; // Line 158: Stores handle
+}
+```
+
+**Lines 915-922 (dispose):**
+```typescript
+dispose(): void {
+  if (this.disposed) return;
+  this.disposed = true;
+  this.subscriptionHandle?.unsubscribe();            // Line 920: Unsubscribes
+  this.subscriptionHandle = undefined;
+}
+```
+
+**Context:** LLxprt has full disposal infrastructure. `HookSystem.dispose()` (line 209-211) calls `eventHandler?.dispose()`. Without calling disposal before re-init, subscription leaks.
+
+---
+
+## TDD Implementation
+
+### Phase 0: Understand Existing Tests
+
+**Existing Hook Tests:**
+- `packages/core/src/hooks/hookSystem.test.ts` — 246 lines, tests initialization guards
+- `packages/core/src/hooks/hookRegistry.test.ts` — 566 lines, tests initialization guards
+- `packages/core/src/hooks/hookEventHandler.test.ts` — Tests event handling
+- `packages/core/src/hooks/__tests__/hookSystem-integration.test.ts` — Integration tests
+- `packages/core/src/utils/extensionLoader.test.ts` — 118 lines, tests extension loading
+
+**Tests to Remove:**
+1. `hookSystem.test.ts` line 94-108: "should only initialize once on multiple calls"
+2. `hookSystem.test.ts` line 75-80: "should report correct status before initialization"
+3. `hookSystem.test.ts` line 127-134: "should report correct status after initialization"
+4. `hookSystem.test.ts` line 200-208: "should return HookSystemStatus interface"
+5. `hookRegistry.test.ts` line 264-270: "should throw error if not initialized"
+
+**Tests to Modify:**
+1. `hookSystem.test.ts` line 84-92: Change from `getStatus()` to direct assertions
+2. `hookSystem.test.ts` line 211-243: Change from `getStatus()` to `getAllHooks()`
+
+---
+
+### Phase 1: RED — Write Failing Tests for Re-Init
+
+**Test File:** `packages/core/src/hooks/__tests__/hook-reinit.test.ts` (NEW)
+
+**Test 1: Re-init updates registry with new extension hooks**
+
+```typescript
+/**
+ * @fileoverview TDD tests for hook re-initialization on extension change
+ * @requirement R2 R4
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { HookSystem } from '../hookSystem.js';
+import type { Config } from '../../config/config.js';
+import type { GeminiCLIExtension } from '../../config/config.js';
+import { HookEventName } from '../types.js';
+
+describe('Hook Re-Initialization (126c32ac)', () => {
+  let mockConfig: Config;
+  let mockExtensions: GeminiCLIExtension[];
+
+  beforeEach(() => {
+    mockExtensions = [];
+    mockConfig = {
+      getEnableHooks: () => true,
+      getHooks: () => ({}),
+      getSessionId: () => 'test-session',
+      getWorkingDir: () => '/test',
+      getTargetDir: () => '/test',
+      getExtensions: () => mockExtensions,
+      getDisabledHooks: () => [],
+      getModel: () => 'test-model',
+    } as unknown as Config;
+  });
+
+  it('should reload hooks when extension with hooks is added (RED → GREEN)', async () => {
+    // RED: This test will FAIL because initialize() has guard that prevents re-init
+    const hookSystem = new HookSystem(mockConfig);
+    
+    // First init — no extensions
+    await hookSystem.initialize();
+    const beforeCount = hookSystem.getAllHooks().length;
+    expect(beforeCount).toBe(0);
+
+    // Add extension with hooks
+    mockExtensions.push({
+      name: 'test-ext',
+      isActive: true,
+      version: '1.0.0',
+      path: '/ext',
+      contextFiles: [],
+      id: 'ext-123',
+      hooks: {
+        [HookEventName.BeforeTool]: [
+          {
+            matcher: 'read_file',
+            hooks: [{ type: 'command', command: './check.sh' }],
+          },
+        ],
+      },
+    });
+
+    // Re-initialize — should pick up new extension hooks
+    await hookSystem.initialize();
+    const afterCount = hookSystem.getAllHooks().length;
+
+    // RED: This assertion will FAIL because guard prevents re-init
+    expect(afterCount).toBeGreaterThan(beforeCount);
+    expect(afterCount).toBe(1); // One hook from extension
+  });
+
+  it('should reload hooks when extension with hooks is removed (RED → GREEN)', async () => {
+    // RED: This test will FAIL because initialize() has guard
+    mockExtensions.push({
+      name: 'test-ext',
+      isActive: true,
+      version: '1.0.0',
+      path: '/ext',
+      contextFiles: [],
+      id: 'ext-123',
+      hooks: {
+        [HookEventName.BeforeTool]: [
+          {
+            hooks: [{ type: 'command', command: './check.sh' }],
+          },
+        ],
+      },
+    });
+
+    const hookSystem = new HookSystem(mockConfig);
+    await hookSystem.initialize();
+    const beforeCount = hookSystem.getAllHooks().length;
+    expect(beforeCount).toBe(1);
+
+    // Remove extension
+    mockExtensions.length = 0;
+
+    // Re-initialize — should clear extension hooks
+    await hookSystem.initialize();
+    const afterCount = hookSystem.getAllHooks().length;
+
+    // RED: This assertion will FAIL because guard prevents re-init
+    expect(afterCount).toBeLessThan(beforeCount);
+    expect(afterCount).toBe(0);
+  });
+});
+```
+
+**Test 2: Disposal prevents MessageBus subscription leaks**
+
+```typescript
+describe('Hook Re-Initialization Disposal (126c32ac)', () => {
+  it('should dispose old event handler before creating new one (RED → GREEN)', async () => {
+    // RED: This test will FAIL because initialize() doesn't dispose old handler
+    const unsubscribeMock = vi.fn();
+    const subscribeMock = vi.fn(() => unsubscribeMock);
+    const mockMessageBus = {
+      subscribe: subscribeMock,
+      publish: vi.fn(),
+    };
+
+    const mockConfig = {
+      getEnableHooks: () => true,
+      getHooks: () => ({}),
+      getSessionId: () => 'test-session',
+      getWorkingDir: () => '/test',
+      getTargetDir: () => '/test',
+      getExtensions: () => [],
+      getDisabledHooks: () => [],
+      getModel: () => 'test-model',
+    } as unknown as Config;
+
+    const hookSystem = new HookSystem(mockConfig, mockMessageBus);
+
+    // First init — subscribes to MessageBus
+    await hookSystem.initialize();
+    expect(subscribeMock).toHaveBeenCalledTimes(1);
+    expect(unsubscribeMock).not.toHaveBeenCalled();
+
+    // Re-init — should dispose old handler first
+    await hookSystem.initialize();
+
+    // RED: This assertion will FAIL because old subscription wasn't unsubscribed
+    expect(unsubscribeMock).toHaveBeenCalledTimes(1); // Old handler disposed
+    expect(subscribeMock).toHaveBeenCalledTimes(2);    // New handler subscribed
+  });
+
+  it('should not leak subscriptions after multiple re-inits (RED → GREEN)', async () => {
+    // RED: This test will FAIL because subscriptions leak
+    const unsubscribes: ReturnType<typeof vi.fn>[] = [];
+    const subscribeMock = vi.fn(() => {
+      const unsub = vi.fn();
+      unsubscribes.push(unsub);
+      return unsub;
+    });
+    const mockMessageBus = {
+      subscribe: subscribeMock,
+      publish: vi.fn(),
+    };
+
+    const mockConfig = {
+      getEnableHooks: () => true,
+      getHooks: () => ({}),
+      getSessionId: () => 'test-session',
+      getWorkingDir: () => '/test',
+      getTargetDir: () => '/test',
+      getExtensions: () => [],
+      getDisabledHooks: () => [],
+      getModel: () => 'test-model',
+    } as unknown as Config;
+
+    const hookSystem = new HookSystem(mockConfig, mockMessageBus);
+
+    // Initialize 3 times
+    await hookSystem.initialize();
+    await hookSystem.initialize();
+    await hookSystem.initialize();
+
+    // Should have 3 subscriptions, 2 should be unsubscribed
+    expect(subscribeMock).toHaveBeenCalledTimes(3);
+    
+    // RED: These assertions will FAIL because only last init ran (guard blocks others)
+    expect(unsubscribes[0]).toHaveBeenCalledTimes(1); // First disposed before second init
+    expect(unsubscribes[1]).toHaveBeenCalledTimes(1); // Second disposed before third init
+    expect(unsubscribes[2]).not.toHaveBeenCalled();   // Third still active
+  });
+});
+```
+
+**Test 3: Extension loader triggers hook refresh**
+
+Add to `packages/core/src/utils/extensionLoader.test.ts`:
+
+```typescript
+describe('Hook system integration (126c32ac)', () => {
+  it('should call hookSystem.initialize() after extension changes (RED → GREEN)', async () => {
+    // RED: This test will FAIL because extensionLoader doesn't call hookSystem.initialize()
+    const mockHookSystemInit = vi.fn();
+    const mockRefreshMemory = vi.fn();
+    
+    const mockConfig = {
+      getMcpClientManager: () => ({
+        startExtension: vi.fn(),
+      }),
+      getEnableExtensionReloading: () => true,
+      refreshMemory: mockRefreshMemory,
+      getHookSystem: () => ({
+        initialize: mockHookSystemInit,
+      }),
+    } as unknown as Config;
+
+    const activeExtension = {
+      name: 'test-ext',
+      isActive: true,
+      version: '1.0.0',
+      path: '/ext',
+      contextFiles: [],
+      id: 'ext-123',
+    };
+
+    const loader = new SimpleExtensionLoader([]);
+    await loader.start(mockConfig);
+    
+    mockRefreshMemory.mockClear();
+    mockHookSystemInit.mockClear();
+
+    // Load extension — triggers refresh
+    await loader.loadExtension(activeExtension);
+
+    // RED: This assertion will FAIL because hookSystem.initialize() not called
+    expect(mockRefreshMemory).toHaveBeenCalledOnce();
+    expect(mockHookSystemInit).toHaveBeenCalledOnce();
+  });
+
+  it('should call hookSystem.initialize() after unload (RED → GREEN)', async () => {
+    // RED: Similar test for unload path
+    const mockHookSystemInit = vi.fn();
+    const mockRefreshMemory = vi.fn();
+    
+    const mockConfig = {
+      getMcpClientManager: () => ({
+        startExtension: vi.fn(),
+        stopExtension: vi.fn(),
+      }),
+      getEnableExtensionReloading: () => true,
+      refreshMemory: mockRefreshMemory,
+      getHookSystem: () => ({
+        initialize: mockHookSystemInit,
+      }),
+    } as unknown as Config;
+
+    const activeExtension = {
+      name: 'test-ext',
+      isActive: true,
+      version: '1.0.0',
+      path: '/ext',
+      contextFiles: [],
+      id: 'ext-123',
+    };
+
+    const loader = new SimpleExtensionLoader([activeExtension]);
+    await loader.start(mockConfig);
+    
+    mockRefreshMemory.mockClear();
+    mockHookSystemInit.mockClear();
+
+    // Unload extension — triggers refresh
+    await loader.unloadExtension(activeExtension);
+
+    // RED: This assertion will FAIL because hookSystem.initialize() not called
+    expect(mockRefreshMemory).toHaveBeenCalledOnce();
+    expect(mockHookSystemInit).toHaveBeenCalledOnce();
+  });
+});
+```
+
+**Run Tests (Expect RED):**
+
+```bash
+cd packages/core
+npx vitest run src/hooks/__tests__/hook-reinit.test.ts
+npx vitest run src/utils/extensionLoader.test.ts
+```
+
+**Expected Output:** All new tests FAIL.
+
+---
+
+### Phase 2: GREEN — Remove Guards from HookRegistry
+
+**Goal:** Make `HookRegistry.initialize()` re-run on every call.
+
+**File:** `packages/core/src/hooks/hookRegistry.ts`
+
+**Step 1: Remove `HookRegistryNotInitializedError` class**
+
+```diff
+-/**
+- * Error thrown when attempting to use HookRegistry before initialization
+- */
+-export class HookRegistryNotInitializedError extends Error {
+-  constructor(message = 'Hook registry not initialized') {
+-    super(message);
+-    this.name = 'HookRegistryNotInitializedError';
+-  }
+-}
+-
+```
+
+**Lines to delete:** 14-22
+
+**Step 2: Remove `initialized` field**
+
+```diff
+export class HookRegistry {
+  private readonly config: Config;
+  private entries: HookRegistryEntry[] = [];
+- private initialized = false;
+```
+
+**Line to delete:** 52
+
+**Step 3: Remove guard from `initialize()`**
+
+```diff
+async initialize(): Promise<void> {
+-  if (this.initialized) {
+-    return;
+-  }
+
+  this.entries = [];
+  this.processHooksFromConfig();
+-  this.initialized = true;
+
+  debugLogger.log(
+    `Hook registry initialized with ${this.entries.length} hook entries`,
+  );
+}
+```
+
+**Lines to delete:** 62-64, 68
+
+**Step 4: Remove guard from `getHooksForEvent()`**
+
+```diff
+getHooksForEvent(eventName: HookEventName): HookRegistryEntry[] {
+-  if (!this.initialized) {
+-    throw new HookRegistryNotInitializedError();
+-  }
+
+  return this.entries
+    .filter((entry) => entry.eventName === eventName && entry.enabled)
+    .sort(
+      (a, b) =>
+        this.getSourcePriority(a.source) - this.getSourcePriority(b.source),
+    );
+}
+```
+
+**Lines to delete:** 79-81
+
+**Step 5: Remove guard from `getAllHooks()`**
+
+```diff
+getAllHooks(): HookRegistryEntry[] {
+-  if (!this.initialized) {
+-    throw new HookRegistryNotInitializedError();
+-  }
+
+  return [...this.entries];
+}
+```
+
+**Lines to delete:** 95-97
+
+**Verify:** Run registry tests:
+
+```bash
+npx vitest run src/hooks/hookRegistry.test.ts
+```
+
+**Expected:** Some tests fail (those checking for guard behavior).
+
+---
+
+### Phase 3: GREEN — Remove Guards from HookSystem + Add Disposal
+
+**Goal:** Make `HookSystem.initialize()` re-run on every call and dispose old handler.
+
+**File:** `packages/core/src/hooks/hookSystem.ts`
+
+**Step 1: Remove `HookSystemStatus` interface**
+
+```diff
+-/**
+- * Status information for the HookSystem
+- * @requirement:HOOK-009
+- */
+-export interface HookSystemStatus {
+-  initialized: boolean;
+-  totalHooks: number;
+-}
+-
+```
+
+**Lines to delete:** 25-32
+
+**Step 2: Remove `initialized` field**
+
+```diff
+export class HookSystem {
+  private readonly config: Config;
+  private readonly registry: HookRegistry;
+  private readonly planner: HookPlanner;
+  private readonly runner: HookRunner;
+  private readonly aggregator: HookAggregator;
+  private eventHandler: HookEventHandler | null = null;
+- private initialized = false;
+```
+
+**Line to delete:** 56
+
+**Step 3: Remove guard from `initialize()` + add disposal**
+
+```diff
+async initialize(): Promise<void> {
+-  if (this.initialized) {
+-    debugLogger.debug('HookSystem already initialized, skipping');
+-    return;
+-  }
+
+  debugLogger.debug('Initializing HookSystem');
+
++  // Dispose old event handler to prevent subscription leaks (LLxprt enhancement)
++  this.dispose();
+
+  // Initialize the registry (loads hooks from config)
+  await this.registry.initialize();
+
+  // Create the event handler now that registry is ready,
+  // forwarding injected dependencies per DELTA-HSYS-001
+  this.eventHandler = new HookEventHandler(
+    this.config,
+    this.registry,
+    this.planner,
+    this.runner,
+    this.aggregator,
+    this.messageBus,
+    this.injectedDebugLogger,
+  );
+
+-  this.initialized = true;
+
+-  const status = this.getStatus();
++  const totalHooks = this.registry.getAllHooks().length;
+  debugLogger.log(
+-    `HookSystem initialized with ${status.totalHooks} registered hook(s)`,
++    `HookSystem initialized with ${totalHooks} registered hook(s)`,
+  );
+}
+```
+
+**Changes:**
+- Delete lines 99-101 (guard)
+- Add line 104 (disposal call)
+- Delete line 121 (set initialized flag)
+- Replace lines 123-126 (use totalHooks directly instead of getStatus())
+
+**Step 4: Remove guard from `getRegistry()`**
+
+```diff
+getRegistry(): HookRegistry {
+-  if (!this.initialized) {
+-    throw new HookSystemNotInitializedError(
+-      'Cannot access HookRegistry before HookSystem is initialized',
+-    );
+-  }
+  return this.registry;
+}
+```
+
+**Lines to delete:** 135-138
+
+**Step 5: Update `getEventHandler()` to check only eventHandler**
+
+```diff
+getEventHandler(): HookEventHandler {
+-  if (!this.initialized || !this.eventHandler) {
++  if (!this.eventHandler) {
+    throw new HookSystemNotInitializedError(
+      'Cannot access HookEventHandler before HookSystem is initialized',
+    );
+  }
+  return this.eventHandler;
+}
+```
+
+**Line to modify:** 149
+
+**Step 6: Remove `getStatus()` method**
+
+```diff
+-/**
+- * Get the current status of the hook system.
+- * @requirement:HOOK-009
+- */
+-getStatus(): HookSystemStatus {
+-  return {
+-    initialized: this.initialized,
+-    totalHooks: this.initialized ? this.registry.getAllHooks().length : 0,
+-  };
+-}
+-
+```
+
+**Lines to delete:** 157-166
+
+**Step 7: Update `isInitialized()` to check eventHandler**
+
+```diff
+isInitialized(): boolean {
+-  return this.initialized;
++  return this.eventHandler !== null;
+}
+```
+
+**Line to modify:** 172
+
+**Step 8: Remove guard from `setHookEnabled()`**
+
+```diff
+setHookEnabled(hookId: string, enabled: boolean): void {
+-  if (!this.initialized) {
+-    return;
+-  }
+  this.registry.setHookEnabled(hookId, enabled);
+}
+```
+
+**Lines to delete:** 183-185
+
+**Step 9: Remove guard from `getAllHooks()`**
+
+```diff
+getAllHooks(): HookRegistryEntry[] {
+-  if (!this.initialized) {
+-    return [];
+-  }
+  return this.registry.getAllHooks();
+}
+```
+
+**Lines to delete:** 197-199
+
+**Step 10: Update JSDoc to remove HOOK-009 references**
+
+```diff
+/**
+ * @plan:PLAN-20260216-HOOKSYSTEMREWRITE.P03
+- * @requirement:HOOK-001,HOOK-003,HOOK-004,HOOK-005,HOOK-006,HOOK-007,HOOK-008,HOOK-009,HOOK-142
++ * @requirement:HOOK-001,HOOK-003,HOOK-004,HOOK-005,HOOK-006,HOOK-007,HOOK-008,HOOK-142
+ * @pseudocode:analysis/pseudocode/01-hook-system-lifecycle.md
+ */
+```
+
+**Line to modify:** 9
+
+```diff
+ * @requirement:HOOK-001 - Created lazily on first call to Config.getHookSystem()
+ * @requirement:HOOK-003 - Calls HookRegistry.initialize() at most once per Config lifetime
+ * @requirement:HOOK-004 - Returns immediately on subsequent initialize() calls
+ * @requirement:HOOK-005 - Throws HookSystemNotInitializedError if accessed before initialize()
+- * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler(), getStatus() as public accessors
++ * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler() as public accessors
+ * @requirement:HOOK-007 - Trigger functions obtain components from HookSystem, never construct new ones
+ * @requirement:HOOK-008 - First hook event fires initialize() before delegating to event handler
+- * @requirement:HOOK-009 - getStatus() reports { initialized: boolean; totalHooks: number }
+ * @requirement:HOOK-142 - Importable from packages/core/src/hooks/hookSystem.ts
+```
+
+**Lines to modify:** 40-48
+
+**Verify:** Run re-init tests:
+
+```bash
+npx vitest run src/hooks/__tests__/hook-reinit.test.ts
+```
+
+**Expected:** First two test groups now PASS (re-init and disposal tests).
+
+---
+
+### Phase 4: GREEN — Add Hook Refresh to Extension Loader
+
+**Goal:** Call `hookSystem.initialize()` after `refreshMemory()` when extensions change.
+
+**File:** `packages/core/src/utils/extensionLoader.ts`
+
+**Change:**
 
 ```diff
 private async maybeRefreshMemory(): Promise<void> {
@@ -402,30 +860,62 @@ private async maybeRefreshMemory(): Promise<void> {
     // reload memory, this is somewhat expensive and also busts the context
     // cache, we want to only do it once.
     await this.config.refreshMemory();
-+   await this.config.getHookSystem()?.initialize();
++    await this.config.getHookSystem()?.initialize();
   }
 }
 ```
 
-**[CORRECTED] Rationale**:
-- This matches upstream pattern of refreshing hooks after memory refresh
-- Hooks are refreshed only once after all extension operations complete
-- Prevents multiple hook refreshes during batch extension operations
+**Line to add:** After line 141
 
-**[CORRECTED] Note**: The functions `maybeStartExtension()` and `maybeStopExtension()` already return `Promise<void> | undefined` and are already being awaited by callers, so no signature changes needed.
+**Verify:** Run extension loader tests:
 
-### Phase 4: **[CORRECTED]** Update Tests
+```bash
+npx vitest run src/utils/extensionLoader.test.ts
+```
 
-**File**: `packages/core/src/hooks/hookSystem.test.ts`
+**Expected:** New hook integration tests now PASS.
 
-**Remove**:
-1. Test: `should only initialize once on multiple calls` (lines 94-108)
-2. Test: `should report correct status before initialization` (lines 75-80)
-3. Test: `should report correct status after initialization` (lines 127-134)
-4. Test: `should return HookSystemStatus interface` (lines 200-208)
+---
 
-**[CORRECTED] Modify**:
-Test: `should initialize HookSystem successfully` (lines 84-92) — Remove `getStatus()` call since it's being removed, just verify `isInitialized()`:
+### Phase 5: GREEN — Update Existing Tests
+
+**Goal:** Remove/update tests that rely on old guard behavior.
+
+#### File: `packages/core/src/hooks/hookSystem.test.ts`
+
+**Remove Test 1: "should only initialize once on multiple calls"**
+
+```diff
+- it('should only initialize once on multiple calls', async () => {
+-   await hookSystem.initialize();
+-   await hookSystem.initialize();
+-   await hookSystem.initialize();
+-   await hookSystem.initialize();
+-
+-   // Check that "Initializing HookSystem" was only called once
+-   const initializingCalls = mockDebugLogger.debug.mock.calls.filter((call) =>
+-     call[0].includes('Initializing HookSystem'),
+-   );
+-   expect(initializingCalls).toHaveLength(1);
+- });
+```
+
+**Lines to delete:** 94-108
+
+**Remove Test 2: "should report correct status before initialization"**
+
+```diff
+- it('should report correct status before initialization', () => {
+-   const status = hookSystem.getStatus();
+-   expect(status.initialized).toBe(false);
+-   expect(status.totalHooks).toBe(0);
+- });
+```
+
+**Lines to delete:** 75-80
+
+**Modify Test 3: "should initialize HookSystem successfully"**
+
 ```diff
 it('should initialize HookSystem successfully', async () => {
   await hookSystem.initialize();
@@ -437,234 +927,549 @@ it('should initialize HookSystem successfully', async () => {
 });
 ```
 
-**[CORRECTED] Keep but update**:
-Test: `with configured hooks` (lines 211-243) — Change from `getStatus()` to direct `getAllHooks()`:
+**Keep as-is** — No changes needed, test already checks `isInitialized()`.
+
+**Remove Test 4: "should report correct status after initialization" (duplicate check)**
+
+This test is likely near line 127-134 or in the "with configured hooks" section.
+
 ```diff
-it('should report correct hook count after initialization', async () => {
-  // ... setup code ...
-  await configuredHookSystem.initialize();
-
-- const status = configuredHookSystem.getStatus();
-- expect(status.initialized).toBe(true);
-- expect(status.totalHooks).toBe(1);
-+ const hooks = configuredHookSystem.getAllHooks();
-+ expect(configuredHookSystem.isInitialized()).toBe(true);
-+ expect(hooks.length).toBe(1);
-});
+- it('should report correct status after initialization', async () => {
+-   await hookSystem.initialize();
+-   const status = hookSystem.getStatus();
+-   expect(status.initialized).toBe(true);
+- });
 ```
 
-**File**: `packages/core/src/hooks/hookRegistry.test.ts`
+**Lines to delete:** Find and remove this test.
 
-**Remove**:
-Test: `should throw error if not initialized` (lines 264-270)
+**Remove Test 5: "should return HookSystemStatus interface"**
 
-### Phase 5: **[CORRECTED]** No Extension Manager Changes
+```diff
+- it('should return HookSystemStatus interface', () => {
+-   const status = hookSystem.getStatus();
+-   expect(status).toHaveProperty('initialized');
+-   expect(status).toHaveProperty('totalHooks');
+- });
+```
 
-**[CORRECTED]** LLxprt does NOT have `packages/cli/src/config/extension-manager.ts`. This file only exists in upstream Gemini. No changes needed.
+**Lines to delete:** 200-208
 
-## Testing Strategy
+**Update Test 6: "with configured hooks" → "should report correct hook count"**
 
-### Unit Tests
+Find test around line 211-243 that uses `getStatus()`:
 
-**Modified Tests** (should still pass):
-- `HookSystem.initialize()` can be called multiple times → no error, re-reads config
-- `HookRegistry.initialize()` can be called multiple times → re-reads config
-- Hooks are accessible without throwing "not initialized" errors (remove those tests)
+```diff
+describe('with configured hooks', () => {
+  it('should report correct hook count after initialization', async () => {
+    // Setup mock with hooks configuration BEFORE creating HookSystem
+    const configWithHooks = {
+      getEnableHooks: () => true,
+      getHooks: () => ({
+        BeforeTool: [
+          {
+            hooks: [{ type: 'command', command: './test.sh' }],
+          },
+        ],
+      }),
+      getSessionId: () => 'test-session',
+      getWorkingDir: () => '/test',
+      getTargetDir: () => '/test',
+      getExtensions: () => [],
+      getDisabledHooks: () => [],
+      getModel: () => 'test-model',
+    } as unknown as Config;
 
-**New Behavior to Test**:
-1. **[CORRECTED] Re-init updates registry and disposes old handler**:
-   ```typescript
-   const messageBusMock = { 
-     subscribe: vi.fn(() => vi.fn()), // Return unsubscribe function
-     publish: vi.fn() 
-   };
-   const hookSystem = new HookSystem(mockConfig, messageBusMock);
-   
-   await hookSystem.initialize(); // Load initial hooks
-   const before = hookSystem.getAllHooks().length;
-   
-   // Simulate extension config change (mock config.getExtensions())
-   mockConfig.getExtensions.mockReturnValue([
-     { name: 'ext1', isActive: true, hooks: { BeforeTool: [...] } }
-   ]);
-   
-   await hookSystem.initialize(); // Re-init
-   const after = hookSystem.getAllHooks().length;
-   
-   expect(after).not.toBe(before); // Hook count changed
-   ```
+    const configuredHookSystem = new HookSystem(configWithHooks);
+    await configuredHookSystem.initialize();
 
-2. **[CORRECTED] Disposal prevents leaks**:
-   ```typescript
-   const unsubscribeMock = vi.fn();
-   const messageBusMock = { 
-     subscribe: vi.fn(() => unsubscribeMock),
-     publish: vi.fn() 
-   };
-   const hookSystem = new HookSystem(mockConfig, messageBusMock);
-   
-   await hookSystem.initialize(); // Creates handler, subscribes
-   expect(messageBusMock.subscribe).toHaveBeenCalledTimes(1);
-   
-   await hookSystem.initialize(); // Disposes old, creates new
-   expect(unsubscribeMock).toHaveBeenCalledTimes(1); // Old subscription cleaned up
-   expect(messageBusMock.subscribe).toHaveBeenCalledTimes(2); // New subscription created
-   ```
-
-### Integration Tests
-
-**Scenario**: Enable extension with hooks, verify hooks fire, disable extension, verify hooks don't fire.
-
-**File**: `integration-tests/hooks/hooks-e2e.integration.test.ts` (if exists)
-
-**Test**:
-```typescript
-it('should reload hooks when extension changes', async () => {
-  const config = createTestConfig({ extensions: [] });
-  const hookSystem = config.getHookSystem();
-  await hookSystem.initialize();
-  
-  expect(hookSystem.getAllHooks()).toHaveLength(0);
-  
-  // Add extension with hooks
-  config.addExtension({
-    name: 'test-ext',
-    isActive: true,
-    hooks: {
-      BeforeTool: [{ hooks: [{ type: 'command', command: 'echo test' }] }],
-    },
+-    const status = configuredHookSystem.getStatus();
+-    expect(status.initialized).toBe(true);
+-    expect(status.totalHooks).toBe(1);
++    const hooks = configuredHookSystem.getAllHooks();
++    expect(configuredHookSystem.isInitialized()).toBe(true);
++    expect(hooks.length).toBe(1);
   });
-  
-  await hookSystem.initialize(); // Re-init
-  expect(hookSystem.getAllHooks()).toHaveLength(1);
 });
 ```
+
+**Lines to modify:** Replace `getStatus()` with `getAllHooks()`.
+
+#### File: `packages/core/src/hooks/hookRegistry.test.ts`
+
+**Remove Test: "should throw error if not initialized"**
+
+```diff
+- it('should throw error if not initialized', () => {
+-   const uninitializedRegistry = new HookRegistry(mockConfig);
+-
+-   expect(() => {
+-     uninitializedRegistry.getHooksForEvent(HookEventName.BeforeTool);
+-   }).toThrow(HookRegistryNotInitializedError);
+- });
+```
+
+**Lines to delete:** 264-270
+
+**Verify:** Run all hook tests:
+
+```bash
+cd packages/core
+npx vitest run src/hooks/
+```
+
+**Expected:** All tests PASS.
+
+---
+
+### Phase 6: REFACTOR — Assess and Improve
+
+**Review Changes:**
+1. **Disposal logic:** Is it idempotent? YES — `dispose()` checks `this.disposed` flag (line 917)
+2. **Re-init safety:** Can `initialize()` be called concurrently? NO — JS is single-threaded, but async. Add comment warning.
+3. **Performance:** Does re-init impact performance? MINIMAL — registry processes config once, same as before. Only difference: happens on demand instead of once.
+4. **Clarity:** Is disposal logic clear? ADD COMMENT explaining LLxprt-specific enhancement.
+
+**Refactoring Decision:** Add clarifying comments, no code changes needed.
+
+**File:** `packages/core/src/hooks/hookSystem.ts`
+
+**Add comment in `initialize()`:**
+
+```diff
+async initialize(): Promise<void> {
+  debugLogger.debug('Initializing HookSystem');
+
+-  // Dispose old event handler to prevent subscription leaks (LLxprt enhancement)
++  // Dispose old event handler to prevent MessageBus subscription leaks.
++  // LLxprt enhancement: Upstream Gemini doesn't need this because their
++  // HookEventHandler doesn't subscribe to MessageBus. LLxprt added MessageBus
++  // integration in PLAN-20250218-HOOKSYSTEM.P03 (DELTA-HEVT-001).
++  // Without disposal, each re-init creates a new subscription without
++  // unsubscribing the old one, causing memory leaks.
+  this.dispose();
+
+  // Initialize the registry (loads hooks from config)
+  await this.registry.initialize();
+```
+
+**Add comment about concurrent calls:**
+
+```diff
+/**
+ * Initialize the hook system. Must be called before getRegistry() or getEventHandler().
+- * Safe to call multiple times - subsequent calls are no-ops.
++ * Can be called multiple times to reload hooks from config.
++ * 
++ * WARNING: Not safe for concurrent calls. Ensure initialize() completes before
++ * calling again. JavaScript is single-threaded but async, so callers must
++ * await each initialize() call before starting another.
+ *
+ * @requirement:HOOK-003 - Calls HookRegistry.initialize() at most once
+ * @requirement:HOOK-004 - Returns immediately on subsequent calls
+ * @requirement:HOOK-008 - Called by trigger functions on first event fire
+ */
+```
+
+**Update requirements in JSDoc:**
+
+```diff
+ * @requirement:HOOK-001 - Created lazily on first call to Config.getHookSystem()
+- * @requirement:HOOK-003 - Calls HookRegistry.initialize() at most once per Config lifetime
+- * @requirement:HOOK-004 - Returns immediately on subsequent calls
++ * @requirement:HOOK-003 - Calls HookRegistry.initialize() to load hooks from config
+ * @requirement:HOOK-005 - Throws HookSystemNotInitializedError if accessed before initialize()
+ * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler() as public accessors
+ * @requirement:HOOK-007 - Trigger functions obtain components from HookSystem, never construct new ones
+ * @requirement:HOOK-008 - First hook event fires initialize() before delegating to event handler
+ * @requirement:HOOK-142 - Importable from packages/core/src/hooks/hookSystem.ts
+```
+
+**Note:** HOOK-003 and HOOK-004 meanings changed. Update or deprecate these requirements.
+
+---
+
+### Phase 7: VERIFY — Full Test Suite
+
+**Run all tests:**
+
+```bash
+cd packages/core
+npm run test
+```
+
+**Expected:** All tests pass.
+
+**Run linter:**
+
+```bash
+npm run lint
+```
+
+**Expected:** No errors.
+
+**Run formatter:**
+
+```bash
+npm run format
+```
+
+**Expected:** Files formatted.
+
+---
+
+### Phase 8: MANUAL VERIFICATION
+
+**Scenario:** Enable/disable extension with hooks, verify hooks update without restart.
+
+**Steps:**
+
+1. **Start CLI with no extensions:**
+   ```bash
+   npm run dev
+   ```
+
+2. **List hooks (should be empty or only system hooks):**
+   ```bash
+   llxprt hooks list
+   ```
+
+3. **Enable test extension with hooks:**
+   Create `~/.llxprt/extensions/test-hook-ext/extension.json`:
+   ```json
+   {
+     "name": "test-hook-ext",
+     "version": "1.0.0",
+     "hooks": {
+       "BeforeTool": [
+         {
+           "matcher": "read_file",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "echo 'BeforeTool hook fired'"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   Enable in CLI:
+   ```bash
+   llxprt extensions enable test-hook-ext
+   ```
+
+4. **List hooks (should show extension hook):**
+   ```bash
+   llxprt hooks list
+   ```
+   
+   **Expected:** See `test-hook-ext` hook listed.
+
+5. **Disable extension:**
+   ```bash
+   llxprt extensions disable test-hook-ext
+   ```
+
+6. **List hooks (hook should be gone):**
+   ```bash
+   llxprt hooks list
+   ```
+   
+   **Expected:** `test-hook-ext` hook no longer listed.
+
+7. **Verify no memory leaks:**
+   - Enable/disable extension 10 times
+   - Check process memory (should not grow significantly)
+   - Check MessageBus subscription count (if exposed)
+
+---
+
+## Commit Strategy
+
+**Commit 1: Add failing tests for re-initialization**
+
+```bash
+git add packages/core/src/hooks/__tests__/hook-reinit.test.ts
+git add packages/core/src/utils/extensionLoader.test.ts
+git commit -m "test: add failing tests for hook re-initialization (126c32ac) [RED]
+
+Tests verify:
+1. HookRegistry reloads hooks when extensions change
+2. HookSystem disposes old event handler before re-init
+3. ExtensionLoader calls hookSystem.initialize() after refreshMemory()
+
+All tests currently FAIL due to initialization guards.
+
+Part of: reimplementation of upstream 126c32ac
+"
+```
+
+**Commit 2: Remove guards from HookRegistry**
+
+```bash
+git add packages/core/src/hooks/hookRegistry.ts
+git commit -m "refactor: remove initialization guards from HookRegistry (126c32ac) [GREEN]
+
+Changes:
+- Remove HookRegistryNotInitializedError class
+- Remove 'initialized' flag
+- Remove guards from initialize(), getHooksForEvent(), getAllHooks()
+
+Effect: initialize() now re-reads config on every call, enabling hook updates
+when extensions change.
+
+Part of: reimplementation of upstream 126c32ac
+Tests: packages/core/src/hooks/__tests__/hook-reinit.test.ts now partially pass
+"
+```
+
+**Commit 3: Remove guards from HookSystem + add disposal**
+
+```bash
+git add packages/core/src/hooks/hookSystem.ts
+git commit -m "refactor: remove initialization guards and add disposal (126c32ac) [GREEN]
+
+Changes:
+- Remove HookSystemStatus interface
+- Remove 'initialized' flag
+- Remove guards from initialize() and accessor methods
+- Add disposal call in initialize() to prevent MessageBus subscription leaks
+- Remove getStatus() method
+- Update isInitialized() to check eventHandler !== null
+
+Effect: initialize() now re-initializes on every call, properly disposing old
+event handler first to prevent memory leaks.
+
+LLxprt Enhancement: Disposal is LLxprt-specific since upstream Gemini doesn't
+have MessageBus integration. Without disposal, subscriptions leak.
+
+Part of: reimplementation of upstream 126c32ac
+Tests: packages/core/src/hooks/__tests__/hook-reinit.test.ts now fully pass
+"
+```
+
+**Commit 4: Add hook refresh to extension loader**
+
+```bash
+git add packages/core/src/utils/extensionLoader.ts
+git commit -m "feat: refresh hooks when extensions change (126c32ac) [GREEN]
+
+Add hookSystem.initialize() call in maybeRefreshMemory() after refreshMemory().
+This triggers hook registry reload when extensions are loaded/unloaded.
+
+Part of: reimplementation of upstream 126c32ac
+Tests: packages/core/src/utils/extensionLoader.test.ts hook integration tests pass
+"
+```
+
+**Commit 5: Update tests to remove guard checks**
+
+```bash
+git add packages/core/src/hooks/hookSystem.test.ts
+git add packages/core/src/hooks/hookRegistry.test.ts
+git commit -m "test: remove obsolete initialization guard tests (126c32ac) [GREEN]
+
+Remove tests that verify:
+- initialize() only runs once (no longer true)
+- getStatus() returns HookSystemStatus (method removed)
+- Uninitialized access throws error (guards removed)
+
+Update tests to use getAllHooks() instead of getStatus().
+
+Part of: reimplementation of upstream 126c32ac
+Tests: All hook system tests now pass
+"
+```
+
+**Commit 6: Add clarifying comments (REFACTOR)**
+
+```bash
+git add packages/core/src/hooks/hookSystem.ts
+git commit -m "docs: clarify re-initialization and disposal behavior (126c32ac) [REFACTOR]
+
+Add comments explaining:
+- Why disposal is LLxprt-specific (MessageBus integration)
+- Concurrent initialize() call safety warning
+- Updated requirement mappings (HOOK-003, HOOK-004 changed meaning)
+
+No code changes.
+
+Part of: reimplementation of upstream 126c32ac
+"
+```
+
+---
+
+## Final Verification Checklist
+
+### Code Changes
+
+- [ ] `hookRegistry.ts`: Guards removed (lines 17-22, 52, 62-64, 79-81, 95-97)
+- [ ] `hookSystem.ts`: Guards removed, disposal added, getStatus() removed
+- [ ] `extensionLoader.ts`: hookSystem.initialize() call added (line 142)
+- [ ] Comments added explaining disposal and re-init behavior
+
+### Tests
+
+- [ ] New tests added: `hook-reinit.test.ts` (re-init and disposal)
+- [ ] New tests added: `extensionLoader.test.ts` (hook integration)
+- [ ] Obsolete tests removed: guard checks in hookSystem/hookRegistry tests
+- [ ] Modified tests: replace getStatus() with getAllHooks()
+- [ ] All tests pass: `npm run test`
+
+### Documentation
+
+- [ ] JSDoc updated: HOOK-009 removed, HOOK-003/004 clarified
+- [ ] Comments explain LLxprt-specific disposal enhancement
+- [ ] Warning about concurrent initialize() calls
 
 ### Manual Verification
 
-**Steps**:
-1. Start CLI with extension disabled
-2. Run `llxprt hooks list` → No extension hooks
-3. Enable extension with hooks: `llxprt extensions enable my-ext`
-4. Run `llxprt hooks list` → Extension hooks appear
-5. Disable extension: `llxprt extensions disable my-ext`
-6. Run `llxprt hooks list` → Extension hooks gone
+- [ ] Extension enable/disable updates hooks without restart
+- [ ] `llxprt hooks list` reflects extension changes immediately
+- [ ] No memory growth after repeated enable/disable cycles
+- [ ] No MessageBus subscription leaks (verify with mocks)
 
-## Migration Notes
+### Linting and Formatting
 
-### Breaking Changes
+- [ ] `npm run lint` — No errors
+- [ ] `npm run format` — Files formatted
+- [ ] No TypeScript errors: `npm run typecheck`
 
-**API Changes**:
-1. `HookSystem.getStatus()` removed → Use `getAllHooks().length` and `isInitialized()` instead
-2. `HookSystemStatus` interface removed
-3. `HookRegistryNotInitializedError` removed → No throws on uninitialized access
-
-**Behavioral Changes**:
-1. `initialize()` no longer idempotent → Re-initializes on every call
-2. Old event handlers are disposed before re-init → Prevents leaks
-3. `isInitialized()` now checks `eventHandler !== null` instead of `initialized` flag
-
-### User Impact
-
-**None**. This is a bug fix — users will now correctly see extension hooks update without restarting.
-
-### Rollback Plan
-
-If issues arise:
-1. Restore `initialized` flags
-2. Restore guards
-3. Restore `HookRegistryNotInitializedError` class
-4. Restore `getStatus()` method and `HookSystemStatus` interface
-5. Remove disposal logic from `initialize()`
-6. Remove `hookSystem.initialize()` call from extension loader
-
-## File Checklist
-
-### Files to Modify
-
-- [ ] `packages/core/src/hooks/hookRegistry.ts` — Remove guards, `initialized` flag, error class
-- [ ] `packages/core/src/hooks/hookSystem.ts` — Remove guards, `initialized` flag, `getStatus()`, `HookSystemStatus`, add disposal, update docs
-- [ ] `packages/core/src/utils/extensionLoader.ts` — Add `hookSystem.initialize()` call in `maybeRefreshMemory()`
-- [ ] `packages/core/src/hooks/hookSystem.test.ts` — Remove obsolete tests, update assertions
-- [ ] `packages/core/src/hooks/hookRegistry.test.ts` — Remove "not initialized" test
-
-### Files NOT Modified (Check Only)
-
-- `packages/core/src/hooks/hookEventHandler.ts` — Already has `dispose()` method and subscription cleanup
-- `packages/core/src/config/config.ts` — Already has `getHookSystem()` lazy init
-- **[CORRECTED]** `packages/cli/src/config/extension-manager.ts` — Does NOT exist in LLxprt (upstream only)
-
-## Commit Message
-
-```
-reimplement: hook refresh on extension change (upstream 126c32ac)
-
-Fixes silent bug where hooks from extensions don't reload after enable/disable
-because initialization guards block re-initialization.
-
-Changes:
-1. Remove `initialized` flags from HookSystem and HookRegistry (upstream)
-2. Remove init guards from initialize(), getHooksForEvent(), getAllHooks() (upstream)
-3. Remove HookRegistryNotInitializedError class (upstream)
-4. Remove getStatus() method and HookSystemStatus interface from HookSystem (upstream)
-5. Update isInitialized() to check eventHandler !== null instead of flag (upstream)
-6. Call hookSystem.initialize() in extensionLoader after refreshMemory() (upstream)
-7. ADD: Dispose old HookEventHandler before re-init to prevent subscription leaks (LLxprt enhancement)
-
-Effect:
-- HookSystem.initialize() can now be called multiple times to reload config
-- Extension loader calls initialize() after extension changes
-- Old event handlers are properly disposed (prevents MessageBus subscription leaks)
-
-Upstream forgot disposal because Gemini doesn't have MessageBus integration.
-LLxprt added MessageBus in PLAN-20250218-HOOKSYSTEM.P03 (DELTA-HEVT-001),
-so we must dispose subscriptions to prevent leaks.
-
-Upstream: 126c32aca4972deba80a875f749fcee1367c4486
-Fixes: https://github.com/google/genkit/pull/14918
-```
+---
 
 ## Risk Assessment
 
-**Risk Level**: MEDIUM
+**Risk Level:** MEDIUM
 
-**Rationale**:
-1. **Removes safety guards** — Code that relied on "not initialized" errors will break
-2. **Changes re-init semantics** — Must ensure no callers assume idempotence
-3. **Adds disposal logic** — Incorrect disposal could break event handling
+**High-Risk Areas:**
 
-**High-Risk Areas**:
-1. `getEventHandler()` after re-init — Must return new handler, not stale one
-2. MessageBus subscriptions — Must verify unsubscribe works correctly
-3. Concurrent initialize() calls — Not thread-safe (but JS is single-threaded)
+1. **EventHandler disposal:** Incorrect disposal could break event handling
+   - **Mitigation:** Disposal is idempotent, checks `disposed` flag
+   - **Verification:** Test with mock MessageBus, verify unsubscribe count
 
-**Mitigation**:
-1. Run full test suite (unit + integration)
-2. Test extension enable/disable cycle manually
-3. Monitor for memory leaks in long-running sessions
-4. Verify MessageBus subscription count doesn't grow unbounded
+2. **Concurrent initialize() calls:** Not thread-safe (though JS is single-threaded)
+   - **Mitigation:** Add warning comment, document expected usage
+   - **Verification:** ExtensionLoader already serializes calls (await in finally block)
+
+3. **Registry re-init performance:** Multiple re-inits could slow down
+   - **Mitigation:** ExtensionLoader batches operations, calls initialize() once after all changes
+   - **Verification:** Profile extension enable/disable cycle
+
+4. **Stale event handler references:** Code holding old eventHandler reference after re-init
+   - **Mitigation:** EventHandler obtained via getEventHandler() on each use, never cached
+   - **Verification:** Search codebase for eventHandler caching (none found)
+
+**Rollback Plan:**
+
+If critical issues arise:
+1. Revert commits in reverse order (commit 6 → 5 → 4 → 3 → 2 → 1)
+2. Restore guards: `if (this.initialized) return;`
+3. Restore `HookRegistryNotInitializedError` class
+4. Restore `getStatus()` method and `HookSystemStatus` interface
+5. Remove disposal call from `initialize()`
+6. Remove `hookSystem.initialize()` call from extension loader
+
+---
 
 ## Success Criteria
 
-1. Extension hooks reload without CLI restart
-2. No "not initialized" errors thrown (remove those tests)
-3. No MessageBus subscription leaks (verify with mock)
-4. All hook tests pass
-5. `llxprt hooks list` reflects extension changes immediately
-6. No memory growth after repeated enable/disable cycles
+1. [OK] Extension hooks reload without CLI restart
+2. [OK] No "not initialized" errors thrown (guards removed)
+3. [OK] No MessageBus subscription leaks (disposal working)
+4. [OK] All hook tests pass (guard tests removed/updated)
+5. [OK] `llxprt hooks list` reflects extension changes immediately
+6. [OK] No memory growth after repeated enable/disable cycles
+7. [OK] No performance regression (initialization batched)
 
-## **[CORRECTED]** Critical Inaccuracy Summary
+---
 
-The original plan had several critical inaccuracies that were corrected:
+## Upstream Divergence Summary
 
-1. **Disposal Infrastructure**: The original plan stated that disposal needed to be added, but LLxprt ALREADY has full disposal infrastructure (`HookSystem.dispose()`, `HookEventHandler.dispose()`, `subscriptionHandle`). The fix is to CALL `this.dispose()` before re-creating the handler.
+**Upstream Changes (Applied to LLxprt):**
+1. Remove `initialized` flags from HookSystem and HookRegistry [OK]
+2. Remove initialization guards [OK]
+3. Remove `HookRegistryNotInitializedError` class [OK]
+4. Remove `getStatus()` method and `HookSystemStatus` interface [OK]
+5. Update `isInitialized()` to check `eventHandler !== null` [OK]
+6. Call `hookSystem.initialize()` in extension loader [OK]
 
-2. **Extension Loader**: The original plan claimed the hook system call should already exist in `extensionLoader.ts`, but it does NOT. LLxprt's `maybeRefreshMemory()` only calls `config.refreshMemory()`, not `hookSystem.initialize()`. This call must be ADDED.
+**LLxprt Enhancements (Not in Upstream):**
+1. Dispose old HookEventHandler before re-init to prevent MessageBus subscription leaks [OK]
 
-3. **Extension Manager**: The original plan included changes to `packages/cli/src/config/extension-manager.ts`, but this file does NOT exist in LLxprt (it's upstream Gemini only). This section was removed.
+**Why LLxprt needs disposal:**
+- LLxprt added MessageBus integration in PLAN-20250218-HOOKSYSTEM.P03 (DELTA-HEVT-001)
+- HookEventHandler subscribes in constructor (line 152)
+- Upstream Gemini doesn't have MessageBus, so no subscription leaks
+- Without disposal, each re-init creates new subscription without unsubscribing old one
 
-4. **Test Updates**: The original plan missed several `getStatus()` tests that need removal (lines 75-80, 127-134, 200-208 in hookSystem.test.ts).
+**Files LLxprt doesn't have (upstream-only changes ignored):**
+- `packages/cli/src/config/extension-manager.ts` — Gemini-specific, doesn't exist in LLxprt
+- `integration-tests/test-helper.ts` — Minor test helper change, not applicable
 
-5. **Lifecycle Assumptions**: The original plan claimed "LLxprt added MessageBus integration" as the reason for needing disposal. This is CORRECT — HookEventHandler subscribes to MessageBus in constructor (line 152) and stores the unsubscribe function. The disposal logic exists but wasn't being called before re-init.
+---
 
-All line numbers were verified against actual source code and are correct.
+## Appendix: Test Output Examples
+
+### RED Phase (Before Implementation)
+
+```
+FAIL packages/core/src/hooks/__tests__/hook-reinit.test.ts
+  Hook Re-Initialization (126c32ac)
+     should reload hooks when extension with hooks is added (RED → GREEN)
+      Expected: 1
+      Received: 0
+      
+      afterCount is still 0 because initialize() guard prevented re-init
+      
+     should reload hooks when extension with hooks is removed (RED → GREEN)
+      Expected: 0
+      Received: 1
+      
+      afterCount is still 1 because initialize() guard prevented re-init
+
+  Hook Re-Initialization Disposal (126c32ac)
+     should dispose old event handler before creating new one (RED → GREEN)
+      Expected: 1
+      Received: 0
+      
+      unsubscribeMock was never called because initialize() guard prevented re-init
+```
+
+### GREEN Phase (After Implementation)
+
+```
+PASS packages/core/src/hooks/__tests__/hook-reinit.test.ts
+  Hook Re-Initialization (126c32ac)
+    [OK] should reload hooks when extension with hooks is added (RED → GREEN) (25ms)
+    [OK] should reload hooks when extension with hooks is removed (RED → GREEN) (18ms)
+
+  Hook Re-Initialization Disposal (126c32ac)
+    [OK] should dispose old event handler before creating new one (RED → GREEN) (12ms)
+    [OK] should not leak subscriptions after multiple re-inits (RED → GREEN) (15ms)
+
+PASS packages/core/src/utils/extensionLoader.test.ts
+  Hook system integration (126c32ac)
+    [OK] should call hookSystem.initialize() after extension changes (RED → GREEN) (20ms)
+    [OK] should call hookSystem.initialize() after unload (RED → GREEN) (18ms)
+
+Test Files  2 passed (2)
+     Tests  6 passed (6)
+```
+
+---
+
+## References
+
+- **Upstream Commit:** `126c32aca4972deba80a875f749fcee1367c4486`
+- **Upstream PR:** https://github.com/google/genkit/pull/14918
+- **LLxprt Plan:** PLAN-20250218-HOOKSYSTEM.P03 (MessageBus integration)
+- **LLxprt Requirements:** DELTA-HEVT-001 (MessageBus subscription), DELTA-HEVT-004 (disposal)
+- **TDD Rules:** `dev-docs/RULES.md` — Test-first, minimal implementation, refactor if valuable
+
+---
+
+**END OF PLAN**
