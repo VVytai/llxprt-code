@@ -40,6 +40,7 @@ describe('SimpleExtensionLoader', () => {
       getMcpClientManager: () => mockMcpClientManager,
       getEnableExtensionReloading: () => extensionReloadingEnabled,
       refreshMemory: vi.fn(),
+      getHookSystem: () => undefined,
     } as unknown as Config;
   });
 
