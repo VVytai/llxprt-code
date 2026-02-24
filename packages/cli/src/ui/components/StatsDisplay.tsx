@@ -69,7 +69,7 @@ interface SectionProps {
 }
 
 const Section: React.FC<SectionProps> = ({ title, children }) => (
-  <Box flexDirection="column" width="100%" marginBottom={1}>
+  <Box flexDirection="column" marginBottom={1}>
     <Text bold color={theme.text.accent}>
       {title}
     </Text>
@@ -87,7 +87,7 @@ const ModelUsageTable: React.FC<{
   const uncachedTokensWidth = 15;
   const cachedTokensWidth = 15;
   const outputTokensWidth = 15;
-  const tableWidth =
+  const totalWidth =
     nameWidth +
     requestsWidth +
     uncachedTokensWidth +
@@ -125,8 +125,8 @@ const ModelUsageTable: React.FC<{
         </Box>
       </Box>
       {/* Divider */}
-      <Box width={tableWidth}>
-        <Text color={theme.text.secondary}>{'─'.repeat(tableWidth)}</Text>
+      <Box width={totalWidth}>
+        <Text color={theme.text.secondary}>{'─'.repeat(totalWidth)}</Text>
       </Box>
 
       {/* Rows */}
