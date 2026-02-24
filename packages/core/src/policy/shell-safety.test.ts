@@ -75,6 +75,37 @@ describe('Shell Safety Policy - SECURITY', () => {
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
+
+    it('SHOULD NOT match "rmdir" when only "rm" is allowed (prefix confusion regression)', () => {
+      // Setup: Allow only "rm" command
+      const rmPolicyEngine = new PolicyEngine({
+        rules: [
+          {
+            toolName: 'run_shell_command',
+            argsPattern: /"command":"rm(?:[\s"]|$)/,
+            decision: PolicyDecision.ALLOW,
+            priority: 1.01,
+          },
+        ],
+        defaultDecision: PolicyDecision.ASK_USER,
+      });
+
+      // "rm" should be allowed
+      const rmResult = rmPolicyEngine.evaluate(
+        'run_shell_command',
+        { command: 'rm /tmp/file.txt' },
+        undefined
+      );
+      expect(rmResult).toBe(PolicyDecision.ALLOW);
+
+      // "rmdir" should NOT be allowed (requires ASK_USER)
+      const rmdirResult = rmPolicyEngine.evaluate(
+        'run_shell_command',
+        { command: 'rmdir /tmp/dir' },
+        undefined
+      );
+      expect(rmdirResult).toBe(PolicyDecision.ASK_USER);
+    });
   });
 
   describe('R2: Compound Command Validation', () => {
