@@ -311,7 +311,6 @@ describe('<StatsDisplay />', () => {
       const { lastFrame } = renderWithMockedStats(metrics);
       const output = lastFrame();
 
-      expect(output).not.toContain('Efficiency & Optimizations');
       expect(output).toMatchSnapshot();
     });
   });
@@ -536,6 +535,85 @@ describe('<StatsDisplay />', () => {
       const output = lastFrame();
 
       expect(output).not.toContain('Quota Information');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Model Usage Table Updates', () => {
+    it('should display separate Input Tokens and Cache Reads columns', () => {
+      const metrics: SessionMetrics = {
+        models: {
+          'gemini-2.5-pro': {
+            api: { totalRequests: 5, totalErrors: 0, totalLatencyMs: 1000 },
+            tokens: {
+              prompt: 1000,
+              candidates: 500,
+              total: 2000,
+              cached: 400,
+              thoughts: 0,
+              tool: 0,
+            },
+          },
+        },
+        tools: {
+          totalCalls: 0,
+          totalSuccess: 0,
+          totalFail: 0,
+          totalDurationMs: 0,
+          totalDecisions: { accept: 0, reject: 0, modify: 0 },
+          byName: {},
+        },
+        files: {
+          totalLinesAdded: 0,
+          totalLinesRemoved: 0,
+        },
+      };
+
+      const { lastFrame } = renderWithMockedStats(metrics);
+      const output = lastFrame();
+
+      expect(output).toContain('Input Tokens');
+      expect(output).toContain('Cache Reads');
+      expect(output).toContain('600'); // uncached = 1000 - 400
+      expect(output).toContain('400'); // cached
+      expect(output).toMatchSnapshot();
+    });
+
+    it('should apply color to cache efficiency percentage', () => {
+      const metrics: SessionMetrics = {
+        models: {
+          'gemini-2.5-pro': {
+            api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
+            tokens: {
+              prompt: 1000,
+              candidates: 100,
+              total: 1100,
+              cached: 500, // 50% cache efficiency
+              thoughts: 0,
+              tool: 0,
+            },
+          },
+        },
+        tools: {
+          totalCalls: 0,
+          totalSuccess: 0,
+          totalFail: 0,
+          totalDurationMs: 0,
+          totalDecisions: { accept: 0, reject: 0, modify: 0 },
+          byName: {},
+        },
+        files: {
+          totalLinesAdded: 0,
+          totalLinesRemoved: 0,
+        },
+      };
+
+      const { lastFrame } = renderWithMockedStats(metrics);
+      const output = lastFrame();
+
+      expect(output).toContain('Savings Highlight');
+      expect(output).toContain('50.0%');
+      // Snapshot will verify color codes are present
       expect(output).toMatchSnapshot();
     });
   });

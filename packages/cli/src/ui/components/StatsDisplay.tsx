@@ -23,6 +23,8 @@ import {
   TOOL_SUCCESS_RATE_MEDIUM,
   USER_AGREEMENT_RATE_HIGH,
   USER_AGREEMENT_RATE_MEDIUM,
+  CACHE_EFFICIENCY_HIGH,
+  CACHE_EFFICIENCY_MEDIUM,
 } from '../utils/displayUtils.js';
 import { computeSessionStats } from '../utils/computeStats.js';
 import { useRuntimeApi } from '../contexts/RuntimeContext.js';
@@ -40,7 +42,6 @@ const StatRow: React.FC<StatRowProps> = ({ title, children }) => (
     <Box width={28}>
       <Text color={theme.text.link}>{title}</Text>
     </Box>
-    {/* FIX: Wrap children in a Box that can grow to fill remaining space */}
     <Box flexGrow={1}>{children}</Box>
   </Box>
 );
@@ -57,7 +58,6 @@ const SubStatRow: React.FC<SubStatRowProps> = ({ title, children }) => (
     <Box width={26}>
       <Text color={theme.text.secondary}>» {title}</Text>
     </Box>
-    {/* FIX: Apply the same flexGrow fix here */}
     <Box flexGrow={1}>{children}</Box>
   </Box>
 );
@@ -84,10 +84,11 @@ const ModelUsageTable: React.FC<{
 }> = ({ models, totalCachedTokens, cacheEfficiency }) => {
   const nameWidth = 25;
   const requestsWidth = 8;
-  const inputTokensWidth = 15;
+  const uncachedTokensWidth = 15;
+  const cachedTokensWidth = 15;
   const outputTokensWidth = 15;
   const tableWidth =
-    nameWidth + requestsWidth + inputTokensWidth + outputTokensWidth;
+    nameWidth + requestsWidth + uncachedTokensWidth + cachedTokensWidth + outputTokensWidth;
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -103,9 +104,14 @@ const ModelUsageTable: React.FC<{
             Reqs
           </Text>
         </Box>
-        <Box width={inputTokensWidth} justifyContent="flex-end">
+        <Box width={uncachedTokensWidth} justifyContent="flex-end">
           <Text bold color={theme.text.accent}>
             Input Tokens
+          </Text>
+        </Box>
+        <Box width={cachedTokensWidth} justifyContent="flex-end">
+          <Text bold color={theme.text.accent}>
+            Cache Reads
           </Text>
         </Box>
         <Box width={outputTokensWidth} justifyContent="flex-end">
@@ -120,34 +126,48 @@ const ModelUsageTable: React.FC<{
       </Box>
 
       {/* Rows */}
-      {Object.entries(models).map(([name, modelMetrics]) => (
-        <Box key={name}>
-          <Box width={nameWidth}>
-            <Text color={theme.text.primary}>{name.replace('-001', '')}</Text>
+      {Object.entries(models).map(([name, modelMetrics]) => {
+        const uncachedTokens = Math.max(0, modelMetrics.tokens.prompt - modelMetrics.tokens.cached);
+        return (
+          <Box key={name}>
+            <Box width={nameWidth}>
+              <Text color={theme.text.primary}>{name.replace('-001', '')}</Text>
+            </Box>
+            <Box width={requestsWidth} justifyContent="flex-end">
+              <Text color={theme.text.primary}>
+                {modelMetrics.api.totalRequests}
+              </Text>
+            </Box>
+            <Box width={uncachedTokensWidth} justifyContent="flex-end">
+              <Text color={Colors.Foreground}>
+                {uncachedTokens.toLocaleString()}
+              </Text>
+            </Box>
+            <Box width={cachedTokensWidth} justifyContent="flex-end">
+              <Text color={Colors.Gray}>
+                {modelMetrics.tokens.cached.toLocaleString()}
+              </Text>
+            </Box>
+            <Box width={outputTokensWidth} justifyContent="flex-end">
+              <Text color={Colors.Foreground}>
+                {modelMetrics.tokens.candidates.toLocaleString()}
+              </Text>
+            </Box>
           </Box>
-          <Box width={requestsWidth} justifyContent="flex-end">
-            <Text color={theme.text.primary}>
-              {modelMetrics.api.totalRequests}
-            </Text>
-          </Box>
-          <Box width={inputTokensWidth} justifyContent="flex-end">
-            <Text color={theme.status.warning}>
-              {modelMetrics.tokens.prompt.toLocaleString()}
-            </Text>
-          </Box>
-          <Box width={outputTokensWidth} justifyContent="flex-end">
-            <Text color={theme.status.warning}>
-              {modelMetrics.tokens.candidates.toLocaleString()}
-            </Text>
-          </Box>
-        </Box>
-      ))}
+        );
+      })}
       {cacheEfficiency > 0 && (
         <Box flexDirection="column" marginTop={1}>
           <Text color={Colors.Foreground}>
             <Text color={theme.status.success}>Savings Highlight:</Text>{' '}
-            {totalCachedTokens.toLocaleString()} ({cacheEfficiency.toFixed(1)}
-            %) of input tokens were served from the cache, reducing costs.
+            {totalCachedTokens.toLocaleString()} (
+            <Text color={getStatusColor(cacheEfficiency, {
+              green: CACHE_EFFICIENCY_HIGH,
+              yellow: CACHE_EFFICIENCY_MEDIUM,
+            })}>
+              {cacheEfficiency.toFixed(1)}%
+            </Text>
+            ) of input tokens were served from the cache, reducing costs.
           </Text>
           <Box height={1} />
           <Text color={theme.text.secondary}>
@@ -227,6 +247,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
       flexDirection="column"
       paddingY={1}
       paddingX={2}
+      overflow="hidden"
     >
       {renderTitle()}
       <Box height={1} />
