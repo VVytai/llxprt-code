@@ -33,6 +33,10 @@ import {
   USER_SETTINGS_DIR,
   USER_SETTINGS_PATH,
 } from './paths.js';
+import {
+  validateSettings,
+  formatValidationError,
+} from './settings-validation.js';
 
 export { USER_SETTINGS_PATH, USER_SETTINGS_DIR, SETTINGS_DIRECTORY_NAME };
 
@@ -567,6 +571,23 @@ export function loadEnvironment(settings: Settings): void {
 }
 
 /**
+ * Validates a settings object and throws FatalConfigError on validation failure.
+ */
+function validateSettingsOrThrow(
+  settingsObject: unknown,
+  filePath: string,
+): void {
+  const validationResult = validateSettings(settingsObject);
+  if (!validationResult.success && validationResult.error) {
+    const errorMessage = formatValidationError(
+      validationResult.error,
+      filePath,
+    );
+    throw new FatalConfigError(errorMessage);
+  }
+}
+
+/**
  * Loads settings from user and workspace directories.
  * Project settings override user settings.
  */
@@ -605,8 +626,13 @@ export function loadSettings(
     if (fs.existsSync(systemSettingsPath)) {
       const systemContent = fs.readFileSync(systemSettingsPath, 'utf-8');
       systemSettings = JSON.parse(stripJsonComments(systemContent)) as Settings;
+      validateSettingsOrThrow(systemSettings, systemSettingsPath);
     }
   } catch (error: unknown) {
+    // Preserve FatalConfigError with formatted validation messages
+    if (error instanceof FatalConfigError) {
+      throw error;
+    }
     settingsErrors.push({
       message: getErrorMessage(error),
       path: systemSettingsPath,
@@ -624,8 +650,13 @@ export function loadSettings(
         stripJsonComments(systemDefaultsContent),
       ) as Settings;
       systemDefaultSettings = resolveEnvVarsInObject(parsedSystemDefaults);
+      validateSettingsOrThrow(systemDefaultSettings, systemDefaultsPath);
     }
   } catch (error: unknown) {
+    // Preserve FatalConfigError with formatted validation messages
+    if (error instanceof FatalConfigError) {
+      throw error;
+    }
     settingsErrors.push({
       message: getErrorMessage(error),
       path: systemDefaultsPath,
@@ -643,8 +674,13 @@ export function loadSettings(
       } else if (userSettings.ui?.theme && userSettings.ui.theme === 'VS2015') {
         userSettings.ui.theme = DefaultDark.name;
       }
+      validateSettingsOrThrow(userSettings, USER_SETTINGS_PATH);
     }
   } catch (error: unknown) {
+    // Preserve FatalConfigError with formatted validation messages
+    if (error instanceof FatalConfigError) {
+      throw error;
+    }
     settingsErrors.push({
       message: getErrorMessage(error),
       path: USER_SETTINGS_PATH,
@@ -670,8 +706,13 @@ export function loadSettings(
         ) {
           workspaceSettings.ui.theme = DefaultDark.name;
         }
+        validateSettingsOrThrow(workspaceSettings, workspaceSettingsPath);
       }
     } catch (error: unknown) {
+      // Preserve FatalConfigError with formatted validation messages
+      if (error instanceof FatalConfigError) {
+        throw error;
+      }
       settingsErrors.push({
         message: getErrorMessage(error),
         path: workspaceSettingsPath,

@@ -170,9 +170,7 @@ export const ModelStatsDisplay: React.FC = () => {
       <StatRow
         title="Total"
         values={getModelValues((m) => (
-          <Text color={Colors.Gray}>
-            {m.tokens.total.toLocaleString()}
-          </Text>
+          <Text color={Colors.Gray}>{m.tokens.total.toLocaleString()}</Text>
         ))}
       />
       <StatRow

@@ -88,7 +88,11 @@ const ModelUsageTable: React.FC<{
   const cachedTokensWidth = 15;
   const outputTokensWidth = 15;
   const tableWidth =
-    nameWidth + requestsWidth + uncachedTokensWidth + cachedTokensWidth + outputTokensWidth;
+    nameWidth +
+    requestsWidth +
+    uncachedTokensWidth +
+    cachedTokensWidth +
+    outputTokensWidth;
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -127,7 +131,10 @@ const ModelUsageTable: React.FC<{
 
       {/* Rows */}
       {Object.entries(models).map(([name, modelMetrics]) => {
-        const uncachedTokens = Math.max(0, modelMetrics.tokens.prompt - modelMetrics.tokens.cached);
+        const uncachedTokens = Math.max(
+          0,
+          modelMetrics.tokens.prompt - modelMetrics.tokens.cached,
+        );
         return (
           <Box key={name}>
             <Box width={nameWidth}>
@@ -161,10 +168,12 @@ const ModelUsageTable: React.FC<{
           <Text color={Colors.Foreground}>
             <Text color={theme.status.success}>Savings Highlight:</Text>{' '}
             {totalCachedTokens.toLocaleString()} (
-            <Text color={getStatusColor(cacheEfficiency, {
-              green: CACHE_EFFICIENCY_HIGH,
-              yellow: CACHE_EFFICIENCY_MEDIUM,
-            })}>
+            <Text
+              color={getStatusColor(cacheEfficiency, {
+                green: CACHE_EFFICIENCY_HIGH,
+                yellow: CACHE_EFFICIENCY_MEDIUM,
+              })}
+            >
               {cacheEfficiency.toFixed(1)}%
             </Text>
             ) of input tokens were served from the cache, reducing costs.
