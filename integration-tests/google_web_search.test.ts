@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { WEB_SEARCH_TOOL_NAME } from '../packages/core/src/tools/tool-names.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TestRig, printDebugInfo, validateModelOutput } from './test-helper.js';
 import { GOOGLE_WEB_SEARCH_TOOL } from '../packages/core/src/tools/tool-names.js';

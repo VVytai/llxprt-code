@@ -15,17 +15,10 @@
  * are accepted.
  */
 
-import { unlinkSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it, afterEach, beforeEach } from 'vitest';
 import { TestRig } from './test-helper.js';
-
-// Skip interactive MCP cyclic-schema test in CI for now:
-// - It is PTY/TUI driven and flakes in hosted runners
-// - It can also be affected by upstream provider/auth transient issues unrelated
-//   to the cyclic schema behavior being validated.
-// Keep it enabled locally for deterministic debugging and development.
-const skipInCi = process.env.CI === 'true';
 
 // Create a minimal MCP server that doesn't require external dependencies
 // This implements the MCP protocol directly using Node.js built-ins
@@ -149,7 +142,7 @@ rpc.on('tools/list', async () => {
             items: {
               type: 'object',
               properties: {
-                child: { $ref: '#/properties/data/items' },
+                child: { "\x24ref": '#/properties/data/items' },
               },
             },
           },
@@ -179,7 +172,8 @@ describe('mcp server with cyclic tool schema is detected', () => {
             args: ['mcp-server.cjs'],
           },
         },
-      });
+      },
+    });
 
     process.env.LLXPRT_CODE_WELCOME_CONFIG_PATH = join(
       rig.testDir!,
@@ -203,27 +197,26 @@ describe('mcp server with cyclic tool schema is detected', () => {
 
     const run = await rig.runInteractive();
 
-      try {
-        // MCP discovery can be slow in sandbox/docker and on Windows. Retry `/mcp list`
-        // until the tool appears (or we time out).
-        const deadline = Date.now() + 120_000;
-        while (Date.now() < deadline) {
-          await run.type('/mcp list');
-          await run.type('\r'); // Submit command with Enter key
+    try {
+      // MCP discovery can be slow in sandbox/docker and on Windows. Retry `/mcp list`
+      // until the tool appears (or we time out).
+      const deadline = Date.now() + 120_000;
+      while (Date.now() < deadline) {
+        await run.type('/mcp list');
+        await run.type('\r'); // Submit command with Enter key
 
-          try {
-            await run.expectText('tool_with_cyclic_schema', 2000);
-            return;
-          } catch {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-          }
+        try {
+          await run.expectText('tool_with_cyclic_schema', 2000);
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
         }
-
-        // Final assertion with a longer timeout so failures show a clear error.
-        await run.expectText('tool_with_cyclic_schema', 10_000);
-      } finally {
-        await run.kill();
       }
+
+      // Final assertion with a longer timeout so failures show a clear error.
+      await run.expectText('tool_with_cyclic_schema', 10_000);
+    } finally {
+      await run.kill();
     }
   });
 });
