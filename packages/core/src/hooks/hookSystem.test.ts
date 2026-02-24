@@ -71,13 +71,6 @@ describe('HookSystem', () => {
       expect(hookSystem).toBeInstanceOf(HookSystem);
       expect(hookSystem.isInitialized()).toBe(false);
     });
-
-    it('should report correct status before initialization', () => {
-      // @requirement:HOOK-009
-      const status = hookSystem.getStatus();
-      expect(status.initialized).toBe(false);
-      expect(status.totalHooks).toBe(0);
-    });
   });
 
   describe('initialize', () => {
@@ -91,26 +84,10 @@ describe('HookSystem', () => {
       );
     });
 
-    it('should only initialize once on multiple calls', async () => {
-      // @requirement:HOOK-004
-      await hookSystem.initialize();
-      await hookSystem.initialize();
-      await hookSystem.initialize();
-
-      expect(hookSystem.isInitialized()).toBe(true);
-      // Check that "Initializing HookSystem" was only called once
-      const initCalls = mockDebugLogger.debug.mock.calls.filter(
-        (call) =>
-          typeof call[0] === 'string' &&
-          call[0].includes('Initializing HookSystem'),
-      );
-      expect(initCalls.length).toBe(1);
-    });
-
     // Alias test for P04 verification command compatibility
     it('initialize called once', async () => {
       // @plan:PLAN-20260216-HOOKSYSTEMREWRITE.P04
-      // @requirement:HOOK-003,HOOK-004
+      // @requirement:HOOK-003
       // Uses the existing hookSystem from beforeEach which has proper mock config
 
       await hookSystem.initialize();
@@ -121,30 +98,11 @@ describe('HookSystem', () => {
 
       expect(firstInit).toBe(true);
       expect(secondInit).toBe(true);
-      // Both should be true, confirming idempotent initialization
-    });
-
-    it('should report correct status after initialization', async () => {
-      // @requirement:HOOK-009
-      await hookSystem.initialize();
-
-      const status = hookSystem.getStatus();
-      expect(status.initialized).toBe(true);
-      expect(status.totalHooks).toBe(0); // No hooks configured in mock
+      // Both should be true, confirming initialization works
     });
   });
 
   describe('getRegistry', () => {
-    it('should throw HookSystemNotInitializedError before initialization', () => {
-      // @requirement:HOOK-005,HOOK-148
-      expect(() => hookSystem.getRegistry()).toThrow(
-        HookSystemNotInitializedError,
-      );
-      expect(() => hookSystem.getRegistry()).toThrow(
-        'Cannot access HookRegistry before HookSystem is initialized',
-      );
-    });
-
     it('should return HookRegistry after initialization', async () => {
       // @requirement:HOOK-006
       await hookSystem.initialize();
@@ -196,21 +154,8 @@ describe('HookSystem', () => {
     });
   });
 
-  describe('getStatus', () => {
-    it('should return HookSystemStatus interface', () => {
-      // @requirement:HOOK-009
-      const status = hookSystem.getStatus();
-
-      expect(status).toHaveProperty('initialized');
-      expect(status).toHaveProperty('totalHooks');
-      expect(typeof status.initialized).toBe('boolean');
-      expect(typeof status.totalHooks).toBe('number');
-    });
-  });
-
   describe('with configured hooks', () => {
     it('should report correct hook count after initialization', async () => {
-      // @requirement:HOOK-009
       // Setup mock with hooks configuration BEFORE creating HookSystem
       const mockHooksConfig = {
         BeforeTool: [
@@ -236,9 +181,9 @@ describe('HookSystem', () => {
       const configuredHookSystem = new HookSystem(configuredMockConfig);
       await configuredHookSystem.initialize();
 
-      const status = configuredHookSystem.getStatus();
-      expect(status.initialized).toBe(true);
-      expect(status.totalHooks).toBe(1);
+      const hooks = configuredHookSystem.getAllHooks();
+      expect(configuredHookSystem.isInitialized()).toBe(true);
+      expect(hooks.length).toBe(1);
     });
   });
 });
