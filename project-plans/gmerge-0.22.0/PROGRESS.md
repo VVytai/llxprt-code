@@ -7,7 +7,7 @@
 | 2 | REIMPLEMENT | d4506e0f (transcript_path) | DONE | 01d0258b2 | Config getter/setter + hookEventHandler integration |
 | 3 | REIMPLEMENT | 54de6753 (stats polish) | DONE | 31cc66f0f | Labels, colors, uncached math; snapshot gap for StatsDisplay |
 | 4 | REIMPLEMENT | 86134e99 (settings validation) | DONE | 4ec5634d7 | Zod schema from SETTINGS_SCHEMA; 51 new tests |
-| 5 | REIMPLEMENT | 299cc9be (A2A /init) | TODO | | |
+| 5 | REIMPLEMENT | 299cc9be (A2A /init) | DONE | 95e0a738f | A2A /init command + streaming + auto-execute |
 | 6 | REIMPLEMENT | 1e734d7e (drag/drop) | TODO | | |
 | 7 | REIMPLEMENT | 3b2a4ba2 (IDE ext refactor) | TODO | | |
 | 8 | PICK x5 | e84c4bfb, edbe5480, 20164ebc, d2a1a456, d9f94103 | TODO | | |
