@@ -214,7 +214,7 @@ export async function runNonInteractive({
         settings,
       );
       // If a slash command is found and returns a prompt, use it.
-      // Otherwise, slashCommandResult fall through to the default prompt
+      // Otherwise, slashCommandResult falls through to the default prompt
       // handling.
       if (slashCommandResult) {
         query = slashCommandResult as Part[];
