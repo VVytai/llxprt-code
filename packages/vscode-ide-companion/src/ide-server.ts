@@ -39,8 +39,7 @@ const IDE_AUTH_TOKEN_ENV_VAR = 'LLXPRT_CODE_IDE_AUTH_TOKEN';
 interface WritePortAndWorkspaceArgs {
   context: vscode.ExtensionContext;
   port: number;
-  portFile: string;
-  ppidPortFile: string;
+  portFile: string | undefined;
   authToken: string;
   log: (message: string) => void;
 }
@@ -49,7 +48,6 @@ async function writePortAndWorkspace({
   context,
   port,
   portFile,
-  ppidPortFile,
   authToken,
   log,
 }: WritePortAndWorkspaceArgs): Promise<void> {
@@ -75,20 +73,18 @@ async function writePortAndWorkspace({
   const content = JSON.stringify({
     port,
     workspacePath,
-    ppid: process.ppid,
     authToken,
   });
 
+  if (!portFile) {
+    log('Missing portFile, cannot write port and workspace info.');
+    return;
+  }
+
   log(`Writing port file to: ${portFile}`);
-  log(`Writing ppid port file to: ${ppidPortFile}`);
 
   try {
-    await Promise.all([
-      fs.writeFile(portFile, content).then(() => fs.chmod(portFile, 0o600)),
-      fs
-        .writeFile(ppidPortFile, content)
-        .then(() => fs.chmod(ppidPortFile, 0o600)),
-    ]);
+    await fs.writeFile(portFile, content).then(() => fs.chmod(portFile, 0o600));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log(`Failed to write port to file: ${message}`);
@@ -116,7 +112,6 @@ export class IDEServer {
   private context: vscode.ExtensionContext | undefined;
   private log: (message: string) => void;
   private portFile: string | undefined;
-  private ppidPortFile: string | undefined;
   private port: number | undefined;
   private authToken: string | undefined;
   private transports: { [sessionId: string]: StreamableHTTPServerTransport } =
@@ -347,28 +342,28 @@ export class IDEServer {
         const address = (this.server as HTTPServer).address();
         if (address && typeof address !== 'string') {
           this.port = address.port;
-          this.portFile = path.join(
-            os.tmpdir(),
-            `llxprt-ide-server-${this.port}.json`,
-          );
-          this.ppidPortFile = path.join(
-            os.tmpdir(),
-            `llxprt-ide-server-${process.ppid}.json`,
-          );
           this.log(`IDE server listening on http://127.0.0.1:${this.port}`);
-
-          if (this.authToken) {
-            await writePortAndWorkspace({
-              context,
-              port: this.port,
-              portFile: this.portFile,
-              ppidPortFile: this.ppidPortFile,
-              authToken: this.authToken,
-              log: this.log,
-            });
-          } else {
-            this.log('Auth token unavailable; skipping port file write.');
+          let portFile: string | undefined;
+          try {
+            const portDir = path.join(os.tmpdir(), 'llxprt', 'ide');
+            await fs.mkdir(portDir, { recursive: true });
+            portFile = path.join(
+              portDir,
+              `llxprt-ide-server-${process.ppid}-${this.port}.json`,
+            );
+            this.portFile = portFile;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.log(`Failed to create IDE port file: ${message}`);
           }
+
+          await writePortAndWorkspace({
+            context,
+            port: this.port,
+            portFile: this.portFile,
+            authToken: this.authToken ?? '',
+            log: this.log,
+          });
         }
         resolve();
       });
@@ -397,19 +392,11 @@ export class IDEServer {
   }
 
   async syncEnvVars(): Promise<void> {
-    if (
-      this.context &&
-      this.server &&
-      this.port &&
-      this.portFile &&
-      this.ppidPortFile &&
-      this.authToken
-    ) {
+    if (this.context && this.server && this.port && this.authToken) {
       await writePortAndWorkspace({
         context: this.context,
         port: this.port,
         portFile: this.portFile,
-        ppidPortFile: this.ppidPortFile,
         authToken: this.authToken,
         log: this.log,
       });
@@ -438,13 +425,6 @@ export class IDEServer {
     if (this.portFile) {
       try {
         await fs.unlink(this.portFile);
-      } catch (_err) {
-        // Ignore errors if the file doesn't exist.
-      }
-    }
-    if (this.ppidPortFile) {
-      try {
-        await fs.unlink(this.ppidPortFile);
       } catch (_err) {
         // Ignore errors if the file doesn't exist.
       }
