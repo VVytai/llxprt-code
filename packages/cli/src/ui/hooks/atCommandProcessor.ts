@@ -46,7 +46,7 @@ interface HandleAtCommandParams {
 
 interface HandleAtCommandResult {
   processedQuery: PartListUnion | null;
-  shouldProceed: boolean;
+  error?: string;
 }
 
 interface AtCommandPart {
@@ -179,7 +179,7 @@ export async function handleAtCommand({
   );
 
   if (atPathCommandParts.length === 0) {
-    return { processedQuery: [{ text: query }], shouldProceed: true };
+    return { processedQuery: [{ text: query }] };
   }
 
   // Get centralized file discovery service
@@ -207,7 +207,10 @@ export async function handleAtCommand({
       { type: 'error', text: 'Error: read_many_files tool not found.' },
       userMessageTimestamp,
     );
-    return { processedQuery: null, shouldProceed: false };
+    return {
+      processedQuery: null,
+      error: 'Error: read_many_files tool not found.',
+    };
   }
 
   for (const atPathPart of atPathCommandParts) {
@@ -224,16 +227,17 @@ export async function handleAtCommand({
     if (!pathName) {
       // This case should ideally not be hit if parseAllAtCommands ensures content after @
       // but as a safeguard:
+      const errMsg = `Error: Invalid @ command '${originalAtPath}'. No path specified.`;
       addItem(
         {
           type: 'error',
-          text: `Error: Invalid @ command '${originalAtPath}'. No path specified.`,
+          text: errMsg,
         },
         userMessageTimestamp,
       );
       // Decide if this is a fatal error for the whole command or just skip this @ part
       // For now, let's be strict and fail the command if one @path is malformed.
-      return { processedQuery: null, shouldProceed: false };
+      return { processedQuery: null, error: errMsg };
     }
 
     const resourceMatch = resourceRegistry.findResourceByUri(pathName);
@@ -451,16 +455,13 @@ export async function handleAtCommand({
     onDebugMessage('No valid file paths found in @ commands to read.');
     if (initialQueryText === '@' && query.trim() === '@') {
       // If the only thing was a lone @, pass original query (which might have spaces)
-      return { processedQuery: [{ text: query }], shouldProceed: true };
+      return { processedQuery: [{ text: query }] };
     } else if (!initialQueryText && query) {
       // If all @-commands were invalid and no surrounding text, pass original query
-      return { processedQuery: [{ text: query }], shouldProceed: true };
+      return { processedQuery: [{ text: query }] };
     }
     // Otherwise, proceed with the (potentially modified) query text that doesn't involve file reading
-    return {
-      processedQuery: [{ text: initialQueryText || query }],
-      shouldProceed: true,
-    };
+    return { processedQuery: [{ text: initialQueryText || query }] };
   }
 
   const processedQueryParts: PartUnion[] = [{ text: initialQueryText }];
@@ -511,7 +512,16 @@ export async function handleAtCommand({
         } as Omit<HistoryItem, 'id'>,
         userMessageTimestamp,
       );
-      return { processedQuery: null, shouldProceed: false };
+      // Find the first error to report
+      const firstError = resourceReadDisplays.find(
+        (d) => d.status === ToolCallStatus.Error,
+      )!;
+      const errorMessages = resourceReadDisplays
+        .filter((d) => d.status === ToolCallStatus.Error)
+        .map((d) => d.resultDisplay);
+      console.error(errorMessages);
+      const errorMsg = `Exiting due to an error processing the @ command: ${firstError.resultDisplay}`;
+      return { processedQuery: null, error: errorMsg };
     }
 
     try {
@@ -548,7 +558,16 @@ export async function handleAtCommand({
         } as Omit<HistoryItem, 'id'>,
         userMessageTimestamp,
       );
-      return { processedQuery: null, shouldProceed: false };
+      // Find the first error to report
+      const firstError = resourceReadDisplays.find(
+        (d) => d.status === ToolCallStatus.Error,
+      )!;
+      const errorMessages = resourceReadDisplays
+        .filter((d) => d.status === ToolCallStatus.Error)
+        .map((d) => d.resultDisplay);
+      console.error(errorMessages);
+      const errorMsg = `Exiting due to an error processing the @ command: ${firstError.resultDisplay}`;
+      return { processedQuery: null, error: errorMsg };
     }
   }
 
@@ -563,7 +582,7 @@ export async function handleAtCommand({
         userMessageTimestamp,
       );
     }
-    return { processedQuery: processedQueryParts, shouldProceed: true };
+    return { processedQuery: processedQueryParts };
   }
 
   const toolArgs = {
@@ -645,7 +664,7 @@ export async function handleAtCommand({
       } as Omit<HistoryItem, 'id'>,
       userMessageTimestamp,
     );
-    return { processedQuery: processedQueryParts, shouldProceed: true };
+    return { processedQuery: processedQueryParts };
   } catch (error: unknown) {
     toolCallDisplay = {
       callId: `client-read-${userMessageTimestamp}`,
@@ -665,7 +684,10 @@ export async function handleAtCommand({
       } as Omit<HistoryItem, 'id'>,
       userMessageTimestamp,
     );
-    return { processedQuery: null, shouldProceed: false };
+    return {
+      processedQuery: null,
+      error: `Exiting due to an error processing the @ command: ${toolCallDisplay.resultDisplay}`,
+    };
   }
 }
 

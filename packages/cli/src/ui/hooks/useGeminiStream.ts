@@ -664,7 +664,8 @@ export const useGeminiStream = (
 
           // User message already displayed in submitQuery before this function was called
 
-          if (!atCommandResult.shouldProceed) {
+          if (atCommandResult.error) {
+            onDebugMessage(atCommandResult.error);
             return { queryToSend: null, shouldProceed: false };
           }
           localQueryToSendToGemini = atCommandResult.processedQuery;

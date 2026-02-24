@@ -195,7 +195,6 @@ describe('handleAtCommand', () => {
         { text: `\nContent from @${serverName}:${resourceUri}:\n` },
         { text: 'resource content from mcp' },
       ],
-      shouldProceed: true,
     });
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -227,7 +226,6 @@ describe('handleAtCommand', () => {
 
     expect(result).toEqual({
       processedQuery: [{ text: query }],
-      shouldProceed: true,
     });
   });
 
@@ -245,7 +243,6 @@ describe('handleAtCommand', () => {
 
     expect(result).toEqual({
       processedQuery: [{ text: queryWithSpaces }],
-      shouldProceed: true,
     });
     expect(mockOnDebugMessage).toHaveBeenCalledWith(
       'Lone @ detected, will be treated as text in the modified query.',
@@ -284,7 +281,6 @@ describe('handleAtCommand', () => {
         { text: fileContent },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -321,7 +317,6 @@ describe('handleAtCommand', () => {
         { text: fileContent },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
     expect(mockOnDebugMessage).toHaveBeenCalledWith(
       `Path ${relativeDirPath} resolved to directory, using glob: ${resolvedGlob}`,
@@ -353,7 +348,6 @@ describe('handleAtCommand', () => {
         { text: fileContent },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
   });
 
@@ -381,7 +375,6 @@ describe('handleAtCommand', () => {
         { text: fileContent },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -421,7 +414,6 @@ describe('handleAtCommand', () => {
         { text: content2 },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
   });
 
@@ -456,7 +448,6 @@ describe('handleAtCommand', () => {
         { text: content2 },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
   });
 
@@ -479,7 +470,8 @@ describe('handleAtCommand', () => {
       signal: abortController.signal,
     });
 
-    expect(result.shouldProceed).toBe(true);
+    expect(result.processedQuery).not.toBeNull();
+    expect(result.error).toBeUndefined();
     expect(result.processedQuery).toBeDefined();
     const processedQuery = result.processedQuery!;
     expect((processedQuery as Array<{ text: string }>)[0]).toEqual({
@@ -523,7 +515,6 @@ describe('handleAtCommand', () => {
 
     expect(result).toEqual({
       processedQuery: [{ text: 'Check @nonexistent.txt and @ also' }],
-      shouldProceed: true,
     });
   });
 
@@ -557,7 +548,6 @@ describe('handleAtCommand', () => {
 
       expect(result).toEqual({
         processedQuery: [{ text: query }],
-        shouldProceed: true,
       });
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
         'Path node_modules/package.json is git-ignored and will be skipped.',
@@ -597,7 +587,6 @@ describe('handleAtCommand', () => {
           { text: 'console.log("Hello world");' },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -629,7 +618,6 @@ describe('handleAtCommand', () => {
           { text: '# Project README' },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
         `Path ${relativePath2} is git-ignored and will be skipped.`,
@@ -657,7 +645,6 @@ describe('handleAtCommand', () => {
 
       expect(result).toEqual({
         processedQuery: [{ text: query }],
-        shouldProceed: true,
       });
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
         'Path .git/config is git-ignored and will be skipped.',
@@ -690,7 +677,8 @@ describe('handleAtCommand', () => {
         `Glob tool not found. Path ${invalidFile} will be skipped.`,
       );
       expect(result.processedQuery).toEqual([{ text: query }]);
-      expect(result.shouldProceed).toBe(true);
+      expect(result.processedQuery).not.toBeNull();
+      expect(result.error).toBeUndefined();
     });
   });
 
@@ -717,7 +705,6 @@ describe('handleAtCommand', () => {
 
       expect(result).toEqual({
         processedQuery: [{ text: query }],
-        shouldProceed: true,
       });
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
         'Path build/output.js is llxprt-ignored and will be skipped.',
@@ -756,7 +743,6 @@ describe('handleAtCommand', () => {
         { text: 'console.log("Hello world");' },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
   });
 
@@ -794,7 +780,6 @@ describe('handleAtCommand', () => {
         { text: '// Main application entry' },
         { text: '\n--- End of content ---' },
       ],
-      shouldProceed: true,
     });
     expect(mockOnDebugMessage).toHaveBeenCalledWith(
       `Path ${relativePath2} is llxprt-ignored and will be skipped.`,
@@ -921,7 +906,6 @@ describe('handleAtCommand', () => {
             { text: fileContent },
             { text: '\n--- End of content ---' },
           ],
-          shouldProceed: true,
         });
       },
     );
@@ -952,7 +936,6 @@ describe('handleAtCommand', () => {
           { text: content2 },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -982,7 +965,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1008,7 +990,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1034,7 +1015,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1060,7 +1040,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1089,7 +1068,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1115,7 +1093,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1144,7 +1121,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
 
@@ -1173,7 +1149,6 @@ describe('handleAtCommand', () => {
           { text: fileContent },
           { text: '\n--- End of content ---' },
         ],
-        shouldProceed: true,
       });
     });
   });
