@@ -1001,6 +1001,7 @@ export class Session {
         fc.name,
         callId,
         toolResult.llmContent,
+        this.config.getModel(),
         this.config,
       );
       const message = this.extractToolResultText(toolResult);

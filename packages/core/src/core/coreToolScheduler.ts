@@ -43,7 +43,7 @@ import {
   type PartListUnion,
   type FunctionCall,
 } from '@google/genai';
-import { getResponseTextFromParts } from '../utils/generateContentResponseUtilities.js';
+import { supportsMultimodalFunctionResponse } from '../config/models.js';
 import {
   isModifiableDeclarativeTool,
   type ModifyContext,
@@ -243,86 +243,93 @@ export function convertToFunctionResponse(
   toolName: string,
   callId: string,
   llmContent: PartListUnion,
+  model: string,
   config?: ToolOutputSettingsProvider,
 ): Part[] {
-  const contentToProcess =
-    Array.isArray(llmContent) && llmContent.length === 1
-      ? llmContent[0]
-      : llmContent;
-
-  if (typeof contentToProcess === 'string') {
-    const limitedOutput = limitStringOutput(contentToProcess, toolName, config);
+  // Handle simple string case
+  if (typeof llmContent === 'string') {
+    const limitedOutput = limitStringOutput(llmContent, toolName, config);
     return [createFunctionResponsePart(callId, toolName, limitedOutput)];
   }
 
-  if (Array.isArray(contentToProcess)) {
-    // Check if any part already has a function response to avoid duplicates
-    const hasFunctionResponse = contentToProcess.some(
-      (part) => typeof part === 'object' && part.functionResponse,
-    );
+  const parts = toParts(llmContent);
 
-    if (hasFunctionResponse) {
-      // Already has function response(s), return as-is without creating duplicates
-      return toParts(contentToProcess).map((part) =>
-        typeof part === 'object' && part.functionResponse
-          ? limitFunctionResponsePart(part, toolName, config)
-          : part,
-      );
+  // Separate text from binary types
+  const textParts: string[] = [];
+  const inlineDataParts: Part[] = [];
+  const fileDataParts: Part[] = [];
+
+  for (const part of parts) {
+    if (part.text !== undefined) {
+      textParts.push(part.text);
+    } else if (part.inlineData) {
+      inlineDataParts.push(part);
+    } else if (part.fileData) {
+      fileDataParts.push(part);
+    } else if (part.functionResponse) {
+      // Passthrough case - preserve existing response
+      if (parts.length > 1) {
+        toolSchedulerLogger.warn(
+          'convertToFunctionResponse received multiple parts with a functionResponse. ' +
+            'Only the functionResponse will be used, other parts will be ignored',
+        );
+      }
+      return [
+        {
+          functionResponse: {
+            id: callId,
+            name: toolName,
+            response: part.functionResponse.response,
+          },
+        },
+      ];
     }
-
-    // No existing function response, create one
-    const functionResponse = createFunctionResponsePart(
-      callId,
-      toolName,
-      'Tool execution succeeded.',
-    );
-    return [functionResponse, ...toParts(contentToProcess)];
+    // Ignore other part types (e.g., functionCall)
   }
 
-  // After this point, contentToProcess is a single Part object.
-  if (contentToProcess.functionResponse) {
-    if (contentToProcess.functionResponse.response?.['content']) {
-      const stringifiedOutput =
-        getResponseTextFromParts(
-          contentToProcess.functionResponse.response['content'] as Part[],
-        ) || '';
-      const limitedOutput = limitStringOutput(
-        stringifiedOutput,
-        toolName,
-        config,
-      );
-      return [createFunctionResponsePart(callId, toolName, limitedOutput)];
+  // Build the primary response part
+  const part: Part = {
+    functionResponse: {
+      id: callId,
+      name: toolName,
+      response: textParts.length > 0 ? { output: textParts.join('\n') } : {},
+    },
+  };
+
+  // Handle binary content based on model support
+  const isMultimodalFRSupported = supportsMultimodalFunctionResponse(model);
+  const siblingParts: Part[] = [...fileDataParts]; // fileData always sibling
+
+  if (inlineDataParts.length > 0) {
+    if (isMultimodalFRSupported) {
+      // Nest inlineData if supported by the model (Gemini 3+)
+      (part.functionResponse as unknown as { parts: Part[] }).parts =
+        inlineDataParts;
+    } else {
+      // Otherwise treat as siblings (backward compat for Gemini 2, all other providers)
+      siblingParts.push(...inlineDataParts);
     }
-    // It's a functionResponse that we should pass through after enforcing limits.
-    return [limitFunctionResponsePart(contentToProcess, toolName, config)];
   }
 
-  if (contentToProcess.inlineData || contentToProcess.fileData) {
-    const mimeType =
-      contentToProcess.inlineData?.mimeType ||
-      contentToProcess.fileData?.mimeType ||
-      'unknown';
-    const functionResponse = createFunctionResponsePart(
-      callId,
-      toolName,
-      `Binary content of type ${mimeType} was processed.`,
-    );
-    return [functionResponse, contentToProcess];
+  // Add descriptive text if response object is empty but we have binary content
+  if (
+    textParts.length === 0 &&
+    (inlineDataParts.length > 0 || fileDataParts.length > 0)
+  ) {
+    const totalBinaryItems = inlineDataParts.length + fileDataParts.length;
+    part.functionResponse!.response = {
+      output: `Binary content provided (${totalBinaryItems} item(s)).`,
+    };
   }
 
-  if (contentToProcess.text !== undefined) {
-    const limitedOutput = limitStringOutput(
-      contentToProcess.text,
-      toolName,
-      config,
-    );
-    return [createFunctionResponsePart(callId, toolName, limitedOutput)];
+  // Apply output limits to the functionResponse
+  const limitedPart = limitFunctionResponsePart(part, toolName, config);
+
+  if (siblingParts.length > 0) {
+    return [limitedPart, ...siblingParts];
   }
 
-  // Default case for other kinds of parts.
-  return [
-    createFunctionResponsePart(callId, toolName, 'Tool execution succeeded.'),
-  ];
+  return [limitedPart];
 }
 
 function extractAgentIdFromMetadata(
@@ -1648,6 +1655,7 @@ export class CoreToolScheduler {
         toolName,
         callId,
         result.llmContent,
+        this.config.getModel(),
         outputConfig,
       );
       const metadataAgentId = extractAgentIdFromMetadata(result.metadata);

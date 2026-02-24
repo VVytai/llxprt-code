@@ -23,3 +23,14 @@ export function isGemini2Model(model: string): boolean {
 export function isGemini3Model(model: string): boolean {
   return model.startsWith('gemini-3');
 }
+
+/**
+ * Checks if the model supports multimodal function responses (multimodal data nested within function response).
+ * This is supported in Gemini 3.
+ *
+ * @param model The model name to check.
+ * @returns True if the model supports multimodal function responses.
+ */
+export function supportsMultimodalFunctionResponse(model: string): boolean {
+  return model.startsWith('gemini-3-');
+}

@@ -30,6 +30,7 @@ import {
   ApprovalMode,
   ToolRegistry,
 } from '../index.js';
+import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { MockTool } from '../test-utils/mock-tool.js';
 import { MockModifiableTool } from '../test-utils/tools.js';
 import { Part, PartListUnion, type Content } from '@google/genai';
@@ -190,6 +191,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -258,6 +261,7 @@ describe('CoreToolScheduler', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -333,6 +337,7 @@ describe('CoreToolScheduler', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -420,6 +425,7 @@ describe('CoreToolScheduler', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -555,6 +561,7 @@ describe('CoreToolScheduler', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -672,6 +679,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -741,6 +750,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -814,6 +825,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -881,6 +894,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -957,6 +972,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1051,6 +1068,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1121,6 +1140,7 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(createMockPolicyEngine()),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1196,6 +1216,8 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1239,6 +1261,7 @@ describe('CoreToolScheduler', () => {
         getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
         getEnableHooks: () => false,
         getPolicyEngine: vi.fn().mockReturnValue(createMockPolicyEngine()),
+      getModel: () => DEFAULT_GEMINI_MODEL,
       } as unknown as Config;
 
       // Create scheduler
@@ -1309,6 +1332,8 @@ describe('CoreToolScheduler with payload', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1418,6 +1443,7 @@ describe('CoreToolScheduler with payload', () => {
       getToolRegistry: () => toolRegistry,
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
       getShellExecutionConfig: () => ({
         terminalWidth: 80,
         terminalHeight: 24,
@@ -1433,6 +1459,7 @@ describe('CoreToolScheduler with payload', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1487,10 +1514,11 @@ describe('CoreToolScheduler with payload', () => {
 describe('convertToFunctionResponse', () => {
   const toolName = 'testTool';
   const callId = 'call1';
+  const defaultModel = 'gemini-2.5-pro';
 
   it('should handle simple string llmContent', () => {
     const llmContent = 'Simple text output';
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1504,7 +1532,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a single Part with text', () => {
     const llmContent: Part = { text: 'Text from Part object' };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1518,7 +1546,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a PartListUnion array with a single text Part', () => {
     const llmContent: PartListUnion = [{ text: 'Text from array' }];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1534,14 +1562,14 @@ describe('convertToFunctionResponse', () => {
     const llmContent: Part = {
       inlineData: { mimeType: 'image/png', data: 'base64...' },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
           response: {
-            output: 'Binary content of type image/png was processed.',
+            output: 'Binary content provided (1 item(s)).',
           },
         },
       },
@@ -1553,14 +1581,14 @@ describe('convertToFunctionResponse', () => {
     const llmContent: Part = {
       fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
           response: {
-            output: 'Binary content of type application/pdf was processed.',
+            output: 'Binary content provided (1 item(s)).',
           },
         },
       },
@@ -1574,19 +1602,16 @@ describe('convertToFunctionResponse', () => {
       { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
       { text: 'Another text part' },
     ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
-    // When array contains mixed parts, it creates a generic function response and includes all parts
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: { output: 'Some textual description\nAnother text part' },
         },
       },
-      { text: 'Some textual description' },
       { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
-      { text: 'Another text part' },
     ]);
   });
 
@@ -1594,14 +1619,14 @@ describe('convertToFunctionResponse', () => {
     const llmContent: PartListUnion = [
       { inlineData: { mimeType: 'image/gif', data: 'gifdata...' } },
     ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
           response: {
-            output: 'Binary content of type image/gif was processed.',
+            output: 'Binary content provided (1 item(s)).',
           },
         },
       },
@@ -1611,13 +1636,13 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', () => {
     const llmContent: Part = { functionCall: { name: 'test', args: {} } };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: {},
         },
       },
     ]);
@@ -1625,7 +1650,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle empty string llmContent', () => {
     const llmContent = '';
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1639,14 +1664,13 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as an empty array', () => {
     const llmContent: PartListUnion = [];
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
-    // Empty array is treated as array, so returns generic function response
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: {},
         },
       },
     ]);
@@ -1654,13 +1678,13 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a Part with undefined inlineData/fileData/text', () => {
     const llmContent: Part = {}; // An empty part object
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: {},
         },
       },
     ]);
@@ -1673,8 +1697,16 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Tool completed successfully' },
       },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
-    expect(result).toEqual([llmContent]);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    expect(result).toEqual([
+      {
+        functionResponse: {
+          id: callId,
+          name: toolName,
+          response: { output: 'Tool completed successfully' },
+        },
+      },
+    ]);
   });
 
   it('should override id when llmContent contains functionResponse with different id', () => {
@@ -1685,8 +1717,16 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Tool completed successfully' },
       },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent);
-    expect(result).toEqual([llmContent]);
+    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    expect(result).toEqual([
+      {
+        functionResponse: {
+          id: callId,
+          name: toolName,
+          response: { output: 'Tool completed successfully' },
+        },
+      },
+    ]);
   });
 
   it('should trim string outputs using tool-output limits when config is provided', () => {
@@ -1696,12 +1736,14 @@ describe('convertToFunctionResponse', () => {
         'tool-output-max-tokens': 50,
         'tool-output-truncate-mode': 'truncate',
       }),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const result = convertToFunctionResponse(
       toolName,
       callId,
       llmContent,
+      defaultModel,
       config,
     );
     expect(
@@ -1709,6 +1751,315 @@ describe('convertToFunctionResponse', () => {
     ).toContain('[Output truncated due to token limit]');
   });
 });
+
+describe('convertToFunctionResponse - Gemini 3 multimodal handling', () => {
+  const toolName = 'testTool';
+  const callId = 'call1';
+  const gemini3Model = 'gemini-3-pro';
+  const gemini2Model = 'gemini-2.5-pro';
+
+  describe('inlineData handling', () => {
+    it('should nest inlineData within functionResponse.parts for Gemini 3', () => {
+      const llmContent: Part = {
+        inlineData: { mimeType: 'image/png', data: 'base64...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].functionResponse).toBeDefined();
+      expect(result[0].functionResponse!.name).toBe(toolName);
+      expect(result[0].functionResponse!.id).toBe(callId);
+      expect(result[0].functionResponse!.response).toEqual({
+        output: 'Binary content provided (1 item(s)).',
+      });
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toEqual([
+        llmContent,
+      ]);
+    });
+
+    it('should use siblings for inlineData with Gemini 2', () => {
+      const llmContent: Part = {
+        inlineData: { mimeType: 'image/png', data: 'base64...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini2Model,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].functionResponse).toBeDefined();
+      expect(result[0].functionResponse!.response).toEqual({
+        output: 'Binary content provided (1 item(s)).',
+      });
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toBeUndefined();
+      expect(result[1]).toEqual(llmContent);
+    });
+
+    it('should use siblings for inlineData with Claude', () => {
+      const llmContent: Part = {
+        inlineData: { mimeType: 'image/png', data: 'base64...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        'claude-3-5-sonnet',
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[1]).toEqual(llmContent);
+    });
+
+    it('should use siblings for inlineData with GPT', () => {
+      const llmContent: Part = {
+        inlineData: { mimeType: 'image/png', data: 'base64...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        'gpt-4o',
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[1]).toEqual(llmContent);
+    });
+  });
+
+  describe('fileData handling (always siblings)', () => {
+    it('should keep fileData as sibling for Gemini 3', () => {
+      const llmContent: Part = {
+        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].functionResponse).toBeDefined();
+      expect(result[1]).toEqual(llmContent);
+    });
+
+    it('should keep fileData as sibling for Gemini 2', () => {
+      const llmContent: Part = {
+        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini2Model,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[1]).toEqual(llmContent);
+    });
+  });
+
+  describe('mixed content handling', () => {
+    it('should handle text + inlineData + fileData for Gemini 3', () => {
+      const llmContent: PartListUnion = [
+        { text: 'Part 1' },
+        { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
+        { text: 'Part 2' },
+        { fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' } },
+      ];
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result[0].functionResponse!.response).toEqual({
+        output: 'Part 1\nPart 2',
+      });
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toEqual([
+        { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
+      ]);
+      expect(result[1]).toEqual({
+        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
+      });
+    });
+
+    it('should handle text + inlineData + fileData for Gemini 2', () => {
+      const llmContent: PartListUnion = [
+        { text: 'Part 1' },
+        { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
+        { text: 'Part 2' },
+        { fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' } },
+      ];
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini2Model,
+      );
+
+      expect(result).toHaveLength(3);
+      expect(result[0].functionResponse!.response).toEqual({
+        output: 'Part 1\nPart 2',
+      });
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toBeUndefined();
+      expect(result[1]).toEqual({
+        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
+      });
+      expect(result[2]).toEqual({
+        inlineData: { mimeType: 'image/jpeg', data: 'base64data...' },
+      });
+    });
+
+    it('should handle multiple images for Gemini 3', () => {
+      const llmContent: PartListUnion = [
+        { inlineData: { mimeType: 'image/png', data: 'img1...' } },
+        { inlineData: { mimeType: 'image/jpeg', data: 'img2...' } },
+      ];
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(1);
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toHaveLength(2);
+    });
+
+    it('should handle multiple images for Gemini 2', () => {
+      const llmContent: PartListUnion = [
+        { inlineData: { mimeType: 'image/png', data: 'img1...' } },
+        { inlineData: { mimeType: 'image/jpeg', data: 'img2...' } },
+      ];
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini2Model,
+      );
+
+      expect(result).toHaveLength(3);
+      expect(result[1].inlineData).toBeDefined();
+      expect(result[2].inlineData).toBeDefined();
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle text-only output (no binary)', () => {
+      const llmContent = 'Plain text output';
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].functionResponse!.response).toEqual({
+        output: 'Plain text output',
+      });
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toBeUndefined();
+    });
+
+    it('should handle image-only output (no text) for Gemini 3', () => {
+      const llmContent: Part = {
+        inlineData: { mimeType: 'image/gif', data: 'gifdata...' },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].functionResponse!.response).toEqual({
+        output: 'Binary content provided (1 item(s)).',
+      });
+      expect((result[0].functionResponse as { parts?: Part[] }).parts).toEqual([
+        llmContent,
+      ]);
+    });
+
+    it('should handle empty string for Gemini 3', () => {
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        '',
+        gemini3Model,
+      );
+
+      expect(result).toEqual([
+        {
+          functionResponse: {
+            name: toolName,
+            id: callId,
+            response: { output: '' },
+          },
+        },
+      ]);
+    });
+
+    it('should handle empty array for Gemini 3', () => {
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        [],
+        gemini3Model,
+      );
+
+      expect(result).toEqual([
+        {
+          functionResponse: {
+            name: toolName,
+            id: callId,
+            response: {},
+          },
+        },
+      ]);
+    });
+
+    it('should preserve existing functionResponse metadata', () => {
+      const existingResponse = {
+        flags: ['flag1'],
+        isError: false,
+        customData: { key: 'value' },
+      };
+      const llmContent: Part = {
+        functionResponse: {
+          id: 'inner-call-id',
+          name: 'inner-tool-name',
+          response: existingResponse,
+        },
+      };
+      const result = convertToFunctionResponse(
+        toolName,
+        callId,
+        llmContent,
+        gemini3Model,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].functionResponse).toEqual({
+        id: callId,
+        name: toolName,
+        response: existingResponse,
+      });
+    });
+  });
+});
+
+
 
 class MockEditToolInvocation extends BaseToolInvocation<
   Record<string, unknown>,
@@ -1802,6 +2153,8 @@ describe('CoreToolScheduler edit cancellation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2120,6 +2473,8 @@ describe('CoreToolScheduler YOLO mode', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2215,6 +2570,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
         model: 'test-model',
       }),
       getToolRegistry: () => mockToolRegistry,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2338,6 +2694,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getContentGeneratorConfig: () => ({
         model: 'test-model',
       }),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2466,6 +2823,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getGeminiClient: () => null,
       getMessageBus: () => null,
       getPolicyEngine: () => null,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2525,6 +2883,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
         model: 'test-model',
       }),
       getToolRegistry: () => mockToolRegistry,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2589,6 +2948,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       setApprovalMode: (mode: ApprovalMode) => {
         approvalMode = mode;
       },
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const testTool = new TestApprovalTool(mockConfig);
@@ -2767,6 +3127,8 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2887,6 +3249,8 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3010,6 +3374,8 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3143,6 +3509,8 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3238,6 +3606,8 @@ it('injects agentId into ContextAwareTool context', async () => {
     getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
     getEnableHooks: () => false,
     getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
   } as unknown as Config;
 
   const scheduler = new CoreToolScheduler({
@@ -3308,6 +3678,8 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3416,6 +3788,8 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3519,6 +3893,7 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3619,7 +3994,7 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
     const onAllToolCallsComplete = vi.fn();
     const onToolCallsUpdate = vi.fn();
 
-    const mockMessageBus = createMockMessageBus();
+    createMockMessageBus();
     const mockPolicyEngine = createMockPolicyEngine();
     mockPolicyEngine.evaluate = vi
       .fn()
@@ -3635,11 +4010,14 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
       getAllowedTools: () => [],
       getContentGeneratorConfig: () => ({
         model: 'test-model',
-        authType: 'oauth-personal',
       }),
       getToolRegistry: () => mockToolRegistry,
-      getMessageBus: () => mockMessageBus,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
