@@ -15,10 +15,7 @@ import type {
 import { DebugLogger } from '../../debug/index.js';
 import { type IModel } from '../IModel.js';
 import type { ToolFormat } from '../../tools/IToolFormatter.js';
-import {
-  convertToolsToAnthropic,
-  TOOL_PREFIX,
-} from './schemaConverter.js';
+import { convertToolsToAnthropic, TOOL_PREFIX } from './schemaConverter.js';
 import { type IProviderConfig } from '../types/IProviderConfig.js';
 import {
   BaseProvider,
@@ -1004,14 +1001,10 @@ export class AnthropicProvider extends BaseProvider {
 
       if (reasoningEnabled && current.speaker === 'ai') {
         const currentThinking = current.blocks.filter(
-          (b) =>
-            b.type === 'thinking' &&
-            (b).sourceField === 'thinking',
+          (b) => b.type === 'thinking' && b.sourceField === 'thinking',
         );
         const currentOther = current.blocks.filter(
-          (b) =>
-            b.type !== 'thinking' ||
-            (b).sourceField !== 'thinking',
+          (b) => b.type !== 'thinking' || b.sourceField !== 'thinking',
         );
 
         if (currentThinking.length > 0 && currentOther.length === 0) {
@@ -1036,7 +1029,7 @@ export class AnthropicProvider extends BaseProvider {
               for (const block of filteredContentRaw[j].blocks) {
                 if (
                   block.type === 'thinking' &&
-                  (block).sourceField === 'thinking'
+                  block.sourceField === 'thinking'
                 ) {
                   thinkingBlocks.push(block);
                 } else if (block.type === 'text' || block.type === 'code') {
@@ -1239,12 +1232,8 @@ export class AnthropicProvider extends BaseProvider {
       } else if (c.speaker === 'ai') {
         // Flush any pending tool results before adding an AI message
         flushToolResults();
-        const toolCallBlocks = c.blocks.filter(
-          (b) => b.type === 'tool_call',
-        );
-        const thinkingBlocks = c.blocks.filter(
-          (b) => b.type === 'thinking',
-        );
+        const toolCallBlocks = c.blocks.filter((b) => b.type === 'tool_call');
+        const thinkingBlocks = c.blocks.filter((b) => b.type === 'thinking');
 
         if (toolCallBlocks.length > 0 || thinkingBlocks.length > 0) {
           // Build content array preserving the original block order

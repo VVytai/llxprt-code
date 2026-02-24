@@ -5,12 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  useRef,
-  forwardRef,
-  useImperativeHandle,
-  act,
-} from 'react';
+import { useRef, forwardRef, useImperativeHandle, act } from 'react';
 import { render } from 'ink-testing-library';
 import { Box, type DOMElement } from 'ink';
 import {

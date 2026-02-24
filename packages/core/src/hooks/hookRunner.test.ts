@@ -27,7 +27,7 @@ type MockChildProcessWithoutNullStreams = ChildProcessWithoutNullStreams & {
 
 // Mock child_process with importOriginal for partial mocking
 vi.mock('node:child_process', async (importOriginal) => {
-  const actual = (await importOriginal());
+  const actual = await importOriginal();
   return {
     ...actual,
     spawn: vi.fn(),

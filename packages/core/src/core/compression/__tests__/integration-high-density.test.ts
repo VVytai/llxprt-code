@@ -113,7 +113,7 @@ describe('Integration: Density + Compression Pipeline', () => {
 
   it('compress returns valid CompressionResult for populated history', async () => {
     const history: IContent[] = Array.from({ length: 10 }, (_, i) => ({
-      speaker: (i % 2 === 0 ? 'human' : 'ai'),
+      speaker: i % 2 === 0 ? 'human' : 'ai',
       blocks: [{ type: 'text' as const, text: `Message ${i}` }],
     }));
     const strategy = new HighDensityStrategy();

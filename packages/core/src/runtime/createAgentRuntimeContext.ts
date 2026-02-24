@@ -200,17 +200,15 @@ export function createAgentRuntimeContext(
           options.settings['reasoning.includeInResponse'],
         ) ?? EPHEMERAL_DEFAULTS.reasoning.includeInResponse,
       format: (): 'native' | 'field' =>
-        (getLiveSetting(
+        getLiveSetting(
           'reasoning.format',
           options.settings['reasoning.format'],
-        )) ??
-        EPHEMERAL_DEFAULTS.reasoning.format,
+        ) ?? EPHEMERAL_DEFAULTS.reasoning.format,
       stripFromContext: (): 'all' | 'allButLast' | 'none' =>
-        (getLiveSetting(
+        getLiveSetting(
           'reasoning.stripFromContext',
           options.settings['reasoning.stripFromContext'],
-        )) ??
-        EPHEMERAL_DEFAULTS.reasoning.stripFromContext,
+        ) ?? EPHEMERAL_DEFAULTS.reasoning.stripFromContext,
       effort: (): 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | undefined =>
         getLiveSetting(
           'reasoning.effort',

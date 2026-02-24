@@ -1212,9 +1212,7 @@ describe('Issue #1150: Thinking blocks must be attached to tool call messages', 
     expect(aiMessage).toBeDefined();
 
     // THE KEY CHECK: thinking block must be present with sourceField and signature
-    const thinkingBlock = aiMessage?.blocks.find(
-      (b) => b.type === 'thinking',
-    );
+    const thinkingBlock = aiMessage?.blocks.find((b) => b.type === 'thinking');
 
     expect(thinkingBlock).toBeDefined();
     expect(thinkingBlock?.sourceField).toBe('thinking');

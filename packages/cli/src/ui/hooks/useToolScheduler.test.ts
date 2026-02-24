@@ -141,8 +141,7 @@ const buildMockScheduler = (
           const shouldConfirm =
             await call.invocation.shouldConfirmExecute(_signal);
           if (shouldConfirm) {
-            const confirmationDetails =
-              shouldConfirm;
+            const confirmationDetails = shouldConfirm;
             const waitingCall: WaitingToolCall = {
               status: 'awaiting_approval',
               request: call.request,

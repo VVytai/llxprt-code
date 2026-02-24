@@ -130,9 +130,7 @@ describe('Compression locking', () => {
     );
 
     // Should have only one tool call with this ID
-    const callsWithId = toolCalls.filter(
-      (tc) => (tc).id === toolCallId,
-    );
+    const callsWithId = toolCalls.filter((tc) => tc.id === toolCallId);
     expect(callsWithId.length).toBe(1);
   });
 
@@ -196,9 +194,7 @@ describe('Compression locking', () => {
     const compressionMessages = allHistory.filter((h) =>
       h.blocks.some(
         (b) =>
-          b.type === 'text' &&
-          'text' in b &&
-          (b.text).startsWith('Compression'),
+          b.type === 'text' && 'text' in b && b.text.startsWith('Compression'),
       ),
     );
 

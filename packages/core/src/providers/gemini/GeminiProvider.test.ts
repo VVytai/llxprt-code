@@ -221,8 +221,7 @@ describe('GeminiProvider', () => {
     const functionResponsePart = toolMessage.parts.find(
       (part) => 'functionResponse' in part,
     ) as { functionResponse: { response: Record<string, unknown> } };
-    const responsePayload = functionResponsePart.functionResponse
-      .response;
+    const responsePayload = functionResponsePart.functionResponse.response;
 
     expect(responsePayload.status).toBe('error');
     expect(responsePayload.error).toBe('file too large');

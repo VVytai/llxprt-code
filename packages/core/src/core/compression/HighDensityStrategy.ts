@@ -360,9 +360,7 @@ export class HighDensityStrategy implements CompressionStrategy {
               (e) =>
                 e.speaker === 'tool' &&
                 e.blocks.some(
-                  (b) =>
-                    b.type === 'tool_response' &&
-                    (b).callId === id,
+                  (b) => b.type === 'tool_response' && b.callId === id,
                 ),
             ),
         );
@@ -392,10 +390,7 @@ export class HighDensityStrategy implements CompressionStrategy {
       }
       return {
         ...block,
-        result: this.buildToolSummaryText(
-          block,
-          fullHistory,
-        ),
+        result: this.buildToolSummaryText(block, fullHistory),
       } as ToolResponseBlock;
     });
     return { ...entry, blocks: newBlocks } as IContent;
@@ -433,11 +428,8 @@ export class HighDensityStrategy implements CompressionStrategy {
     for (const entry of fullHistory) {
       if (entry.speaker !== 'ai') continue;
       for (const b of entry.blocks) {
-        if (
-          b.type === 'tool_call' &&
-          (b).id === block.callId
-        ) {
-          const params = (b).parameters;
+        if (b.type === 'tool_call' && b.id === block.callId) {
+          const params = b.parameters;
           keyParam = extractFilePath(params);
           break;
         }
@@ -622,8 +614,7 @@ export class HighDensityStrategy implements CompressionStrategy {
       const totalCalls = aiEntryTotalToolCalls.get(aiIndex) ?? 0;
 
       const filteredBlocks = history[aiIndex].blocks.filter(
-        (b) =>
-          b.type !== 'tool_call' || !staleCalls.has((b).id),
+        (b) => b.type !== 'tool_call' || !staleCalls.has(b.id),
       );
 
       if (
@@ -669,9 +660,7 @@ export class HighDensityStrategy implements CompressionStrategy {
         prunedCount = prunedCount + staleResponses.length;
       } else {
         const filteredBlocks = entry.blocks.filter(
-          (b) =>
-            b.type !== 'tool_response' ||
-            !staleCallIds.has((b).callId),
+          (b) => b.type !== 'tool_response' || !staleCallIds.has(b.callId),
         );
         if (filteredBlocks.length === 0) {
           removals.add(index);

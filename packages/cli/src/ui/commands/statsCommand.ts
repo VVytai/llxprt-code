@@ -159,9 +159,7 @@ async function fetchAllQuotaInfo(
 
         for (const bucket of sortedBuckets) {
           const usageInfo = anthropicUsageInfo.get(bucket)!;
-          const lines = formatAllUsagePeriods(
-            usageInfo,
-          );
+          const lines = formatAllUsagePeriods(usageInfo);
 
           if (lines.length > 0) {
             if (anthropicUsageInfo.size > 1) {

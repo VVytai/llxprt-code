@@ -394,7 +394,7 @@ describe('CoreToolScheduler', () => {
       .fn()
       .mockReturnValue(PolicyDecision.ASK_USER);
     let busHandler: ((message: ToolConfirmationResponse) => void) | undefined;
-    (mockMessageBus.subscribe).mockImplementation(
+    mockMessageBus.subscribe.mockImplementation(
       (type: MessageBusType, handler: unknown) => {
         if (type === MessageBusType.TOOL_CONFIRMATION_RESPONSE) {
           busHandler = handler as (message: ToolConfirmationResponse) => void;
@@ -512,7 +512,7 @@ describe('CoreToolScheduler', () => {
       .mockReturnValue(PolicyDecision.ASK_USER);
 
     let busHandler: ((message: ToolConfirmationResponse) => void) | undefined;
-    (mockMessageBus.subscribe).mockImplementation(
+    mockMessageBus.subscribe.mockImplementation(
       (type: MessageBusType, handler: unknown) => {
         if (type === MessageBusType.TOOL_CONFIRMATION_RESPONSE) {
           busHandler = handler as (message: ToolConfirmationResponse) => void;
@@ -600,7 +600,7 @@ describe('CoreToolScheduler', () => {
 
     expect(executeFn).toHaveBeenCalledWith({ command: 'npm install' });
 
-    const messageBusResponses = (mockMessageBus.publish).mock.calls
+    const messageBusResponses = mockMessageBus.publish.mock.calls
       .map((call) => call[0])
       .filter(
         (message) => message.type === MessageBusType.TOOL_CONFIRMATION_RESPONSE,

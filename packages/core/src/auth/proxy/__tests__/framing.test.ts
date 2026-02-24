@@ -154,8 +154,8 @@ describe('FrameDecoder', () => {
 
     expect(results[0]).toEqual(payload);
     expect(typeof results[0]).toBe('object');
-    expect((results[0]).status).toBe('ok');
-    expect((results[0]).count).toBe(99);
+    expect(results[0].status).toBe('ok');
+    expect(results[0].count).toBe(99);
   });
 
   /**

@@ -379,9 +379,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
               (e) =>
                 e.speaker === 'tool' &&
                 e.blocks.some(
-                  (b) =>
-                    b.type === 'tool_response' &&
-                    (b).callId === tc.id,
+                  (b) => b.type === 'tool_response' && b.callId === tc.id,
                 ),
             );
             expect(hasMatchingResponse).toBe(true);
@@ -506,7 +504,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
       for (const te of toolEntries) {
         for (const block of te.blocks) {
           if (block.type === 'tool_response') {
-            summaries.push(String((block).result));
+            summaries.push(String(block.result));
           }
         }
       }
@@ -550,7 +548,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
       for (const te of toolEntries) {
         for (const block of te.blocks) {
           if (block.type === 'tool_response') {
-            const resultStr = String((block).result);
+            const resultStr = String(block.result);
             // Summary should mention either the path or the tool name
             expect(
               resultStr.includes('read_file') ||
@@ -1099,9 +1097,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
             if (entry.speaker === 'tool') {
               for (const block of entry.blocks) {
                 if (block.type === 'tool_response') {
-                  expect(typeof (block).result).toBe(
-                    'string',
-                  );
+                  expect(typeof block.result).toBe('string');
                 }
               }
             }

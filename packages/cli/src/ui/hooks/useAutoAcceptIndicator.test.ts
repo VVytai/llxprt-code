@@ -26,9 +26,9 @@ import { MessageType } from '../types.js';
 vi.mock('./useKeypress.js');
 
 vi.mock('@vybestack/llxprt-code-core', async () => {
-  const actualServerModule = (await vi.importActual(
+  const actualServerModule = await vi.importActual(
     '@vybestack/llxprt-code-core',
-  ));
+  );
   return {
     ...actualServerModule,
     Config: vi.fn(),

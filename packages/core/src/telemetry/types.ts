@@ -155,7 +155,7 @@ export class ToolCallEvent {
       call.response.resultDisplay !== null &&
       'diffStat' in call.response.resultDisplay
     ) {
-      const diffStat = (call.response.resultDisplay).diffStat;
+      const diffStat = call.response.resultDisplay.diffStat;
       if (diffStat) {
         this.metadata = {
           ai_added_lines: diffStat.ai_added_lines,

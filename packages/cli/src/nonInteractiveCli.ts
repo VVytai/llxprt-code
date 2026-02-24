@@ -362,7 +362,7 @@ export async function runNonInteractive({
 
             outputValue =
               typeof filterResult.filtered === 'string'
-                ? (filterResult.filtered)
+                ? filterResult.filtered
                 : '';
 
             if (filterResult.systemFeedback) {

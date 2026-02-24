@@ -894,8 +894,8 @@ describe('useGeminiStream', () => {
       expect(client.addHistory).toHaveBeenCalledWith({
         role: 'user',
         parts: [
-          ...(cancelledToolCall1.response.responseParts),
-          ...(cancelledToolCall2.response.responseParts),
+          ...cancelledToolCall1.response.responseParts,
+          ...cancelledToolCall2.response.responseParts,
         ],
       });
 

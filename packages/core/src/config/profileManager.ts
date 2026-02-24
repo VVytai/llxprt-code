@@ -337,12 +337,12 @@ export class ProfileManager {
       },
       tools: {
         allowed: Array.isArray(profile.ephemeralSettings['tools.allowed'])
-          ? [...(profile.ephemeralSettings['tools.allowed'])]
+          ? [...profile.ephemeralSettings['tools.allowed']]
           : [],
         disabled: Array.isArray(profile.ephemeralSettings['tools.disabled'])
-          ? [...(profile.ephemeralSettings['tools.disabled'])]
+          ? [...profile.ephemeralSettings['tools.disabled']]
           : Array.isArray(profile.ephemeralSettings['disabled-tools'])
-            ? [...(profile.ephemeralSettings['disabled-tools'])]
+            ? [...profile.ephemeralSettings['disabled-tools']]
             : [],
       },
     };

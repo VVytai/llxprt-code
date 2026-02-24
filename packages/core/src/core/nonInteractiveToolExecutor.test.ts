@@ -428,8 +428,7 @@ describe('executeToolCall response structure (Phase 3b.1)', () => {
       getTelemetryLogPromptsEnabled: () => false,
       getExcludeTools: () => [],
       getEphemeralSettings: () => ephemerals,
-      getEphemeralSetting: (key: string) =>
-        ephemerals[key],
+      getEphemeralSetting: (key: string) => ephemerals[key],
       getPolicyEngine: includePolicyEngine
         ? policyEngineReturnsUndefined
           ? () => undefined as unknown as PolicyEngine

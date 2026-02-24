@@ -131,11 +131,11 @@ class TestGeminiProvider extends GeminiProvider {
     config: unknown,
     baseURL?: string,
   ) {
-    return (await createCodeAssistContentGenerator(
+    return await createCodeAssistContentGenerator(
       httpOptions,
       config as never,
       baseURL,
-    ));
+    );
   }
 }
 

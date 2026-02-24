@@ -1,6 +1,4 @@
-import {
-  type IContent,
-} from '../../services/history/IContent.js';
+import { type IContent } from '../../services/history/IContent.js';
 import { ConversationCache } from './ConversationCache.js';
 
 // Model context size configuration

@@ -1641,9 +1641,7 @@ export class CoreToolScheduler {
         result.llmContent,
         outputConfig,
       );
-      const metadataAgentId = extractAgentIdFromMetadata(
-        result.metadata,
-      );
+      const metadataAgentId = extractAgentIdFromMetadata(result.metadata);
 
       // Only include functionResponse parts - the functionCall is already in
       // history from the original assistant message. Including it again would

@@ -1157,8 +1157,8 @@ sub memory
           typeof part === 'object' &&
           part !== null &&
           'text' in part &&
-          typeof (part).text === 'string' &&
-          (part).text.includes('System Note'),
+          typeof part.text === 'string' &&
+          part.text.includes('System Note'),
       );
       expect(reminderPart).toBeDefined();
     });
@@ -1963,10 +1963,8 @@ sub memory
           typeof part === 'object' &&
           part !== null &&
           'text' in part &&
-          typeof (part).text === 'string' &&
-          (part).text.includes(
-            'Continue and take the next concrete action now',
-          ),
+          typeof part.text === 'string' &&
+          part.text.includes('Continue and take the next concrete action now'),
       );
       expect(continuationPart).toBeDefined();
 

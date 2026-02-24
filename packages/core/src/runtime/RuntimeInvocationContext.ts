@@ -87,7 +87,7 @@ export function createRuntimeInvocationContext(
   const runtimeId =
     typeof init.runtime.runtimeId === 'string' &&
     init.runtime.runtimeId.trim() !== ''
-      ? (init.runtime.runtimeId)
+      ? init.runtime.runtimeId
       : (init.fallbackRuntimeId ?? '');
 
   if (!runtimeId) {

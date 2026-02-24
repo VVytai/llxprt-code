@@ -239,13 +239,11 @@ export const ToolConfirmationMessage: React.FC<
                   <Text color={Colors.AccentRed} bold>
                     ⚠ AST Validation Failed
                   </Text>
-                  {(astValidation.errors).map(
-                    (err: string, i: number) => (
-                      <Text key={i} color={Colors.AccentRed}>
-                        - {err}
-                      </Text>
-                    ),
-                  )}
+                  {astValidation.errors.map((err: string, i: number) => (
+                    <Text key={i} color={Colors.AccentRed}>
+                      - {err}
+                    </Text>
+                  ))}
                 </Box>
               )}
             </Box>
@@ -265,8 +263,7 @@ export const ToolConfirmationMessage: React.FC<
       </Box>
     );
   } else if (confirmationDetails.type === 'exec') {
-    const executionProps =
-      confirmationDetails;
+    const executionProps = confirmationDetails;
 
     question = `Allow execution of: '${executionProps.rootCommand}'?`;
     options.push({

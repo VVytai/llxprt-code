@@ -162,7 +162,7 @@ describe('Issue #1150: Thinking blocks in history', () => {
       const thoughtParts = modelResponseParts.filter(isThoughtPart);
       expect(thoughtParts.length).toBe(1);
       expect(thoughtParts[0].text).toBe('Let me think about this...');
-      expect((thoughtParts[0]).thoughtSignature).toBe('sig123');
+      expect(thoughtParts[0].thoughtSignature).toBe('sig123');
     });
 
     /**
@@ -263,9 +263,8 @@ describe('Issue #1150: Thinking blocks in history', () => {
               (part): ThinkingBlock => ({
                 type: 'thinking',
                 thought: (part.text ?? '').trim(),
-                sourceField:
-                  (part).llxprtSourceField ?? 'thought',
-                signature: (part).thoughtSignature,
+                sourceField: part.llxprtSourceField ?? 'thought',
+                signature: part.thoughtSignature,
               }),
             )
             .filter((block) => block.thought.length > 0)
@@ -400,9 +399,8 @@ describe('Issue #1150: Thinking blocks in history', () => {
               (part): ThinkingBlock => ({
                 type: 'thinking',
                 thought: (part.text ?? '').trim(),
-                sourceField:
-                  (part).llxprtSourceField ?? 'thought',
-                signature: (part).thoughtSignature,
+                sourceField: part.llxprtSourceField ?? 'thought',
+                signature: part.thoughtSignature,
               }),
             )
             .filter((block) => block.thought.length > 0)

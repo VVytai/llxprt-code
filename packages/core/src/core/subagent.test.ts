@@ -1789,7 +1789,7 @@ describe('subagent.ts', () => {
         await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
 
         // Now resolve the stream. The model returns 'stop'.
-         
+
         resolveStream!(createMockStream(['stop'])());
 
         await runPromise;

@@ -216,9 +216,7 @@ export class GeminiProvider extends BaseProvider {
           cleanedSchema[key] = cleanedProperties;
         } else if (key === 'items' && typeof typedSchema[key] === 'object') {
           // Recursively clean schema within 'items' for array types
-          cleanedSchema[key] = this.cleanGeminiSchema(
-            typedSchema[key],
-          );
+          cleanedSchema[key] = this.cleanGeminiSchema(typedSchema[key]);
         } else if (key === 'anyOf' && Array.isArray(typedSchema[key])) {
           // Recursively clean schemas within 'anyOf'
           cleanedSchema[key] = (typedSchema[key] as unknown[]).map(
@@ -1055,7 +1053,7 @@ export class GeminiProvider extends BaseProvider {
         const parts: Part[] = [];
         for (const block of c.blocks) {
           if (block.type === 'text') {
-            parts.push({ text: (block).text });
+            parts.push({ text: block.text });
           }
         }
 
@@ -1067,7 +1065,7 @@ export class GeminiProvider extends BaseProvider {
 
         for (const block of c.blocks) {
           if (block.type === 'text') {
-            parts.push({ text: (block).text });
+            parts.push({ text: block.text });
           } else if (block.type === 'tool_call') {
             const tc = block;
             parts.push({
@@ -1133,20 +1131,28 @@ export class GeminiProvider extends BaseProvider {
     ] as Record<string, unknown> | undefined;
     const reasoningEnabled =
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getModelBehavior('reasoning.enabled') as boolean | undefined) ??
+      (options.invocation?.getModelBehavior('reasoning.enabled') as
+        | boolean
+        | undefined) ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.enabled'] ===
         true ||
         reasoningObj?.enabled === true);
     const reasoningIncludeInResponse =
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getCliSetting('reasoning.includeInResponse') as boolean | undefined) ??
+      (options.invocation?.getCliSetting('reasoning.includeInResponse') as
+        | boolean
+        | undefined) ??
       ((earlyEphemerals as Record<string, unknown>)[
         'reasoning.includeInResponse'
       ] !== false &&
         reasoningObj?.includeInResponse !== false);
     const reasoningStripFromContext =
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getCliSetting('reasoning.stripFromContext') as 'all' | 'allButLast' | 'none' | undefined) ??
+      (options.invocation?.getCliSetting('reasoning.stripFromContext') as
+        | 'all'
+        | 'allButLast'
+        | 'none'
+        | undefined) ??
       ((earlyEphemerals as Record<string, unknown>)[
         'reasoning.stripFromContext'
       ] as 'all' | 'allButLast' | 'none') ??
@@ -1177,7 +1183,9 @@ export class GeminiProvider extends BaseProvider {
         | undefined);
     const reasoningMaxTokens =
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getModelBehavior('reasoning.maxTokens') as number | undefined) ??
+      (options.invocation?.getModelBehavior('reasoning.maxTokens') as
+        | number
+        | undefined) ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.maxTokens'] as
         | number
         | undefined) ??
@@ -1822,12 +1830,8 @@ export class GeminiProvider extends BaseProvider {
 
     if (stream) {
       const iterator: AsyncIterator<GenerateContentResponse> =
-        typeof (stream)[
-          Symbol.asyncIterator
-        ] === 'function'
-          ? (stream)[
-              Symbol.asyncIterator
-            ]()
+        typeof stream[Symbol.asyncIterator] === 'function'
+          ? stream[Symbol.asyncIterator]()
           : (stream as unknown as AsyncIterator<GenerateContentResponse>);
       while (true) {
         const { value, done } = await iterator.next();

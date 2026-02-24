@@ -64,7 +64,7 @@ describe('grep parameter consistency', () => {
     expect(validation).toBeNull(); // Should pass validation
     expect(invocation).toBeDefined();
     // CRITICAL: The invocation should use dir_path internally
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
   });
 
   it('should accept path as legacy alias', async () => {
@@ -84,7 +84,7 @@ describe('grep parameter consistency', () => {
     expect(validation).toBeNull(); // Should pass validation for backward compat
     expect(invocation).toBeDefined();
     // After normalization, dir_path should be set internally
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
   });
 
   it('should prefer dir_path over path when both provided', async () => {
@@ -106,7 +106,7 @@ describe('grep parameter consistency', () => {
     expect(validation).toBeNull();
     expect(invocation).toBeDefined();
     // CRITICAL: When both are provided, dir_path should take precedence
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
   });
 
   it('should normalize path to dir_path internally', async () => {
@@ -123,9 +123,9 @@ describe('grep parameter consistency', () => {
     // Assert
     expect(invocation).toBeDefined();
     // CRITICAL: After normalization, dir_path should be populated
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
     // Original path should still be present
-    expect((invocation).params.path).toBe(testDir);
+    expect(invocation.params.path).toBe(testDir);
   });
 
   it('should use current directory when neither dir_path nor path provided', async () => {

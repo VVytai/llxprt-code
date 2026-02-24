@@ -309,7 +309,7 @@ describe('Backward compatibility', () => {
 
     expect(legacyProfile.version).toBe(1);
     expect(legacyProfile.provider).toBe('anthropic');
-    expect((legacyProfile).auth).toBeUndefined();
+    expect(legacyProfile.auth).toBeUndefined();
   });
 
   it('should allow profiles with explicit standard type but no auth', () => {

@@ -16,11 +16,7 @@
 
 import { randomUUID } from 'crypto';
 import { type Content, type Part } from '@google/genai';
-import type {
-  IContent,
-  ContentBlock,
-  ThinkingBlock,
-} from './IContent.js';
+import type { IContent, ContentBlock, ThinkingBlock } from './IContent.js';
 import { DebugLogger } from '../../debug/index.js';
 import {
   canonicalizeToolCallId,
@@ -43,11 +39,11 @@ export class ContentConverters {
       toolCallIds:
         iContent.blocks
           ?.filter((b) => b.type === 'tool_call')
-          .map((b) => (b).id) || [],
+          .map((b) => b.id) || [],
       toolResponseCallIds:
         iContent.blocks
           ?.filter((b) => b.type === 'tool_response')
-          .map((b) => (b).callId) || [],
+          .map((b) => b.callId) || [],
     });
     // Tool responses should have 'user' role in Gemini format
     let role: 'user' | 'model';
@@ -340,9 +336,7 @@ export class ContentConverters {
           blocks.push({
             type: 'tool_response',
             callId,
-            toolName: (matched?.toolName ||
-              part.functionResponse.name ||
-              ''),
+            toolName: matched?.toolName || part.functionResponse.name || '',
             result,
           });
           responseIndex += 1;
@@ -380,10 +374,10 @@ export class ContentConverters {
       blockTypes: blocks.map((b) => b.type),
       toolCallIds: blocks
         .filter((b) => b.type === 'tool_call')
-        .map((b) => (b).id),
+        .map((b) => b.id),
       toolResponseCallIds: blocks
         .filter((b) => b.type === 'tool_response')
-        .map((b) => (b).callId),
+        .map((b) => b.callId),
     });
 
     return result;

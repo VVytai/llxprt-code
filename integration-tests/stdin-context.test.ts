@@ -95,7 +95,7 @@ describe.skip('stdin context', () => {
       termination behavior and stderr output when stdin doesn't end.
     */
 
-    await rig.setup('should exit quickly if stdin stream does not end');
+      await rig.setup('should exit quickly if stdin stream does not end');
 
       try {
         await rig.run({ stdinDoesNotEnd: true });

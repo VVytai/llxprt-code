@@ -572,15 +572,9 @@ export class OpenAIResponsesProvider extends BaseProvider {
           input.push({ role: 'user', content: text });
         }
       } else if (c.speaker === 'ai') {
-        const textBlocks = c.blocks.filter(
-          (b) => b.type === 'text',
-        );
-        const toolCallBlocks = c.blocks.filter(
-          (b) => b.type === 'tool_call',
-        );
-        const thinkingBlocks = c.blocks.filter(
-          (b) => b.type === 'thinking',
-        );
+        const textBlocks = c.blocks.filter((b) => b.type === 'text');
+        const toolCallBlocks = c.blocks.filter((b) => b.type === 'tool_call');
+        const thinkingBlocks = c.blocks.filter((b) => b.type === 'thinking');
 
         const contentText = textBlocks.map((b) => b.text).join('');
 
@@ -662,8 +656,7 @@ export class OpenAIResponsesProvider extends BaseProvider {
               msg.blocks.some(
                 (b) =>
                   b.type === 'tool_call' &&
-                  normalizeToOpenAIToolId((b).id) ===
-                    outputCallId,
+                  normalizeToOpenAIToolId(b.id) === outputCallId,
               ),
           );
 

@@ -198,7 +198,7 @@ class TestBaseProvider extends BaseProvider {
   ): AsyncIterableIterator<IContent> {
     const callId =
       typeof options.metadata?.marker === 'string'
-        ? (options.metadata.marker)
+        ? options.metadata.marker
         : 'unknown';
     const captureAuth = options.metadata?.captureAuth === true;
 

@@ -1728,9 +1728,9 @@ ${jitMemory}`
             : [];
           if (requestedTodos.length > 0) {
             this.lastTodoSnapshot = requestedTodos.map((todo) => ({
-              id: `${(todo).id ?? ''}`,
-              content: (todo).content ?? '',
-              status: (todo).status ?? 'pending',
+              id: `${todo.id ?? ''}`,
+              content: todo.content ?? '',
+              status: todo.status ?? 'pending',
             }));
           }
         }

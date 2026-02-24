@@ -1147,17 +1147,12 @@ export const useGeminiStream = (
             break;
           case ServerGeminiEventType.ContextWindowWillOverflow:
             handleContextWindowWillOverflowEvent(
-              (event).value
-                .estimatedRequestTokenCount,
-              (event).value
-                .remainingTokenCount,
+              event.value.estimatedRequestTokenCount,
+              event.value.remainingTokenCount,
             );
             break;
           case ServerGeminiEventType.Finished:
-            handleFinishedEvent(
-              event,
-              userMessageTimestamp,
-            );
+            handleFinishedEvent(event, userMessageTimestamp);
             break;
           case ServerGeminiEventType.LoopDetected:
             // handle later because we want to move pending history to history
@@ -1172,10 +1167,7 @@ export const useGeminiStream = (
             }
             break;
           case ServerGeminiEventType.Citation:
-            handleCitationEvent(
-              (event).value,
-              userMessageTimestamp,
-            );
+            handleCitationEvent(event.value, userMessageTimestamp);
             break;
           case ServerGeminiEventType.Retry:
           case ServerGeminiEventType.InvalidStream:

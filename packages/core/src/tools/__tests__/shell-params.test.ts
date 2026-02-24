@@ -59,7 +59,7 @@ describe('shell parameter consistency', () => {
     expect(validation).toBeNull(); // Should pass validation
     expect(invocation).toBeDefined();
     // CRITICAL: The invocation should use dir_path internally
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
   });
 
   it('should accept directory as legacy alias', () => {
@@ -79,7 +79,7 @@ describe('shell parameter consistency', () => {
     expect(validation).toBeNull(); // Should pass validation for backward compat
     expect(invocation).toBeDefined();
     // After normalization, dir_path should be set internally
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
   });
 
   it('should prefer dir_path over directory when both provided', async () => {
@@ -101,7 +101,7 @@ describe('shell parameter consistency', () => {
     expect(validation).toBeNull();
     expect(invocation).toBeDefined();
     // CRITICAL: When both are provided, dir_path should take precedence
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
   });
 
   it('should normalize directory to dir_path internally', () => {
@@ -118,9 +118,9 @@ describe('shell parameter consistency', () => {
     // Assert
     expect(invocation).toBeDefined();
     // CRITICAL: After normalization, dir_path should be populated
-    expect((invocation).params.dir_path).toBe(testDir);
+    expect(invocation.params.dir_path).toBe(testDir);
     // Original directory should still be present
-    expect((invocation).params.directory).toBe(testDir);
+    expect(invocation.params.directory).toBe(testDir);
   });
 
   it('should use current directory when neither dir_path nor directory provided', () => {

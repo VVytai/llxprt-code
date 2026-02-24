@@ -26,7 +26,7 @@ const fakeChildFactory = () => {
 };
 
 vi.mock('child_process', async (orig) => {
-  const mod = (await orig());
+  const mod = await orig();
   return {
     ...mod,
     spawn: vi.fn(() => fakeChildFactory()),

@@ -461,9 +461,7 @@ describe('OpenAIProvider DeepSeek-reasoner reasoning+tool_calls co-emission (iss
     expect(messages).toHaveLength(2);
 
     // The tool_calls message is the second one
-    const toolCallMsg = messages.find(
-      (m) => (m).tool_calls !== undefined,
-    );
+    const toolCallMsg = messages.find((m) => m.tool_calls !== undefined);
     expect(toolCallMsg).toBeDefined();
 
     // The tool_calls message has NO reasoning_content — this is what caused the bug

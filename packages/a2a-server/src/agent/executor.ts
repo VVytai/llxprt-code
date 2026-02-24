@@ -12,10 +12,7 @@ import type {
   RequestContext,
   ExecutionEventBus,
 } from '@a2a-js/sdk/server';
-import type {
-  ToolCallRequestInfo,
-  Config,
-} from '@vybestack/llxprt-code-core';
+import type { ToolCallRequestInfo, Config } from '@vybestack/llxprt-code-core';
 import { GeminiEventType } from '@vybestack/llxprt-code-core';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -115,8 +112,7 @@ export class CoderAgentExecutor implements AgentExecutor {
 
     const agentSettings = persistedState._agentSettings;
     const config = await this.getConfig(agentSettings, sdkTask.id);
-    const contextId =
-      (metadata['_contextId'] as string) || (sdkTask.contextId);
+    const contextId = (metadata['_contextId'] as string) || sdkTask.contextId;
     const runtimeTask = await Task.create(
       sdkTask.id,
       contextId,
@@ -477,9 +473,7 @@ export class CoderAgentExecutor implements AgentExecutor {
             throw new Error('Execution aborted');
           }
           if (event.type === GeminiEventType.ToolCallRequest) {
-            toolCallRequests.push(
-              (event).value,
-            );
+            toolCallRequests.push(event.value);
             continue;
           }
           await currentTask.acceptAgentMessage(event);

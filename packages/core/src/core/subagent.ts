@@ -249,7 +249,7 @@ function convertMetadataToFunctionDeclaration(
 ): FunctionDeclaration {
   const rawSchema =
     metadata.parameterSchema && typeof metadata.parameterSchema === 'object'
-      ? { ...(metadata.parameterSchema) }
+      ? { ...metadata.parameterSchema }
       : {};
   const properties =
     (rawSchema.properties as Record<string, unknown> | undefined) ?? {};
@@ -1355,7 +1355,7 @@ export class SubAgentScope {
       const requestInfo: ToolCallRequestInfo = {
         callId,
         name: functionCall.name as string,
-        args: (functionCall.args ?? {}),
+        args: functionCall.args ?? {},
         isClientInitiated: true,
         prompt_id: promptId,
         agentId: this.subagentId,

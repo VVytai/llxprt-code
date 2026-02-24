@@ -294,7 +294,7 @@ function mergeSettings(
     user.ui?.theme ??
     system.ui?.theme ??
     systemDefaults.ui?.theme ??
-    (schemaDefaults.ui?.theme);
+    schemaDefaults.ui?.theme;
   if (merged.ui) {
     merged.ui.theme = prioritizedTheme;
   }

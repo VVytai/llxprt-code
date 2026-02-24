@@ -485,8 +485,12 @@ export class TestRig {
     }
 
     const yolo = options.yolo !== false;
-    const extraArgs: string[] = [...(yolo ? ['--yolo'] : []), '--ide-mode', 'disable'];
-    
+    const extraArgs: string[] = [
+      ...(yolo ? ['--yolo'] : []),
+      '--ide-mode',
+      'disable',
+    ];
+
     // When using fake responses, FakeProvider is activated via LLXPRT_FAKE_RESPONSES
     // env var in the child process. Pass --provider fake so the bootstrap's
     // switchActiveProvider('fake') is a no-op (provider already active).
@@ -512,7 +516,7 @@ export class TestRig {
 
     const { command, initialArgs } = this._getCommandAndArgs(extraArgs);
     const commandArgs = [...initialArgs];
-    
+
     const execOptions: {
       cwd: string;
       encoding: 'utf-8';

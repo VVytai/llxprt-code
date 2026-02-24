@@ -8,9 +8,7 @@ import {
 } from '../utils/toolResponsePayload.js';
 
 import { DebugLogger } from '../../debug/index.js';
-import {
-  type IContent,
-} from '../../services/history/IContent.js';
+import { type IContent } from '../../services/history/IContent.js';
 import { type ITool } from '../ITool.js';
 import { type ResponsesTool } from '../../tools/IToolFormatter.js';
 import {
@@ -277,9 +275,7 @@ export function buildResponsesRequest(
       .filter((msg) => msg.speaker !== 'tool') // Exclude tool messages
       .map((msg) => {
         // Extract text content from blocks
-        const textBlocks = msg.blocks.filter(
-          (block) => block.type === 'text',
-        );
+        const textBlocks = msg.blocks.filter((block) => block.type === 'text');
         const content =
           textBlocks.length > 0
             ? textBlocks.map((block) => block.text).join('\n')

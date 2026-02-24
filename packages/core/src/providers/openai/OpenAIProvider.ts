@@ -959,9 +959,7 @@ export class OpenAIProvider extends BaseProvider implements IProvider {
         );
         const text = textBlocks.map((b) => b.text).join('\n');
         const thinkingBlocks = extractThinkingBlocks(content);
-        const toolCalls = content.blocks.filter(
-          (b) => b.type === 'tool_call',
-        );
+        const toolCalls = content.blocks.filter((b) => b.type === 'tool_call');
 
         if (toolCalls.length > 0) {
           // Assistant message with tool calls

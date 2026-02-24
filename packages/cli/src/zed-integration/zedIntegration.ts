@@ -820,7 +820,7 @@ export class Session {
     fc: FunctionCall,
   ): Promise<ToolRunResult> {
     const callId = fc.id ?? `${fc.name}-${Date.now()}`;
-    const args = (fc.args ?? {});
+    const args = fc.args ?? {};
 
     const startTime = Date.now();
 

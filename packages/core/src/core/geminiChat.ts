@@ -2210,9 +2210,8 @@ export class GeminiChat {
     );
 
     const providerParams = provider?.getModelParams?.();
-    const providerBudget = this.extractCompletionBudgetFromParams(
-      providerParams,
-    );
+    const providerBudget =
+      this.extractCompletionBudgetFromParams(providerParams);
 
     return (
       generationBudget ?? providerBudget ?? GeminiChat.DEFAULT_COMPLETION_BUDGET

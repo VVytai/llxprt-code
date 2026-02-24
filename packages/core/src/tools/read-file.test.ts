@@ -61,9 +61,7 @@ describe('ReadFileTool', () => {
       const result = tool.build(params);
       expect(result).not.toBeTypeOf('string');
       expect(typeof result).toBe('object');
-      expect(
-        (result).params,
-      ).toEqual(params);
+      expect(result.params).toEqual(params);
     });
 
     it('should return an invocation for valid params with offset and limit', () => {
@@ -177,22 +175,16 @@ describe('ReadFileTool', () => {
         const params: ReadFileToolParams = { absolute_path: filePath };
         const invocation = tool.build(params);
         expect(typeof invocation).not.toBe('string');
-        expect(
-          (
-            invocation
-          ).getDescription(),
-        ).toBe(path.join('sub', 'dir', 'file.txt'));
+        expect(invocation.getDescription()).toBe(
+          path.join('sub', 'dir', 'file.txt'),
+        );
       });
 
       it('should return . if path is the root directory', () => {
         const params: ReadFileToolParams = { absolute_path: tempRootDir };
         const invocation = tool.build(params);
         expect(typeof invocation).not.toBe('string');
-        expect(
-          (
-            invocation
-          ).getDescription(),
-        ).toBe('.');
+        expect(invocation.getDescription()).toBe('.');
       });
     });
 

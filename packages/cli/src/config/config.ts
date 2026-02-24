@@ -687,8 +687,7 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
     proxy: result.proxy,
     includeDirectories: result.includeDirectories,
     profileLoad: result.profileLoad,
-    loadMemoryFromIncludeDirectories:
-      result.loadMemoryFromIncludeDirectories,
+    loadMemoryFromIncludeDirectories: result.loadMemoryFromIncludeDirectories,
     ideMode: result.ideMode,
     screenReader: result.screenReader as boolean | undefined,
     sessionSummary: result.sessionSummary as string | undefined,

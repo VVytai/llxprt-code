@@ -33,9 +33,7 @@ describe('ContextIndicator UI', () => {
       name: 'openai',
     } as unknown as IProvider);
 
-    (
-      vi.mocked(getProviderManager)
-    ).mockReturnValue(mockProviderManager);
+    vi.mocked(getProviderManager).mockReturnValue(mockProviderManager);
   });
 
   it('should display context percentage without remote tokens', () => {

@@ -63,7 +63,7 @@ describe('Telemetry Metrics', () => {
     vi.resetModules();
     vi.doMock('@opentelemetry/api', () => {
       const actualApi = originalOtelMockFactory();
-      (actualApi.metrics.getMeter).mockReturnValue(mockMeterInstance);
+      actualApi.metrics.getMeter.mockReturnValue(mockMeterInstance);
       return actualApi;
     });
 

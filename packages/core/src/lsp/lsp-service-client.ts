@@ -181,7 +181,10 @@ export class LspServiceClient {
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      return (await this.connection.sendRequest('lsp/diagnostics')) as Record<string, Diagnostic[]>;
+      return (await this.connection.sendRequest('lsp/diagnostics')) as Record<
+        string,
+        Diagnostic[]
+      >;
     } catch {
       return {};
     }

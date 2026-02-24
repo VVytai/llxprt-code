@@ -16,8 +16,7 @@ import {
 } from '@vybestack/llxprt-code-core';
 
 vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
-  const actual =
-    (await importOriginal());
+  const actual = await importOriginal();
   return {
     ...actual,
     isRipgrepAvailable: vi.fn().mockResolvedValue(true),

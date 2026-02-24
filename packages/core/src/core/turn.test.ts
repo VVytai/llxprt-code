@@ -47,8 +47,7 @@ vi.mock('../utils/generateContentResponseUtilities', () => ({
       ?.filter((part) => !(part as { thought?: boolean }).thought)
       .map((part) => part.text)
       .join('') || undefined,
-  getFunctionCalls: (resp: GenerateContentResponse) =>
-    (resp.functionCalls) ?? [],
+  getFunctionCalls: (resp: GenerateContentResponse) => resp.functionCalls ?? [],
 }));
 
 describe('Turn', () => {

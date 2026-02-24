@@ -275,8 +275,7 @@ function resolveActiveRuntimeIdentity(): {
     typeof context.runtimeId === 'string' && context.runtimeId.trim() !== ''
       ? context.runtimeId
       : LEGACY_RUNTIME_ID;
-  const metadata =
-    (context.metadata) ?? {};
+  const metadata = context.metadata ?? {};
 
   return { runtimeId, metadata };
 }
