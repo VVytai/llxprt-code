@@ -36,7 +36,7 @@ describe('Hook Re-Initialization (126c32ac)', () => {
   it('should reload hooks when extension with hooks is added (RED → GREEN)', async () => {
     // RED: This test will FAIL because initialize() has guard that prevents re-init
     const hookSystem = new HookSystem(mockConfig);
-    
+
     // First init — no extensions
     await hookSystem.initialize();
     const beforeCount = hookSystem.getAllHooks().length;
@@ -138,12 +138,12 @@ describe('Hook Re-Initialization Disposal (126c32ac)', () => {
 
     // RED: This assertion will FAIL because old subscription wasn't unsubscribed
     expect(unsubscribeMock).toHaveBeenCalledTimes(1); // Old handler disposed
-    expect(subscribeMock).toHaveBeenCalledTimes(2);    // New handler subscribed
+    expect(subscribeMock).toHaveBeenCalledTimes(2); // New handler subscribed
   });
 
   it('should not leak subscriptions after multiple re-inits (RED → GREEN)', async () => {
     // RED: This test will FAIL because subscriptions leak
-    const unsubscribes: ReturnType<typeof vi.fn>[] = [];
+    const unsubscribes: Array<ReturnType<typeof vi.fn>> = [];
     const subscribeMock = vi.fn(() => {
       const unsub = vi.fn();
       unsubscribes.push(unsub);
@@ -174,10 +174,10 @@ describe('Hook Re-Initialization Disposal (126c32ac)', () => {
 
     // Should have 3 subscriptions, 2 should be unsubscribed
     expect(subscribeMock).toHaveBeenCalledTimes(3);
-    
+
     // RED: These assertions will FAIL because only last init ran (guard blocks others)
     expect(unsubscribes[0]).toHaveBeenCalledTimes(1); // First disposed before second init
     expect(unsubscribes[1]).toHaveBeenCalledTimes(1); // Second disposed before third init
-    expect(unsubscribes[2]).not.toHaveBeenCalled();   // Third still active
+    expect(unsubscribes[2]).not.toHaveBeenCalled(); // Third still active
   });
 });

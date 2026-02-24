@@ -78,7 +78,7 @@ export class HookSystem {
   /**
    * Initialize the hook system. Must be called before getRegistry() or getEventHandler().
    * Can be called multiple times to reload hooks from config.
-   * 
+   *
    * WARNING: Not safe for concurrent calls. Ensure initialize() completes before
    * calling again. JavaScript is single-threaded but async, so callers must
    * await each initialize() call before starting another.

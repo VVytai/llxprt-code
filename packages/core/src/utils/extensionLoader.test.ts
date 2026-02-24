@@ -122,7 +122,7 @@ describe('SimpleExtensionLoader', () => {
       // RED: This test will FAIL because extensionLoader doesn't call hookSystem.initialize()
       const mockHookSystemInit = vi.fn();
       const mockRefreshMemory = vi.fn();
-      
+
       const mockConfigWithHooks = {
         getMcpClientManager: () => ({
           startExtension: vi.fn(),
@@ -146,7 +146,7 @@ describe('SimpleExtensionLoader', () => {
       extensionReloadingEnabled = true;
       const loader = new SimpleExtensionLoader([]);
       await loader.start(mockConfigWithHooks);
-      
+
       mockRefreshMemory.mockClear();
       mockHookSystemInit.mockClear();
 
@@ -162,7 +162,7 @@ describe('SimpleExtensionLoader', () => {
       // RED: Similar test for unload path
       const mockHookSystemInit = vi.fn();
       const mockRefreshMemory = vi.fn();
-      
+
       const mockConfigWithHooks = {
         getMcpClientManager: () => ({
           startExtension: vi.fn(),
@@ -187,7 +187,7 @@ describe('SimpleExtensionLoader', () => {
       extensionReloadingEnabled = true;
       const loader = new SimpleExtensionLoader([extensionWithHooks]);
       await loader.start(mockConfigWithHooks);
-      
+
       mockRefreshMemory.mockClear();
       mockHookSystemInit.mockClear();
 

@@ -74,7 +74,11 @@ export class PolicyEngine {
             let aggregateDecision = PolicyDecision.ALLOW;
 
             for (const subCmd of subCommands) {
-              const subResult = this.evaluate(toolName, { command: subCmd }, serverName);
+              const subResult = this.evaluate(
+                toolName,
+                { command: subCmd },
+                serverName,
+              );
 
               if (subResult === PolicyDecision.DENY) {
                 aggregateDecision = PolicyDecision.DENY;
@@ -86,7 +90,8 @@ export class PolicyEngine {
             }
 
             const finalDecision = aggregateDecision;
-            return this.nonInteractive && finalDecision === PolicyDecision.ASK_USER
+            return this.nonInteractive &&
+              finalDecision === PolicyDecision.ASK_USER
               ? PolicyDecision.DENY
               : finalDecision;
           }

