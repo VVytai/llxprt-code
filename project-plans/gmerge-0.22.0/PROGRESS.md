@@ -2,7 +2,8 @@
 
 | Batch | Type | Upstream SHA(s) | Status | LLxprt Commit | Notes |
 |------:|------|-----------------|--------|---------------|-------|
-| 1 | PICK x5 | 68ebf5d6, 22e6af41, 2d3db970, bb33e281, 12cbe320 | TODO | | |
+| 1A | PICK x2 | 68ebf5d6, 2d3db970 | DONE | fabaa7805, 6ff6ae665 | Minor conflict on typo fix; pre-existing typecheck failures |
+| 1B | PICK x3 | 22e6af41, bb33e281, 12cbe320 | DONE | 0d359bd31, 6d0015557, 1824063ed | Conflicts resolved; branding fixed |
 | 2 | REIMPLEMENT | d4506e0f (transcript_path) | TODO | | |
 | 3 | REIMPLEMENT | 54de6753 (stats polish) | TODO | | |
 | 4 | REIMPLEMENT | 86134e99 (settings validation) | TODO | | |
