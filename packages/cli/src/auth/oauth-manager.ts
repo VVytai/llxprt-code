@@ -19,6 +19,9 @@ import {
 
 const logger = new DebugLogger('llxprt:oauth:manager');
 
+/** Maximum consecutive proactive renewal failures before stopping retries. */
+const MAX_PROACTIVE_RENEWAL_FAILURES = 3;
+
 function isAuthOnlyEnabled(value: unknown): boolean {
   if (typeof value === 'boolean') {
     return value;
@@ -212,6 +215,7 @@ export class OAuthManager {
   >;
   private proactiveRenewalFailures: Map<string, number>;
   private proactiveRenewalInFlight: Set<string>;
+  private proactiveRenewalTokens: Map<string, string>;
   // Getter function for message bus (lazy resolution for TUI prompts)
   private getMessageBus?: () => MessageBus | undefined;
   // Getter function for config (lazy resolution for bucket failover handler)
@@ -231,6 +235,7 @@ export class OAuthManager {
     this.proactiveRenewals = new Map();
     this.proactiveRenewalFailures = new Map();
     this.proactiveRenewalInFlight = new Set();
+    this.proactiveRenewalTokens = new Map();
   }
 
   private async withBucketResolutionLock<T>(
@@ -1194,6 +1199,7 @@ export class OAuthManager {
     }
     this.proactiveRenewalFailures.delete(key);
     this.proactiveRenewalInFlight.delete(key);
+    this.proactiveRenewalTokens.delete(key);
   }
 
   private setProactiveTimer(
@@ -1238,6 +1244,18 @@ export class OAuthManager {
     const failures = (this.proactiveRenewalFailures.get(key) ?? 0) + 1;
     this.proactiveRenewalFailures.set(key, failures);
 
+    // @plan PLAN-20260223-ISSUE1598.P14
+    // @requirement REQ-1598-PR05
+    // Stop retrying after MAX_PROACTIVE_RENEWAL_FAILURES consecutive failures
+    if (failures >= MAX_PROACTIVE_RENEWAL_FAILURES) {
+      logger.debug(
+        () =>
+          `[OAUTH] Stopping proactive renewal after ${failures} failures for ${providerName}:${normalizedBucket}`,
+      );
+      this.clearProactiveRenewal(key);
+      return;
+    }
+
     const cappedFailures = Math.min(failures, 10);
     const baseMs = 30_000;
     const delayMs = Math.min(baseMs * 2 ** cappedFailures, 30 * 60_000);
@@ -1255,6 +1273,9 @@ export class OAuthManager {
   /**
    * @plan:PLAN-20250214-CREDPROXY.P33
    * @requirement R16.8
+   * @plan PLAN-20260223-ISSUE1598.P14
+   * @requirement REQ-1598-PR01
+   * @pseudocode proactive-renewal.md lines 15-49
    */
   private scheduleProactiveRenewal(
     providerName: string,
@@ -1280,7 +1301,13 @@ export class OAuthManager {
 
     const nowSec = Date.now() / 1000;
     const remainingSec = token.expiry - nowSec;
-    if (remainingSec <= 0) {
+
+    // @plan PLAN-20260223-ISSUE1598.P14
+    // @requirement REQ-1598-PR01
+    // Fix: Don't schedule proactive renewal for expired or short-lived tokens
+    // Clear any stale timer so a prior schedule doesn't fire unexpectedly
+    if (remainingSec < 300) {
+      this.clearProactiveRenewal(key);
       return;
     }
 
@@ -1295,6 +1322,7 @@ export class OAuthManager {
     }
 
     this.proactiveRenewalFailures.delete(key);
+    this.proactiveRenewalTokens.set(key, token.access_token);
     this.setProactiveTimer(
       providerName,
       normalizedBucket,
@@ -1303,6 +1331,11 @@ export class OAuthManager {
     );
   }
 
+  /**
+   * @plan PLAN-20260223-ISSUE1598.P14
+   * @requirement REQ-1598-PR02, REQ-1598-PR03, REQ-1598-PR04
+   * @pseudocode proactive-renewal.md lines 51-91
+   */
   private async runProactiveRenewal(
     providerName: string,
     bucket: string,
@@ -1328,15 +1361,6 @@ export class OAuthManager {
         return;
       }
 
-      const currentToken = await this.tokenStore.getToken(
-        providerName,
-        normalizedBucket,
-      );
-      if (!currentToken || !currentToken.refresh_token) {
-        this.clearProactiveRenewal(key);
-        return;
-      }
-
       // Issue #1159: Acquire lock before refreshing
       const lockAcquired = await this.tokenStore.acquireRefreshLock(
         providerName,
@@ -1351,43 +1375,57 @@ export class OAuthManager {
 
       try {
         // Issue #1159: Double-check pattern - re-read token after acquiring lock
-        const recheckToken = await this.tokenStore.getToken(
+        const currentToken = await this.tokenStore.getToken(
           providerName,
           normalizedBucket,
         );
 
-        if (!recheckToken || !recheckToken.refresh_token) {
+        if (!currentToken || !currentToken.refresh_token) {
           this.clearProactiveRenewal(key);
           return;
         }
 
-        // Check if token is still expired/expiring
-        const nowInSeconds = Math.floor(Date.now() / 1000);
-        const thirtySecondsFromNow = nowInSeconds + 30;
-        if (recheckToken.expiry > thirtySecondsFromNow) {
-          // Token was already refreshed by another process
-          logger.debug(
-            () =>
-              `[OAUTH] Token was already refreshed for ${providerName}:${normalizedBucket}, rescheduling`,
-          );
-          this.proactiveRenewalFailures.delete(key);
-          this.scheduleProactiveRenewal(
-            providerName,
-            normalizedBucket,
-            recheckToken,
-          );
-          return;
+        // @plan PLAN-20260223-ISSUE1598.P14
+        // @requirement REQ-1598-PR02
+        // Issue #1159: Double-check - skip refresh if another process already updated
+        // the token while we waited for the lock. Two detection methods:
+        // 1. If we have the scheduled token's access_token, compare directly
+        // 2. Otherwise fall back to expiry check (token well beyond 30s validity)
+        const scheduledAccessToken = this.proactiveRenewalTokens.get(key);
+        if (scheduledAccessToken) {
+          if (currentToken.access_token !== scheduledAccessToken) {
+            // Token was refreshed by another process — reschedule with the fresh token
+            this.scheduleProactiveRenewal(
+              providerName,
+              normalizedBucket,
+              currentToken,
+            );
+            return;
+          }
+        } else {
+          // Direct runProactiveRenewal call (no prior schedule) — use expiry-based check
+          const nowInSeconds = Math.floor(Date.now() / 1000);
+          if (currentToken.expiry > nowInSeconds + 30) {
+            // Token is still well-valid — another process likely refreshed it
+            this.scheduleProactiveRenewal(
+              providerName,
+              normalizedBucket,
+              currentToken,
+            );
+            return;
+          }
         }
 
-        // Proceed with refresh
-        const refreshedToken = await provider.refreshToken(recheckToken);
+        const refreshedToken = await provider.refreshToken(currentToken);
         if (!refreshedToken) {
+          // @plan PLAN-20260223-ISSUE1598.P14
+          // @requirement REQ-1598-PR04, REQ-1598-PR05
           this.scheduleProactiveRetry(providerName, normalizedBucket);
           return;
         }
 
         const mergedToken = mergeRefreshedToken(
-          recheckToken as OAuthTokenWithExtras,
+          currentToken as OAuthTokenWithExtras,
           refreshedToken as OAuthTokenWithExtras,
         );
 
@@ -1396,6 +1434,8 @@ export class OAuthManager {
           mergedToken,
           normalizedBucket,
         );
+        // @plan PLAN-20260223-ISSUE1598.P14
+        // @requirement REQ-1598-PR03
         this.proactiveRenewalFailures.delete(key);
         this.scheduleProactiveRenewal(
           providerName,
