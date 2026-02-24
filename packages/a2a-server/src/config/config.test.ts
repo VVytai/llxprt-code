@@ -61,3 +61,20 @@ describe('loadConfig auth fallback', () => {
     expect(Config.prototype.refreshAuth).toHaveBeenCalledWith('vertex-ai');
   });
 });
+
+describe('loadConfig interactive mode', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should make config.isInteractive() return true', async () => {
+    setActiveProviderRuntimeContext(createProviderRuntimeContext());
+    vi.spyOn(Config.prototype, 'initialize').mockResolvedValue(undefined);
+    vi.spyOn(Config.prototype, 'refreshAuth').mockResolvedValue(undefined);
+
+    const config = await loadConfig({} as never, [], 'test-task-id');
+
+    expect(config.isInteractive()).toBe(true);
+    expect(config.getNonInteractive()).toBe(false);
+  });
+});

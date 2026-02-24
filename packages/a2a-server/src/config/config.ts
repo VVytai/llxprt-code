@@ -68,6 +68,7 @@ export async function loadConfig(
     },
     ideMode: false,
     folderTrust: settings.folderTrust === true,
+    interactive: true,
     extensions,
   };
 
