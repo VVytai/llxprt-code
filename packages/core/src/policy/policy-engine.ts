@@ -4,6 +4,7 @@ import {
   type PolicyRule,
 } from './types.js';
 import { stableStringify } from './stable-stringify.js';
+import { SHELL_TOOL_NAMES, splitCommands } from '../utils/shell-utils.js';
 
 /**
  * PolicyEngine evaluates tool execution requests against configured rules.
@@ -50,6 +51,48 @@ export class PolicyEngine {
 
     if (matchingRule) {
       const decision = matchingRule.decision;
+
+      // Special handling for shell commands: validate sub-commands if ALLOW rule
+      if (
+        toolName &&
+        SHELL_TOOL_NAMES.includes(toolName) &&
+        decision === PolicyDecision.ALLOW
+      ) {
+        const command = (args as { command?: string })?.command;
+        if (command) {
+          const subCommands = splitCommands(command);
+
+          // Parse failure: empty array for non-empty command → fail-safe to ASK_USER
+          if (subCommands.length === 0) {
+            return this.nonInteractive
+              ? PolicyDecision.DENY
+              : PolicyDecision.ASK_USER;
+          }
+
+          // Compound command: recursively validate each sub-command
+          if (subCommands.length > 1) {
+            let aggregateDecision = PolicyDecision.ALLOW;
+
+            for (const subCmd of subCommands) {
+              const subResult = this.evaluate(toolName, { command: subCmd }, serverName);
+
+              if (subResult === PolicyDecision.DENY) {
+                aggregateDecision = PolicyDecision.DENY;
+                break; // Fail fast: DENY overrides everything
+              } else if (subResult === PolicyDecision.ASK_USER) {
+                aggregateDecision = PolicyDecision.ASK_USER;
+                // Continue checking for DENY (don't short-circuit)
+              }
+            }
+
+            const finalDecision = aggregateDecision;
+            return this.nonInteractive && finalDecision === PolicyDecision.ASK_USER
+              ? PolicyDecision.DENY
+              : finalDecision;
+          }
+          // Single command: rule match is valid, fall through to normal return
+        }
+      }
 
       // In non-interactive mode, ASK_USER becomes DENY
       if (this.nonInteractive && decision === PolicyDecision.ASK_USER) {
