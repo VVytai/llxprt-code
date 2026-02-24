@@ -1034,6 +1034,15 @@ export class CoreToolScheduler {
           ) {
             this.approveToolCall(reqInfo.callId);
           } else {
+            // Check if non-interactive mode
+            if (!this.config.isInteractive()) {
+              throw new Error(
+                `Tool execution for "${
+                  toolCall.tool.displayName || toolCall.tool.name
+                }" requires user confirmation, which is not supported in non-interactive mode.`,
+              );
+            }
+
             // Allow IDE to resolve confirmation
             if (
               confirmationDetails.type === 'edit' &&

@@ -9,6 +9,7 @@ import type {
   ToolCall,
   WaitingToolCall,
   CompletedToolCall,
+  ErroredToolCall,
 } from './coreToolScheduler.js';
 import {
   CoreToolScheduler,
@@ -178,6 +179,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -246,6 +248,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -320,6 +323,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -406,6 +410,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => true,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -525,6 +530,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -643,6 +649,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -696,6 +703,312 @@ describe('CoreToolScheduler', () => {
     expect(statuses).not.toContain('error');
   });
 
+  it('should error when tool requires confirmation in non-interactive mode', async () => {
+    // ARRANGE
+    const mockTool = new MockTool({ name: 'confirmTool' });
+    mockTool.shouldConfirm = true; // Tool requires confirmation
+
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // NON-INTERACTIVE MODE
+      getApprovalMode: () => ApprovalMode.DEFAULT,
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => [],
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    const request = {
+      callId: 'non-interactive-confirm',
+      name: 'confirmTool',
+      args: {},
+      isClientInitiated: false,
+      prompt_id: 'prompt-1',
+    };
+
+    // ACT
+    await scheduler.schedule([request], new AbortController().signal);
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    expect(completedCalls).toHaveLength(1);
+    expect(completedCalls[0].status).toBe('error');
+
+    const erroredCall = completedCalls[0] as ErroredToolCall;
+    const errorResponse = erroredCall.response;
+    const errorParts = errorResponse.responseParts;
+    const errorMessage = errorParts[0].functionResponse.response.error;
+    expect(errorMessage).toContain(
+      'Tool execution for "confirmTool" requires user confirmation, which is not supported in non-interactive mode.',
+    );
+  });
+
+  it('should not error in non-interactive mode with YOLO approval', async () => {
+    // ARRANGE
+    const mockTool = new MockTool({ name: 'yoloTool' });
+    mockTool.shouldConfirm = true;
+
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // Non-interactive
+      getApprovalMode: () => ApprovalMode.YOLO, // But YOLO mode
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => [],
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // ACT
+    await scheduler.schedule(
+      [
+        {
+          callId: 'yolo-1',
+          name: 'yoloTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+      ],
+      new AbortController().signal,
+    );
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    expect(completedCalls[0].status).toBe('success'); // Not error
+  });
+
+  it('should not error in non-interactive mode for allowed tools', async () => {
+    // ARRANGE
+    const mockTool = new MockTool({ name: 'allowedTool' });
+    mockTool.shouldConfirm = true;
+
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // Non-interactive
+      getApprovalMode: () => ApprovalMode.DEFAULT,
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => ['allowedTool'], // Tool is in allowed list
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // ACT
+    await scheduler.schedule(
+      [
+        {
+          callId: 'allowed-1',
+          name: 'allowedTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+      ],
+      new AbortController().signal,
+    );
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    expect(completedCalls[0].status).toBe('success'); // Not error
+  });
+
+  it('should handle mixed batch: safe tool executes, dangerous tool errors in non-interactive', async () => {
+    // ARRANGE
+    const safeTool = new MockTool({ name: 'safeTool' });
+    safeTool.shouldConfirm = false; // No confirmation needed
+
+    const dangerousTool = new MockTool({ name: 'dangerousTool' });
+    dangerousTool.shouldConfirm = true; // Requires confirmation
+
+    const mockToolRegistry = {
+      getTool: (name: string) =>
+        name === 'safeTool' ? safeTool : dangerousTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map([
+        ['safeTool', safeTool],
+        ['dangerousTool', dangerousTool],
+      ]),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: (name: string) =>
+        name === 'safeTool' ? safeTool : dangerousTool,
+      getToolByDisplayName: (name: string) =>
+        name === 'safeTool' ? safeTool : dangerousTool,
+      getTools: () => [safeTool, dangerousTool],
+      discoverTools: async () => {},
+      getAllTools: () => [safeTool, dangerousTool],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // Non-interactive
+      getApprovalMode: () => ApprovalMode.DEFAULT,
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => [],
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // ACT - Schedule both tools in a batch
+    await scheduler.schedule(
+      [
+        {
+          callId: 'safe-call',
+          name: 'safeTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+        {
+          callId: 'dangerous-call',
+          name: 'dangerousTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+      ],
+      new AbortController().signal,
+    );
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    expect(completedCalls).toHaveLength(2);
+
+    const safeCall = completedCalls.find((c) => c.request.callId === 'safe-call');
+    const dangerousCall = completedCalls.find(
+      (c) => c.request.callId === 'dangerous-call',
+    );
+
+    expect(safeCall?.status).toBe('success');
+    expect(dangerousCall?.status).toBe('error');
+
+    const erroredCall = dangerousCall as ErroredToolCall;
+    const errorParts = erroredCall.response.responseParts;
+    const errorMessage = errorParts[0].functionResponse.response.error;
+    expect(errorMessage).toContain('requires user confirmation');
+    expect(errorMessage).toContain('non-interactive mode');
+  });
+
+
+
   it('propagates agentId from request to completed call payloads', async () => {
     const mockTool = new MockTool('mockTool');
     mockTool.executeFn.mockResolvedValue({
@@ -728,6 +1041,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => [],
       getToolRegistry: () => toolRegistry,
@@ -797,6 +1111,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => [],
       getToolRegistry: () => toolRegistry,
@@ -871,6 +1186,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => [],
       getToolRegistry: () => toolRegistry,
@@ -982,6 +1298,7 @@ describe('CoreToolScheduler with payload', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -1091,6 +1408,7 @@ describe('CoreToolScheduler with payload', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -1473,6 +1791,7 @@ describe('CoreToolScheduler edit cancellation', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -2012,6 +2331,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT, // Not YOLO mode
       getAllowedTools: () => ['mockTool'], // Auto-approve this tool
       getToolRegistry: () => toolRegistry,
@@ -2122,6 +2442,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => ['run_shell_command(git)'],
       getContentGeneratorConfig: () => ({
@@ -2907,6 +3228,7 @@ it('injects agentId into ContextAwareTool context', async () => {
     getSessionId: () => 'session-123',
     getUsageStatisticsEnabled: () => true,
     getDebugMode: () => false,
+    isInteractive: () => true,
     getApprovalMode: () => ApprovalMode.DEFAULT,
     getAllowedTools: () => [],
     getToolRegistry: () => toolRegistry,
@@ -3187,6 +3509,7 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -3306,6 +3629,7 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
