@@ -74,9 +74,9 @@ describe('Platform UDS Probe Tests (Phase 38)', () => {
             for (const frame of frames) {
               // Echo back with response
               const response = {
-                id: (frame as Record<string, unknown>).id,
+                id: (frame).id,
                 ok: true,
-                data: { echo: (frame as Record<string, unknown>).op },
+                data: { echo: (frame).op },
               };
               socket.write(encodeFrame(response));
             }
@@ -151,7 +151,7 @@ describe('Platform UDS Probe Tests (Phase 38)', () => {
             for (const frame of frames) {
               receivedFrames.push(frame);
               const response = {
-                id: (frame as Record<string, unknown>).id,
+                id: (frame).id,
                 ok: true,
                 seq: receivedFrames.length,
               };
@@ -458,7 +458,7 @@ describe('Platform UDS Probe Tests (Phase 38)', () => {
               receivedPayloads.push(frame);
               socket.write(
                 encodeFrame({
-                  id: (frame as Record<string, unknown>).id,
+                  id: (frame).id,
                   ok: true,
                   received: true,
                 }),
@@ -543,12 +543,12 @@ describe('Platform UDS Probe Tests (Phase 38)', () => {
         socket.on('data', (chunk: Buffer) => {
           const frames = decoder.feed(chunk);
           for (const frame of frames) {
-            const payload = (frame as Record<string, unknown>)
+            const payload = (frame)
               .payload as Record<string, unknown>;
             receivedSize = (payload.largeData as string).length;
             socket.write(
               encodeFrame({
-                id: (frame as Record<string, unknown>).id,
+                id: (frame).id,
                 ok: true,
                 size: receivedSize,
               }),

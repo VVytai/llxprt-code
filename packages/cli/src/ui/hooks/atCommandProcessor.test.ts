@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { handleAtCommand } from './atCommandProcessor.js';
 import {
   Config,
@@ -19,7 +19,7 @@ import {
 import type { DiscoveredMCPResource } from '@vybestack/llxprt-code-core';
 import * as os from 'os';
 import { ToolCallStatus } from '../types.js';
-import { UseHistoryManagerReturn } from './useHistoryManager.js';
+import { type UseHistoryManagerReturn as _UseHistoryManagerReturn } from './useHistoryManager.js';
 import * as fsPromises from 'fs/promises';
 import * as fs from 'fs';
 
@@ -31,8 +31,8 @@ describe('handleAtCommand', () => {
   let testRootDir: string;
   let mockConfig: Config;
 
-  const mockAddItem = vi.fn() as Mock<UseHistoryManagerReturn['addItem']>;
-  const mockOnDebugMessage = vi.fn() as Mock<(message: string) => void>;
+  const mockAddItem = vi.fn();
+  const mockOnDebugMessage = vi.fn();
 
   let abortController: AbortController;
 

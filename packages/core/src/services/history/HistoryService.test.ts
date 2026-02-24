@@ -522,7 +522,7 @@ describe('HistoryService - Behavioral Tests', () => {
         toolMessage?.blocks.some(
           (b) =>
             b.type === 'tool_response' &&
-            (b as ToolResponseBlock).callId === 'hist_tool_orphan1',
+            (b).callId === 'hist_tool_orphan1',
         ),
       ).toBe(true);
     });
@@ -552,7 +552,7 @@ describe('HistoryService - Behavioral Tests', () => {
           c.blocks.some(
             (b) =>
               b.type === 'tool_call' &&
-              (b as ToolCallBlock).id === 'hist_tool_orphan1',
+              (b).id === 'hist_tool_orphan1',
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -561,7 +561,7 @@ describe('HistoryService - Behavioral Tests', () => {
         curated[toolCallIndex + 1]?.blocks.some(
           (b) =>
             b.type === 'tool_response' &&
-            (b as ToolResponseBlock).callId === 'hist_tool_orphan1',
+            (b).callId === 'hist_tool_orphan1',
         ),
       ).toBe(true);
 
@@ -595,7 +595,7 @@ describe('HistoryService - Behavioral Tests', () => {
           c.blocks.some(
             (b) =>
               b.type === 'tool_call' &&
-              (b as ToolCallBlock).id === 'hist_tool_orphan_tail',
+              (b).id === 'hist_tool_orphan_tail',
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -604,7 +604,7 @@ describe('HistoryService - Behavioral Tests', () => {
         curated[toolCallIndex + 1]?.blocks.some(
           (b) =>
             b.type === 'tool_response' &&
-            (b as ToolResponseBlock).callId === 'hist_tool_orphan_tail',
+            (b).callId === 'hist_tool_orphan_tail',
         ),
       ).toBe(true);
 
@@ -886,7 +886,7 @@ describe('HistoryService - Behavioral Tests', () => {
           content.blocks.filter(
             (block) =>
               block.type === 'tool_response' &&
-              (block as ToolResponseBlock).callId === callId,
+              (block).callId === callId,
           ),
         );
 
@@ -940,7 +940,7 @@ describe('HistoryService - Behavioral Tests', () => {
         .filter(
           (block): block is ToolResponseBlock =>
             block.type === 'tool_response' &&
-            (block as ToolResponseBlock).callId === callId,
+            (block).callId === callId,
         );
       expect(toolResponsesForCallId).toHaveLength(1);
 
@@ -950,7 +950,7 @@ describe('HistoryService - Behavioral Tests', () => {
           content.blocks.some(
             (block) =>
               block.type === 'tool_call' &&
-              (block as ToolCallBlock).id === callId,
+              (block).id === callId,
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -961,7 +961,7 @@ describe('HistoryService - Behavioral Tests', () => {
         toolResultMessage?.blocks.some(
           (block) =>
             block.type === 'tool_response' &&
-            (block as ToolResponseBlock).callId === callId,
+            (block).callId === callId,
         ),
       ).toBe(true);
     });
@@ -1001,7 +1001,7 @@ describe('HistoryService - Behavioral Tests', () => {
           content.blocks.some(
             (block) =>
               block.type === 'tool_call' &&
-              (block as ToolCallBlock).id === callId,
+              (block).id === callId,
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -1012,7 +1012,7 @@ describe('HistoryService - Behavioral Tests', () => {
         toolResultMessage?.blocks.some(
           (block) =>
             block.type === 'tool_response' &&
-            (block as ToolResponseBlock).callId === callId,
+            (block).callId === callId,
         ),
       ).toBe(true);
 
@@ -1271,7 +1271,7 @@ describe('HistoryService - Behavioral Tests', () => {
             c.blocks.some(
               (b) =>
                 b.type === 'tool_call' &&
-                (b as ToolCallBlock).id === 'hist_tool_orphan1',
+                (b).id === 'hist_tool_orphan1',
             ),
         );
         expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -1280,7 +1280,7 @@ describe('HistoryService - Behavioral Tests', () => {
           curated[toolCallIndex + 1]?.blocks.some(
             (b) =>
               b.type === 'tool_response' &&
-              (b as ToolResponseBlock).callId === 'hist_tool_orphan1',
+              (b).callId === 'hist_tool_orphan1',
           ),
         ).toBe(true);
       });
@@ -1349,7 +1349,7 @@ describe('HistoryService - Behavioral Tests', () => {
           c.blocks.filter(
             (b) =>
               b.type === 'tool_response' &&
-              (b as ToolResponseBlock).callId === 'hist_tool_responded',
+              (b).callId === 'hist_tool_responded',
           ),
         );
         expect(toolResponses).toHaveLength(1);

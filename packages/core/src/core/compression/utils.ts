@@ -18,8 +18,6 @@
 import type {
   ContentBlock,
   IContent,
-  ToolCallBlock,
-  ToolResponseBlock,
 } from '../../services/history/IContent.js';
 
 /**
@@ -97,14 +95,14 @@ export function findForwardValidSplitPoint(
       if (toolCalls.length > 0) {
         const keptHistory = history.slice(index);
         const hasMatchingResponses = toolCalls.every((call) => {
-          const toolCall = call as ToolCallBlock;
+          const toolCall = call;
           return keptHistory.some(
             (msg) =>
               msg.speaker === 'tool' &&
               msg.blocks.some(
                 (b) =>
                   b.type === 'tool_response' &&
-                  (b as ToolResponseBlock).callId === toolCall.id,
+                  (b).callId === toolCall.id,
               ),
           );
         });
@@ -141,14 +139,14 @@ export function findBackwardValidSplitPoint(
       if (toolCalls.length > 0) {
         const remainingHistory = history.slice(i + 1);
         const allCallsHaveResponses = toolCalls.every((call) => {
-          const toolCall = call as ToolCallBlock;
+          const toolCall = call;
           return remainingHistory.some(
             (msg) =>
               msg.speaker === 'tool' &&
               msg.blocks.some(
                 (b) =>
                   b.type === 'tool_response' &&
-                  (b as ToolResponseBlock).callId === toolCall.id,
+                  (b).callId === toolCall.id,
               ),
           );
         });

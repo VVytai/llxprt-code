@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CodeSearchTool, CodeSearchToolParams } from './codesearch.js';
 import { Config } from '../config/config.js';
-import { ToolInvocation, ToolResult } from './tools.js';
+import { type ToolResult as _ToolResult } from './tools.js';
 import fetch from 'node-fetch';
 
 vi.mock('node-fetch');
@@ -47,10 +47,7 @@ describe('CodeSearchTool', () => {
 
   it('should execute search successfully with default tokens', async () => {
     const params: CodeSearchToolParams = { query: 'react hooks' };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const mockResponseData = {
       jsonrpc: '2.0',
@@ -91,10 +88,7 @@ describe('CodeSearchTool', () => {
 
   it('should use tokensNum from params', async () => {
     const params: CodeSearchToolParams = { query: 'test', tokensNum: 2000 };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: true,
@@ -110,10 +104,7 @@ describe('CodeSearchTool', () => {
   it('should use tokensNum from settings if param missing', async () => {
     mockSettingsService.get.mockReturnValue(3000);
     const params: CodeSearchToolParams = { query: 'test' };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: true,
@@ -129,10 +120,7 @@ describe('CodeSearchTool', () => {
   it('should cap tokensNum with settings value when params exceed it', async () => {
     mockSettingsService.get.mockReturnValue(2000);
     const params: CodeSearchToolParams = { query: 'test', tokensNum: 4000 };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: true,
@@ -148,10 +136,7 @@ describe('CodeSearchTool', () => {
   it('should use params when lower than settings cap', async () => {
     mockSettingsService.get.mockReturnValue(4000);
     const params: CodeSearchToolParams = { query: 'test', tokensNum: 2000 };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: true,
@@ -170,10 +155,7 @@ describe('CodeSearchTool', () => {
     // Logic: min(2000, 100) = 100 -> max(1000, 100) = 1000
     mockSettingsService.get.mockReturnValue(100);
     const paramsMin: CodeSearchToolParams = { query: 'test', tokensNum: 2000 };
-    const invocationMin = tool.build(paramsMin) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocationMin = tool.build(paramsMin);
     mockedFetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(''),
@@ -189,10 +171,7 @@ describe('CodeSearchTool', () => {
     // Logic: min(50000, 60000) = 50000 -> max(1000, 50000) = 50000
     mockSettingsService.get.mockReturnValue(60000);
     const paramsMax: CodeSearchToolParams = { query: 'test', tokensNum: 50000 };
-    const invocationMax = tool.build(paramsMax) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocationMax = tool.build(paramsMax);
     mockedFetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(''),
@@ -207,10 +186,7 @@ describe('CodeSearchTool', () => {
     // Params default 5000, setting 100 -> min(5000, 100) = 100 -> max(1000, 100) = 1000
     mockSettingsService.get.mockReturnValue(100);
     const paramsMin: CodeSearchToolParams = { query: 'test' };
-    const invocationMin = tool.build(paramsMin) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocationMin = tool.build(paramsMin);
     mockedFetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(''),
@@ -226,10 +202,7 @@ describe('CodeSearchTool', () => {
     // This confirms setting doesn't artificially raise it above params/max
     mockSettingsService.get.mockReturnValue(100000);
     const paramsMax: CodeSearchToolParams = { query: 'test', tokensNum: 40000 };
-    const invocationMax = tool.build(paramsMax) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocationMax = tool.build(paramsMax);
     mockedFetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(''),
@@ -241,10 +214,7 @@ describe('CodeSearchTool', () => {
 
   it('should handle no results found', async () => {
     const params: CodeSearchToolParams = { query: 'nonexistent' };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: true,
@@ -260,10 +230,7 @@ describe('CodeSearchTool', () => {
 
   it('should handle API errors', async () => {
     const params: CodeSearchToolParams = { query: 'error' };
-    const invocation = tool.build(params) as ToolInvocation<
-      CodeSearchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: false,
@@ -328,10 +295,7 @@ describe('CodeSearchTool', () => {
         text: () => Promise.resolve(mockResponseText),
       });
 
-      const invocation = tool.build({ query: 'test query' }) as ToolInvocation<
-        CodeSearchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build({ query: 'test query' });
       await invocation.execute(new AbortController().signal);
 
       const fetchCall = mockedFetch.mock.calls[0];
@@ -347,10 +311,7 @@ describe('CodeSearchTool', () => {
         text: () => Promise.resolve(''),
       });
 
-      const invocation = tool.build({ query: 'test query' }) as ToolInvocation<
-        CodeSearchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build({ query: 'test query' });
       await invocation.execute(new AbortController().signal);
 
       const fetchCall = mockedFetch.mock.calls[0];

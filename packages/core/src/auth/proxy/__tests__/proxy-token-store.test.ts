@@ -51,7 +51,7 @@ function createTestServer(
     socket.on('data', (chunk) => {
       const frames = decoder.feed(chunk);
       for (const frame of frames) {
-        const msg = frame as Record<string, unknown>;
+        const msg = frame;
         if (msg.op === 'handshake') {
           socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
         } else {
@@ -469,7 +469,7 @@ describe('ProxyTokenStore', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
           } else {

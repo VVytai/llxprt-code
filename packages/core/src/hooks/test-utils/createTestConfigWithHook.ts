@@ -94,7 +94,7 @@ export function createTestConfigWithHook(options: TestHookOptions): Config {
     getHookSystem: () => {
       // Lazy initialization of HookSystem singleton
       if (!hookSystem) {
-        hookSystem = new HookSystem(config as Config);
+        hookSystem = new HookSystem(config);
       }
       return hookSystem;
     },

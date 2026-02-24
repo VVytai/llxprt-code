@@ -351,7 +351,7 @@ export class PromptLoader {
 
         // Debounce events
         if (timeouts.has(relativePath)) {
-          clearTimeout(timeouts.get(relativePath)!);
+          clearTimeout(timeouts.get(relativePath));
         }
 
         timeouts.set(
@@ -401,7 +401,7 @@ export class PromptLoader {
               if (filenameStr.endsWith('.md')) {
                 // Simple debouncing
                 if (timeouts.has(filenameStr)) {
-                  clearTimeout(timeouts.get(filenameStr)!);
+                  clearTimeout(timeouts.get(filenameStr));
                 }
 
                 timeouts.set(

@@ -127,7 +127,7 @@ class RecursiveFileSearch implements FileSearch {
 
     let filteredCandidates;
     const { files: candidates, isExactMatch } =
-      await this.resultCache!.get(pattern);
+      await this.resultCache.get(pattern);
 
     if (isExactMatch) {
       // Use the cached result.
@@ -149,7 +149,7 @@ class RecursiveFileSearch implements FileSearch {
       }
 
       if (shouldCache) {
-        this.resultCache!.set(pattern, filteredCandidates);
+        this.resultCache.set(pattern, filteredCandidates);
       }
     }
 

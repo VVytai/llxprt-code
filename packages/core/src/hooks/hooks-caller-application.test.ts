@@ -182,7 +182,7 @@ function createConfigWithHook(options: {
     getModel: () => 'test-model',
     getHookSystem() {
       if (!hookSystem) {
-        hookSystem = new HookSystem(config as Config);
+        hookSystem = new HookSystem(config);
       }
       return hookSystem;
     },

@@ -31,7 +31,7 @@ export function extractThinkingBlocks(content: IContent): ThinkingBlock[] {
   const result: ThinkingBlock[] = [];
   for (const block of content.blocks) {
     if (block.type === 'thinking') {
-      result.push(block as ThinkingBlock);
+      result.push(block);
     }
   }
   return result;

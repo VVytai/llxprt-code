@@ -12,7 +12,6 @@ import {
 } from '../../runtime/providerRuntimeContext.js';
 import { createRuntimeInvocationContext } from '../../runtime/RuntimeInvocationContext.js';
 import { createRuntimeConfigStub } from '../../test-utils/runtime.js';
-import type { Config } from '../../config/config.js';
 import { AnthropicProvider } from './AnthropicProvider.js';
 import Anthropic from '@anthropic-ai/sdk';
 import {
@@ -221,8 +220,8 @@ describe('Anthropic provider stateless contract tests', () => {
     const baselineInstances = FakeAnthropicClass.created.length;
     const settingsA = createSettings('runtime-A');
     const settingsB = createSettings('runtime-B');
-    const configA = createRuntimeConfigStub(settingsA) as Config;
-    const configB = createRuntimeConfigStub(settingsB) as Config;
+    const configA = createRuntimeConfigStub(settingsA);
+    const configB = createRuntimeConfigStub(settingsB);
     const runtimeA = createProviderRuntimeContext({
       runtimeId: 'runtime-A',
       settingsService: settingsA,
@@ -291,7 +290,7 @@ describe('Anthropic provider stateless contract tests', () => {
     });
     const config = createRuntimeConfigStub(settings, {
       getEphemeralSettings: getEphemerals,
-    }) as Config;
+    });
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-invocation',
       settingsService: settings,

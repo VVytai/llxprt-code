@@ -132,7 +132,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!).mockReturnValue(
+      vi.mocked(mockProvider.generateChatCompletion).mockReturnValue(
         successGenerator(),
       );
 
@@ -165,7 +165,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(successGenerator());
 
@@ -206,7 +206,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(successGenerator());
 
@@ -227,7 +227,7 @@ describe('bucketFailoverIntegration', () => {
         throw new Error('400 Bad Request - invalid parameter');
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!).mockReturnValue(
+      vi.mocked(mockProvider.generateChatCompletion).mockReturnValue(
         failGenerator(),
       );
 
@@ -250,7 +250,7 @@ describe('bucketFailoverIntegration', () => {
         throw new Error('429 Rate limit exceeded');
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(failGenerator());
@@ -309,7 +309,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(successGenerator());
 
@@ -338,7 +338,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(successGenerator());
 
@@ -362,7 +362,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!).mockReturnValue(
+      vi.mocked(mockProvider.generateChatCompletion).mockReturnValue(
         successGenerator(),
       );
 
@@ -395,7 +395,7 @@ describe('bucketFailoverIntegration', () => {
         yield chunk2;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!).mockReturnValue(
+      vi.mocked(mockProvider.generateChatCompletion).mockReturnValue(
         multiChunkGenerator(),
       );
 
@@ -428,7 +428,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(successGenerator());
 
@@ -457,7 +457,7 @@ describe('bucketFailoverIntegration', () => {
         yield responseContent;
       }
 
-      vi.mocked(mockProvider.generateChatCompletion!)
+      vi.mocked(mockProvider.generateChatCompletion)
         .mockReturnValueOnce(failGenerator())
         .mockReturnValueOnce(successGenerator());
 

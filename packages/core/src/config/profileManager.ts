@@ -282,10 +282,10 @@ export class ProfileManager {
     };
 
     const toolsAllowed = Array.isArray(settingsData.tools?.allowed)
-      ? [...(settingsData.tools?.allowed as string[])]
+      ? [...settingsData.tools.allowed]
       : [];
     const toolsDisabled = Array.isArray(settingsData.tools?.disabled)
-      ? [...(settingsData.tools?.disabled as string[])]
+      ? [...settingsData.tools.disabled]
       : [];
 
     profile.ephemeralSettings['tools.allowed'] = toolsAllowed;
@@ -337,12 +337,12 @@ export class ProfileManager {
       },
       tools: {
         allowed: Array.isArray(profile.ephemeralSettings['tools.allowed'])
-          ? [...(profile.ephemeralSettings['tools.allowed'] as string[])]
+          ? [...(profile.ephemeralSettings['tools.allowed'])]
           : [],
         disabled: Array.isArray(profile.ephemeralSettings['tools.disabled'])
-          ? [...(profile.ephemeralSettings['tools.disabled'] as string[])]
+          ? [...(profile.ephemeralSettings['tools.disabled'])]
           : Array.isArray(profile.ephemeralSettings['disabled-tools'])
-            ? [...(profile.ephemeralSettings['disabled-tools'] as string[])]
+            ? [...(profile.ephemeralSettings['disabled-tools'])]
             : [],
       },
     };

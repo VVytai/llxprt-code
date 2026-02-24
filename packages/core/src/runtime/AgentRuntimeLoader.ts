@@ -157,9 +157,9 @@ function createFilteredToolRegistryView(
         .schema;
       const description =
         typeof schema?.description === 'string'
-          ? (schema.description as string)
+          ? (schema.description)
           : typeof (tool as { description?: string }).description === 'string'
-            ? ((tool as { description: string }).description as string)
+            ? ((tool as { description: string }).description)
             : '';
       const parameterSchema =
         (schema as { parameters?: Record<string, unknown> })?.parameters ??

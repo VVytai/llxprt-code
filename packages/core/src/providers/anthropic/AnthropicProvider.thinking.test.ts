@@ -959,7 +959,7 @@ describe('AnthropicProvider Extended Thinking @plan:PLAN-ANTHROPIC-THINKING', ()
       const content = result.value as IContent;
       const thinkingBlocks = content.blocks.filter(
         (b) => b.type === 'thinking',
-      ) as ThinkingBlock[];
+      );
 
       expect(thinkingBlocks).toHaveLength(2);
       expect(thinkingBlocks[0].thought).toBe('First thought');
@@ -1089,7 +1089,7 @@ describe('AnthropicProvider Extended Thinking @plan:PLAN-ANTHROPIC-THINKING', ()
       // First assistant message should not have thinking (stripped)
       expect(Array.isArray(assistantMsgs[0]?.content)).toBe(true);
       const hasThinking = (
-        assistantMsgs[0]!.content as AnthropicContentBlock[]
+        assistantMsgs[0].content as AnthropicContentBlock[]
       ).some((block) => block.type === 'thinking');
       expect(hasThinking).toBe(false);
 
@@ -1097,7 +1097,7 @@ describe('AnthropicProvider Extended Thinking @plan:PLAN-ANTHROPIC-THINKING', ()
       const lastAssistantMsg = assistantMsgs[assistantMsgs.length - 1];
       expect(Array.isArray(lastAssistantMsg?.content)).toBe(true);
       const thinkingBlock = (
-        lastAssistantMsg!.content as AnthropicContentBlock[]
+        lastAssistantMsg.content as AnthropicContentBlock[]
       ).find((block) => block.type === 'thinking');
       expect(thinkingBlock).toBeDefined();
     });

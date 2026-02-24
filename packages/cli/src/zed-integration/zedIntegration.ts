@@ -820,7 +820,7 @@ export class Session {
     fc: FunctionCall,
   ): Promise<ToolRunResult> {
     const callId = fc.id ?? `${fc.name}-${Date.now()}`;
-    const args = (fc.args ?? {}) as Record<string, unknown>;
+    const args = (fc.args ?? {});
 
     const startTime = Date.now();
 
@@ -868,7 +868,7 @@ export class Session {
     }
 
     const toolRegistry = this.config.getToolRegistry();
-    const tool = toolRegistry.getTool(fc.name as string);
+    const tool = toolRegistry.getTool(fc.name);
 
     if (!tool) {
       return errorResponse(
@@ -1099,7 +1099,7 @@ export class Session {
       return input.parts ?? [];
     }
 
-    return [input as Part];
+    return [input];
   }
 
   private extractOutputString(response: unknown): string | null {

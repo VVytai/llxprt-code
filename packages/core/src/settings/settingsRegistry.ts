@@ -1348,7 +1348,7 @@ export function validateSetting(key: string, value: unknown): ValidationResult {
     const strValue = typeof value === 'string' ? value.toLowerCase() : value;
     if (
       typeof strValue !== 'string' ||
-      !spec.enumValues.includes(strValue as string)
+      !spec.enumValues.includes(strValue)
     ) {
       return {
         success: false,

@@ -337,8 +337,8 @@ describe('MemoryTool', () => {
       }
 
       // Assert type and cast to non-false value
-      type EditConfirmation = Exclude<typeof result, false>;
-      const editResult = result as EditConfirmation;
+      type _EditConfirmation = Exclude<typeof result, false>;
+      const editResult = result;
       expect(editResult.type).toBe('edit');
 
       const expectedPath = path.join('~', '.llxprt', 'LLXPRT.md');
@@ -392,8 +392,8 @@ describe('MemoryTool', () => {
         throw new Error('Expected result to be a confirmation, not false');
       }
 
-      type EditResult = Exclude<typeof result, false>;
-      const editResult = result as EditResult;
+      type _EditResult = Exclude<typeof result, false>;
+      const editResult = result;
       expect(editResult.type).toBe('edit');
 
       // Simulate the onConfirm callback
@@ -425,8 +425,8 @@ describe('MemoryTool', () => {
         throw new Error('Expected result to be a confirmation, not false');
       }
 
-      type EditResult2 = Exclude<typeof result, false>;
-      const editResult = result as EditResult2;
+      type _EditResult2 = Exclude<typeof result, false>;
+      const editResult = result;
       expect(editResult.type).toBe('edit');
 
       // Simulate the onConfirm callback with different outcomes
@@ -458,8 +458,8 @@ describe('MemoryTool', () => {
         throw new Error('Expected result to be a confirmation, not false');
       }
 
-      type EditResult3 = Exclude<typeof result, false>;
-      const editResult = result as EditResult3;
+      type _EditResult3 = Exclude<typeof result, false>;
+      const editResult = result;
       expect(editResult.type).toBe('edit');
 
       const expectedPath = path.join('~', '.llxprt', 'LLXPRT.md');

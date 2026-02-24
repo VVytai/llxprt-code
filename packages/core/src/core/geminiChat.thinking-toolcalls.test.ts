@@ -356,7 +356,7 @@ describe('Issue #1150: Thinking blocks must be attached to tool call messages', 
 
     const thinkingBlock = aiMessage?.blocks.find(
       (block) => block.type === 'thinking',
-    ) as ThinkingBlock | undefined;
+    );
 
     expect(thinkingBlock).toBeDefined();
     expect(thinkingBlock?.signature).toBe(testSignature);
@@ -843,7 +843,7 @@ describe('Issue #1150: Thinking blocks must be attached to tool call messages', 
     // Also verify the signature is preserved
     const thinkingBlock = aiWithToolCall?.blocks.find(
       (block) => block.type === 'thinking',
-    ) as ThinkingBlock | undefined;
+    );
 
     expect(thinkingBlock?.signature).toBe('sig-first-turn-abc');
   });
@@ -1094,7 +1094,7 @@ describe('Issue #1150: Thinking blocks must be attached to tool call messages', 
     // Also check for signature
     const thinkingBlock = aiWithToolCall?.blocks.find(
       (b) => b.type === 'thinking',
-    ) as ThinkingBlock | undefined;
+    );
 
     expect(thinkingBlock?.signature).toBe('sig-must-survive');
   });
@@ -1214,7 +1214,7 @@ describe('Issue #1150: Thinking blocks must be attached to tool call messages', 
     // THE KEY CHECK: thinking block must be present with sourceField and signature
     const thinkingBlock = aiMessage?.blocks.find(
       (b) => b.type === 'thinking',
-    ) as ThinkingBlock | undefined;
+    );
 
     expect(thinkingBlock).toBeDefined();
     expect(thinkingBlock?.sourceField).toBe('thinking');
@@ -1253,7 +1253,7 @@ describe('Issue #1150: Thinking blocks must be attached to tool call messages', 
     // THE CRITICAL CHECK: After round-trip, thinking block must still have signature
     const roundTrippedThinking = roundTrippedAi?.blocks.find(
       (b) => b.type === 'thinking',
-    ) as ThinkingBlock | undefined;
+    );
 
     // THIS WILL FAIL if the round-trip loses the signature
     expect(roundTrippedThinking).toBeDefined();

@@ -131,12 +131,12 @@ const getMcpStatus = async (
     }
   )
     .getResourceRegistry?.()
-    ?.getAllResources?.() ?? []) as DiscoveredMCPResource[];
+    ?.getAllResources?.() ?? []);
 
   for (const serverName of serverNames) {
     const serverTools = allTools.filter((tool: AnyDeclarativeTool) => {
       const isMcpTool = tool instanceof DiscoveredMCPTool;
-      return isMcpTool && (tool as DiscoveredMCPTool).serverName === serverName;
+      return isMcpTool && (tool).serverName === serverName;
     }) as DiscoveredMCPTool[];
     const serverPrompts = promptRegistry.getPromptsByServer(serverName) || [];
     const serverResources = allResources.filter(
@@ -265,7 +265,7 @@ const getMcpStatus = async (
     if (serverTools.length > 0) {
       message += `  ${COLOR_CYAN}Tools:${RESET_COLOR}\n`;
       serverTools.forEach((tool) => {
-        const toolName = (tool as DiscoveredMCPTool).serverToolName;
+        const toolName = (tool).serverToolName;
 
         if (showDescriptions && tool.description) {
           // Format tool name in cyan using simple ANSI cyan color

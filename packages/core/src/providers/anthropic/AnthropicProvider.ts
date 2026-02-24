@@ -18,7 +18,6 @@ import type { ToolFormat } from '../../tools/IToolFormatter.js';
 import {
   convertToolsToAnthropic,
   TOOL_PREFIX,
-  type AnthropicTool,
 } from './schemaConverter.js';
 import { type IProviderConfig } from '../types/IProviderConfig.js';
 import {
@@ -1007,12 +1006,12 @@ export class AnthropicProvider extends BaseProvider {
         const currentThinking = current.blocks.filter(
           (b) =>
             b.type === 'thinking' &&
-            (b as ThinkingBlock).sourceField === 'thinking',
+            (b).sourceField === 'thinking',
         );
         const currentOther = current.blocks.filter(
           (b) =>
             b.type !== 'thinking' ||
-            (b as ThinkingBlock).sourceField !== 'thinking',
+            (b).sourceField !== 'thinking',
         );
 
         if (currentThinking.length > 0 && currentOther.length === 0) {
@@ -1037,13 +1036,13 @@ export class AnthropicProvider extends BaseProvider {
               for (const block of filteredContentRaw[j].blocks) {
                 if (
                   block.type === 'thinking' &&
-                  (block as ThinkingBlock).sourceField === 'thinking'
+                  (block).sourceField === 'thinking'
                 ) {
-                  thinkingBlocks.push(block as ThinkingBlock);
+                  thinkingBlocks.push(block);
                 } else if (block.type === 'text' || block.type === 'code') {
                   textBlocks.push(block);
                 } else if (block.type === 'tool_call') {
-                  toolCallBlocks.push(block as ToolCallBlock);
+                  toolCallBlocks.push(block);
                 } else {
                   // Catch-all for unknown block types to prevent silent data loss
                   otherBlocks.push(block);
@@ -1163,6 +1162,7 @@ export class AnthropicProvider extends BaseProvider {
       contentIndex++
     ) {
       const c = processedContent[contentIndex];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const toolResponseBlocks = c.blocks.filter(
         (b) => b.type === 'tool_response',
       ) as ToolResponseBlock[];
@@ -1229,9 +1229,7 @@ export class AnthropicProvider extends BaseProvider {
           continue;
         }
 
-        const textBlock = c.blocks.find((b) => b.type === 'text') as
-          | TextBlock
-          | undefined;
+        const textBlock = c.blocks.find((b) => b.type === 'text');
 
         // Add text block as user message
         anthropicMessages.push({
@@ -1243,10 +1241,10 @@ export class AnthropicProvider extends BaseProvider {
         flushToolResults();
         const toolCallBlocks = c.blocks.filter(
           (b) => b.type === 'tool_call',
-        ) as ToolCallBlock[];
+        );
         const thinkingBlocks = c.blocks.filter(
           (b) => b.type === 'thinking',
-        ) as ThinkingBlock[];
+        );
 
         if (toolCallBlocks.length > 0 || thinkingBlocks.length > 0) {
           // Build content array preserving the original block order
@@ -1272,7 +1270,7 @@ export class AnthropicProvider extends BaseProvider {
 
           for (const block of c.blocks) {
             if (block.type === 'thinking') {
-              const thinkingBlock = block as ThinkingBlock;
+              const thinkingBlock = block;
               if (
                 thinkingBlock.sourceField !== 'thinking' ||
                 !thinkingBlock.signature
@@ -1733,7 +1731,7 @@ ${block.code}
             };
           }
           return tool;
-        }) as AnthropicTool[];
+        });
     }
 
     const toolNamesForPrompt =

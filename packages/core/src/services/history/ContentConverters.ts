@@ -19,9 +19,6 @@ import { type Content, type Part } from '@google/genai';
 import type {
   IContent,
   ContentBlock,
-  TextBlock,
-  ToolCallBlock,
-  ToolResponseBlock,
   ThinkingBlock,
 } from './IContent.js';
 import { DebugLogger } from '../../debug/index.js';
@@ -46,11 +43,11 @@ export class ContentConverters {
       toolCallIds:
         iContent.blocks
           ?.filter((b) => b.type === 'tool_call')
-          .map((b) => (b as ToolCallBlock).id) || [],
+          .map((b) => (b).id) || [],
       toolResponseCallIds:
         iContent.blocks
           ?.filter((b) => b.type === 'tool_response')
-          .map((b) => (b as ToolResponseBlock).callId) || [],
+          .map((b) => (b).callId) || [],
     });
     // Tool responses should have 'user' role in Gemini format
     let role: 'user' | 'model';
@@ -66,12 +63,12 @@ export class ContentConverters {
     for (const block of iContent.blocks) {
       switch (block.type) {
         case 'text': {
-          const textBlock = block as TextBlock;
+          const textBlock = block;
           parts.push({ text: textBlock.text });
           break;
         }
         case 'tool_call': {
-          const toolCall = block as ToolCallBlock;
+          const toolCall = block;
           this.logger.debug('Converting tool_call block to functionCall:', {
             id: toolCall.id,
             name: toolCall.name,
@@ -87,7 +84,7 @@ export class ContentConverters {
           break;
         }
         case 'tool_response': {
-          const toolResponse = block as ToolResponseBlock;
+          const toolResponse = block;
           this.logger.debug(
             'Converting tool_response block to functionResponse:',
             {
@@ -107,7 +104,7 @@ export class ContentConverters {
           break;
         }
         case 'thinking': {
-          const thinkingBlock = block as ThinkingBlock;
+          const thinkingBlock = block;
           const thinkingPart: Part = {
             thought: true,
             text: thinkingBlock.thought,
@@ -307,10 +304,7 @@ export class ContentConverters {
                 part.functionResponse.response !== null
               ) {
                 // If it's already an object, use it directly
-                result = part.functionResponse.response as Record<
-                  string,
-                  unknown
-                >;
+                result = part.functionResponse.response;
               } else if (typeof part.functionResponse.response === 'string') {
                 // If it's a string, try to parse as JSON, otherwise wrap it
                 try {
@@ -348,7 +342,7 @@ export class ContentConverters {
             callId,
             toolName: (matched?.toolName ||
               part.functionResponse.name ||
-              '') as string,
+              ''),
             result,
           });
           responseIndex += 1;
@@ -386,10 +380,10 @@ export class ContentConverters {
       blockTypes: blocks.map((b) => b.type),
       toolCallIds: blocks
         .filter((b) => b.type === 'tool_call')
-        .map((b) => (b as ToolCallBlock).id),
+        .map((b) => (b).id),
       toolResponseCallIds: blocks
         .filter((b) => b.type === 'tool_response')
-        .map((b) => (b as ToolResponseBlock).callId),
+        .map((b) => (b).callId),
     });
 
     return result;

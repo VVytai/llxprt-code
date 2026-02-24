@@ -665,7 +665,7 @@ export class CoreToolScheduler {
           // Preserve diff for cancelled edit operations
           let resultDisplay: ToolResultDisplay | undefined = undefined;
           if (currentCall.status === 'awaiting_approval') {
-            const waitingCall = currentCall as WaitingToolCall;
+            const waitingCall = currentCall;
             if (waitingCall.confirmationDetails.type === 'edit') {
               resultDisplay = {
                 fileDiff: waitingCall.confirmationDetails.fileDiff,
@@ -1152,7 +1152,7 @@ export class CoreToolScheduler {
 
     let waitingToolCall: WaitingToolCall | undefined;
     if (toolCall && toolCall.status === 'awaiting_approval') {
-      waitingToolCall = toolCall as WaitingToolCall;
+      waitingToolCall = toolCall;
     }
     const previousCorrelationId =
       waitingToolCall?.confirmationDetails?.correlationId;
@@ -1642,7 +1642,7 @@ export class CoreToolScheduler {
         outputConfig,
       );
       const metadataAgentId = extractAgentIdFromMetadata(
-        result.metadata as Record<string, unknown> | undefined,
+        result.metadata,
       );
 
       // Only include functionResponse parts - the functionCall is already in
@@ -2092,7 +2092,7 @@ ${appendText}`,
 
       // For awaiting_approval, we need to clean up pending confirmations
       if (call.status === 'awaiting_approval') {
-        const waitingCall = call as WaitingToolCall;
+        const waitingCall = call;
         if (waitingCall.confirmationDetails.correlationId) {
           this.pendingConfirmations.delete(
             waitingCall.confirmationDetails.correlationId,

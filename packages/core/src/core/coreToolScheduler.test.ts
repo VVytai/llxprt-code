@@ -394,7 +394,7 @@ describe('CoreToolScheduler', () => {
       .fn()
       .mockReturnValue(PolicyDecision.ASK_USER);
     let busHandler: ((message: ToolConfirmationResponse) => void) | undefined;
-    (mockMessageBus.subscribe as Mock).mockImplementation(
+    (mockMessageBus.subscribe).mockImplementation(
       (type: MessageBusType, handler: unknown) => {
         if (type === MessageBusType.TOOL_CONFIRMATION_RESPONSE) {
           busHandler = handler as (message: ToolConfirmationResponse) => void;
@@ -512,7 +512,7 @@ describe('CoreToolScheduler', () => {
       .mockReturnValue(PolicyDecision.ASK_USER);
 
     let busHandler: ((message: ToolConfirmationResponse) => void) | undefined;
-    (mockMessageBus.subscribe as Mock).mockImplementation(
+    (mockMessageBus.subscribe).mockImplementation(
       (type: MessageBusType, handler: unknown) => {
         if (type === MessageBusType.TOOL_CONFIRMATION_RESPONSE) {
           busHandler = handler as (message: ToolConfirmationResponse) => void;
@@ -600,7 +600,7 @@ describe('CoreToolScheduler', () => {
 
     expect(executeFn).toHaveBeenCalledWith({ command: 'npm install' });
 
-    const messageBusResponses = (mockMessageBus.publish as Mock).mock.calls
+    const messageBusResponses = (mockMessageBus.publish).mock.calls
       .map((call) => call[0])
       .filter(
         (message) => message.type === MessageBusType.TOOL_CONFIRMATION_RESPONSE,
@@ -1022,7 +1022,7 @@ describe('CoreToolScheduler with payload', () => {
 
     expect(confirmationDetails).toBeDefined();
     const payload: ToolConfirmationPayload = { newContent: 'final version' };
-    await confirmationDetails!.onConfirm(
+    await confirmationDetails.onConfirm(
       ToolConfirmationOutcome.ProceedOnce,
       payload,
     );
@@ -2307,7 +2307,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
         // Capture confirmation handlers for awaiting_approval tools
         toolCalls.forEach((call) => {
           if (call.status === 'awaiting_approval') {
-            const waitingCall = call as WaitingToolCall;
+            const waitingCall = call;
             if (waitingCall.confirmationDetails?.onConfirm) {
               const originalHandler = pendingConfirmations.find(
                 (h) => h === waitingCall.confirmationDetails.onConfirm,

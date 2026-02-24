@@ -697,7 +697,7 @@ describe('OpenAIVercelProvider - Error Handling', () => {
 
       const chunks: string[] = [];
       await expect(async () => {
-        for await (const chunk of result.stream!) {
+        for await (const chunk of result.stream) {
           chunks.push(chunk);
         }
       }).rejects.toThrow(ProviderError);

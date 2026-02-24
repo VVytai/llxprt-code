@@ -2056,7 +2056,7 @@ describe('AnthropicProvider', () => {
         // All message blocks should not have cache_control
         const allCacheControls = anthropicMessages.flatMap((message) => {
           if (Array.isArray(message.content)) {
-            const contentBlocks = message.content as AnthropicContentBlock[];
+            const contentBlocks = message.content;
             return contentBlocks.map((block) => block.cache_control);
           }
           // String content has no cache_control, which is correct
@@ -2172,7 +2172,7 @@ describe('AnthropicProvider', () => {
         expect(allowed).toBeDefined();
 
         const actualKeys = Object.keys(cachedBlock!);
-        const extraKeys = actualKeys.filter((k) => !allowed!.has(k));
+        const extraKeys = actualKeys.filter((k) => !allowed.has(k));
         expect(extraKeys).toEqual([]);
       });
 

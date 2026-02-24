@@ -20,7 +20,7 @@ import {
   ReadLineRangeTool,
   ReadLineRangeToolParams,
 } from './read_line_range.js';
-import { ToolInvocation, ToolResult } from './tools.js';
+import { type ToolResult as _ToolResult } from './tools.js';
 
 describe('ReadLineRangeTool', () => {
   let tempRootDir: string;
@@ -74,10 +74,7 @@ describe('ReadLineRangeTool', () => {
       showLineNumbers: true,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const result = await invocation.execute(abortSignal);
 
@@ -102,10 +99,7 @@ describe('ReadLineRangeTool', () => {
       end_line: 5,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const result = await invocation.execute(abortSignal);
 
@@ -130,10 +124,7 @@ describe('ReadLineRangeTool', () => {
       showGitChanges: true,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const result = await invocation.execute(abortSignal);
     expect(typeof result.llmContent).toBe('string');
@@ -188,10 +179,7 @@ describe('ReadLineRangeTool', () => {
       showGitChanges: true,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
     const result = await invocation.execute(abortSignal);
 
     expect(typeof result.llmContent).toBe('string');
@@ -241,10 +229,7 @@ describe('ReadLineRangeTool', () => {
       showGitChanges: true,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
     const result = await invocation.execute(abortSignal);
 
     expect(typeof result.llmContent).toBe('string');
@@ -294,10 +279,7 @@ describe('ReadLineRangeTool', () => {
       showGitChanges: true,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
     const result = await invocation.execute(abortSignal);
 
     expect(typeof result.llmContent).toBe('string');
@@ -352,10 +334,7 @@ describe('ReadLineRangeTool', () => {
       showGitChanges: true,
     };
 
-    const invocation = tool.build(params) as ToolInvocation<
-      ReadLineRangeToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
     const result = await invocation.execute(abortSignal);
 
     expect(typeof result.llmContent).toBe('string');

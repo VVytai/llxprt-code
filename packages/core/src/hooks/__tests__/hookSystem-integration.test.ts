@@ -54,8 +54,8 @@ class FakeMessageBus {
     type: MessageBusType | string,
     handler: (msg: T) => void,
   ): () => void {
-    this.emitter.on(type as string, handler);
-    return () => this.emitter.off(type as string, handler);
+    this.emitter.on(type, handler);
+    return () => this.emitter.off(type, handler);
   }
 
   responses(): HookExecutionResponse[] {

@@ -6,8 +6,6 @@ import { describe, it, expect } from 'vitest';
 import { HistoryService } from '../services/history/HistoryService.js';
 import { ContentConverters } from '../services/history/ContentConverters.js';
 import {
-  ToolCallBlock,
-  ToolResponseBlock,
 } from '../services/history/IContent.js';
 
 describe('Compression and duplicate tool call IDs', () => {
@@ -101,9 +99,9 @@ describe('Compression and duplicate tool call IDs', () => {
     for (const content of allHistory) {
       for (const block of content.blocks) {
         if (block.type === 'tool_call') {
-          toolCallIds.push((block as ToolCallBlock).id);
+          toolCallIds.push((block).id);
         } else if (block.type === 'tool_response') {
-          toolResponseIds.push((block as ToolResponseBlock).callId);
+          toolResponseIds.push((block).callId);
         }
       }
     }
@@ -231,7 +229,7 @@ describe('Compression and duplicate tool call IDs', () => {
     for (const content of finalHistory) {
       for (const block of content.blocks) {
         if (block.type === 'tool_call') {
-          allToolIds.push((block as ToolCallBlock).id);
+          allToolIds.push((block).id);
         }
       }
     }

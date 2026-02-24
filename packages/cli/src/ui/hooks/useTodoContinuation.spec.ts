@@ -29,7 +29,7 @@ vi.mock('../contexts/TodoContext.js');
 vi.mock('@vybestack/llxprt-code-core', async () => {
   const actual = (await vi.importActual(
     '@vybestack/llxprt-code-core',
-  )) as Record<string, unknown>;
+  ));
   return {
     ...actual,
     Config: vi.fn(),

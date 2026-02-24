@@ -161,6 +161,7 @@ export class LspServiceClient {
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const request = this.connection.sendRequest('lsp/checkFile', {
         filePath,
       }) as Promise<Diagnostic[]>;
@@ -179,10 +180,8 @@ export class LspServiceClient {
     }
 
     try {
-      return (await this.connection.sendRequest('lsp/diagnostics')) as Record<
-        string,
-        Diagnostic[]
-      >;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      return (await this.connection.sendRequest('lsp/diagnostics')) as Record<string, Diagnostic[]>;
     } catch {
       return {};
     }
@@ -202,9 +201,10 @@ export class LspServiceClient {
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       const rawStatuses = (await this.connection.sendRequest(
         'lsp/status',
-      )) as unknown[];
+      )) as Array<Record<string, unknown>>;
       return rawStatuses.map(normalizeServerStatus);
     } catch {
       return [];

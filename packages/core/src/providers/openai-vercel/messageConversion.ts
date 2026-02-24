@@ -116,7 +116,7 @@ export function convertToVercelMessages(
       // Convert system messages
       const textBlocks = content.blocks.filter(
         (b: ContentBlock) => b.type === 'text',
-      ) as TextBlock[];
+      );
       const text = textBlocks
         .map((b) => b.text)
         .filter((t) => t.length > 0)
@@ -131,10 +131,10 @@ export function convertToVercelMessages(
       // Convert human messages to user messages
       const textBlocks = content.blocks.filter(
         (b: ContentBlock) => b.type === 'text',
-      ) as TextBlock[];
+      );
       const mediaBlocks = content.blocks.filter(
         (b: ContentBlock) => b.type === 'media',
-      ) as MediaBlock[];
+      );
       const hasImages = mediaBlocks.length > 0;
       const text = textBlocks
         .map((b) => b.text)
@@ -169,10 +169,10 @@ export function convertToVercelMessages(
       // Convert AI messages to assistant messages
       const textBlocks = content.blocks.filter(
         (b: ContentBlock) => b.type === 'text',
-      ) as TextBlock[];
+      );
       const toolCallBlocks = content.blocks.filter(
         (b: ContentBlock) => b.type === 'tool_call',
-      ) as ToolCallBlock[];
+      );
       const thinkingBlocks = extractThinkingBlocks(content);
 
       const text = textBlocks
@@ -251,7 +251,7 @@ export function convertToVercelMessages(
       // Convert tool messages to tool result messages
       const toolResponseBlocks = content.blocks.filter(
         (b: ContentBlock) => b.type === 'tool_response',
-      ) as ToolResponseBlock[];
+      );
 
       if (toolResponseBlocks.length > 0) {
         const toolContent: ToolResultPart[] = toolResponseBlocks.map(

@@ -224,7 +224,7 @@ function resolveActiveStep(
       };
     }
 
-    const valueNode = firstNode as ValueArgument;
+    const valueNode = firstNode;
 
     if (remainingArgs.length === 0) {
       return {
@@ -504,7 +504,7 @@ export function tokenize(fullLine: string): TokenInfo {
     typeof prefixChar === 'string' && prefixChars.has(prefixChar);
   // Stryker disable next-line ConditionalExpression -- ensures only `/` and `@` prefixes trigger schema stripping
   if (firstToken && hasPrefixChar) {
-    const afterPrefix = firstToken!.slice(1);
+    const afterPrefix = firstToken.slice(1);
     if (afterPrefix.length === 0) {
       tokens.shift();
     } else if (tokens.length > 1 || hasTrailingSpace) {

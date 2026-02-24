@@ -381,7 +381,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
                 e.blocks.some(
                   (b) =>
                     b.type === 'tool_response' &&
-                    (b as ToolResponseBlock).callId === tc.id,
+                    (b).callId === tc.id,
                 ),
             );
             expect(hasMatchingResponse).toBe(true);
@@ -451,7 +451,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
       for (const te of toolEntries) {
         for (const block of te.blocks) {
           if (block.type === 'tool_response') {
-            const rb = block as ToolResponseBlock;
+            const rb = block;
             // If outside tail, result should be a short summary string
             const resultStr = String(rb.result);
             if (resultStr !== bigContent) {
@@ -506,7 +506,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
       for (const te of toolEntries) {
         for (const block of te.blocks) {
           if (block.type === 'tool_response') {
-            summaries.push(String((block as ToolResponseBlock).result));
+            summaries.push(String((block).result));
           }
         }
       }
@@ -550,7 +550,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
       for (const te of toolEntries) {
         for (const block of te.blocks) {
           if (block.type === 'tool_response') {
-            const resultStr = String((block as ToolResponseBlock).result);
+            const resultStr = String((block).result);
             // Summary should mention either the path or the tool name
             expect(
               resultStr.includes('read_file') ||
@@ -1099,7 +1099,7 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
             if (entry.speaker === 'tool') {
               for (const block of entry.blocks) {
                 if (block.type === 'tool_response') {
-                  expect(typeof (block as ToolResponseBlock).result).toBe(
+                  expect(typeof (block).result).toBe(
                     'string',
                   );
                 }

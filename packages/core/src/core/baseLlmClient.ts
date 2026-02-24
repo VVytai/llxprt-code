@@ -352,9 +352,7 @@ export class BaseLLMClient {
     shouldRetryOnContent: (response: GenerateContentResponse) => boolean,
     _errorContext: 'generateJson' | 'generateContent',
   ): Promise<GenerateContentResponse> {
-    const abortSignal = requestParams.config?.abortSignal as
-      | AbortSignal
-      | undefined;
+    const abortSignal = requestParams.config?.abortSignal;
 
     try {
       const apiCall = () =>

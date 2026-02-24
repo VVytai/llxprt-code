@@ -40,7 +40,7 @@ import { useKeypress } from '../hooks/useKeypress.js';
 import chalk from 'chalk';
 import { cpSlice, cpLen, stripUnsafeCharacters } from '../utils/textUtils.js';
 import type { Config } from '@vybestack/llxprt-code-core';
-import { SettingDefinition } from '../../config/settingsSchema.js';
+import { SettingDefinition as _SettingDefinition } from '../../config/settingsSchema.js';
 import { generateDynamicToolSettings } from '../../utils/dynamicSettings.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import { useUIState } from '../contexts/UIStateContext.js';
@@ -353,7 +353,7 @@ export function SettingsDialog({
 
     return Object.entries(subSettings).map(([key, def]) => {
       const fullKey = `${parentKey}.${key}`;
-      const typedDef = def as SettingDefinition;
+      const typedDef = def;
 
       return {
         label: typedDef.label || key,

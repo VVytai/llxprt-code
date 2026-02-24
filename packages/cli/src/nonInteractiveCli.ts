@@ -24,7 +24,6 @@ import {
   setActiveProviderRuntimeContext,
   type UserFeedbackPayload,
   type EmojiFilterMode,
-  type ServerGeminiThoughtEvent,
 } from '@vybestack/llxprt-code-core';
 import { Part } from '@google/genai';
 import readline from 'node:readline';
@@ -319,7 +318,7 @@ export async function runNonInteractive({
         if (event.type === GeminiEventType.Thought) {
           if (includeThinking) {
             maybeEmitProfileName();
-            const thoughtEvent = event as ServerGeminiThoughtEvent;
+            const thoughtEvent = event;
             const thought = thoughtEvent.value;
             // Format thought with subject and description
             let thoughtText =
@@ -363,7 +362,7 @@ export async function runNonInteractive({
 
             outputValue =
               typeof filterResult.filtered === 'string'
-                ? (filterResult.filtered as string)
+                ? (filterResult.filtered)
                 : '';
 
             if (filterResult.systemFeedback) {
@@ -468,7 +467,7 @@ export async function runNonInteractive({
             );
             normalizedArgs = {};
           } else if (rawArgs && typeof rawArgs === 'object') {
-            normalizedArgs = rawArgs as Record<string, unknown>;
+            normalizedArgs = rawArgs;
           } else {
             normalizedArgs = {};
           }

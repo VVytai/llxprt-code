@@ -179,7 +179,7 @@ class MockConversationDataRedactor implements ConversationDataRedactor {
       ...message,
       blocks: message.blocks.map((block) => {
         if (block.type === 'text') {
-          return { ...block, text: redactedContent! };
+          return { ...block, text: redactedContent };
         }
         return block;
       }),

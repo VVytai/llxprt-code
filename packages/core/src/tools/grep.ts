@@ -886,7 +886,7 @@ File: ${resolved.basename}
         // Check if we've hit file limit
         if (
           filesWithMatches.size >= maxFiles &&
-          !filesWithMatches.has(filePath as string)
+          !filesWithMatches.has(filePath)
         ) {
           continue;
         }
@@ -896,7 +896,7 @@ File: ${resolved.basename}
           break;
         }
 
-        const fileAbsolutePath = filePath as string;
+        const fileAbsolutePath = filePath;
         try {
           const content = await fsPromises.readFile(fileAbsolutePath, 'utf8');
           const lines = content.split(/\r?\n/);

@@ -481,7 +481,7 @@ export class Turn {
       }
     }
 
-    const args = (fnCall.args || {}) as Record<string, unknown>;
+    const args = (fnCall.args || {});
 
     const toolCallRequest: ToolCallRequestInfo = {
       callId,

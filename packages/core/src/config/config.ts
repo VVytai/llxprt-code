@@ -2723,7 +2723,7 @@ ${trimmed}
           const result = await this.mcpClient.callTool(
             {
               name: call.name ?? this.toolDef.name,
-              arguments: (call.args ?? {}) as Record<string, unknown>,
+              arguments: (call.args ?? {}),
             },
             undefined,
             { timeout: requestTimeoutMs },

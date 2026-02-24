@@ -198,7 +198,7 @@ export class CredentialProxyServer {
         if (!handshakeCompleted) {
           this.handleHandshake(socket, frame);
           if (
-            (frame as Record<string, unknown>).v === PROTOCOL_VERSION ||
+            (frame).v === PROTOCOL_VERSION ||
             this.isVersionCompatible(frame)
           ) {
             handshakeCompleted = true;

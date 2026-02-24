@@ -9,7 +9,7 @@ import { GenerateContentResponseUsageMetadata } from '@google/genai';
 import { Config } from '../config/config.js';
 import { type CompletedToolCall } from '../core/coreToolScheduler.js';
 import { DEFAULT_AGENT_ID } from '../core/turn.js';
-import { ToolConfirmationOutcome, type FileDiff } from '../tools/tools.js';
+import { ToolConfirmationOutcome } from '../tools/tools.js';
 import { DiscoveredMCPTool } from '../tools/mcp-tool.js';
 import type { IContent } from '../services/history/IContent.js';
 import type {
@@ -155,7 +155,7 @@ export class ToolCallEvent {
       call.response.resultDisplay !== null &&
       'diffStat' in call.response.resultDisplay
     ) {
-      const diffStat = (call.response.resultDisplay as FileDiff).diffStat;
+      const diffStat = (call.response.resultDisplay).diffStat;
       if (diffStat) {
         this.metadata = {
           ai_added_lines: diffStat.ai_added_lines,

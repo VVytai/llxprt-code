@@ -12,7 +12,7 @@ import { appEvents, AppEvent } from '../../utils/events.js';
 
 // Mock ink's measureElement
 vi.mock('ink', async () => {
-  const actualInk = (await vi.importActual('ink')) as Record<string, unknown>;
+  const actualInk = (await vi.importActual('ink'));
   return {
     ...actualInk,
     measureElement: vi.fn(),

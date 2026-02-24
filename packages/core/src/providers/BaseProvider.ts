@@ -898,7 +898,7 @@ export abstract class BaseProvider implements IProvider {
     const runtimeMetadata = metadata as Record<string, unknown>;
     const currentRuntimeId =
       typeof runtimeMetadata.runtimeId === 'string'
-        ? (runtimeMetadata.runtimeId as string)
+        ? (runtimeMetadata.runtimeId)
         : undefined;
 
     const runtime: ProviderRuntimeContext = input.runtime

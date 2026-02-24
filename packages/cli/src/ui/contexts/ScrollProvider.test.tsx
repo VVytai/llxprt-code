@@ -10,7 +10,6 @@ import {
   forwardRef,
   useImperativeHandle,
   act,
-  type RefObject,
 } from 'react';
 import { render } from 'ink-testing-library';
 import { Box, type DOMElement } from 'ink';
@@ -58,7 +57,7 @@ const TestScrollable = forwardRef(
 
     useScrollable(
       {
-        ref: elementRef as RefObject<DOMElement | null>,
+        ref: elementRef,
         getScrollState: props.getScrollState,
         scrollBy: props.scrollBy,
         scrollTo: props.scrollTo,

@@ -187,7 +187,7 @@ function resolveAuthOnlyFlag(
 ): boolean {
   if (config && typeof config.getEphemeralSettings === 'function') {
     const authOnlyValue = (
-      config.getEphemeralSettings() as Record<string, unknown>
+      config.getEphemeralSettings()
     ).authOnly;
     if (authOnlyValue !== undefined) {
       const coerced = coerceAuthOnly(authOnlyValue);

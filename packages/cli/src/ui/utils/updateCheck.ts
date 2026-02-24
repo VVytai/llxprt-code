@@ -85,7 +85,7 @@ export async function checkForUpdates(
       return Promise.race([
         fetchPromise,
         timeout,
-      ]) as Promise<UpdateInfo | null>;
+      ]);
     };
 
     if (isNightly) {

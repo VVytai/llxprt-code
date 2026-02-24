@@ -24,7 +24,6 @@ import { useReactToolScheduler } from './useReactToolScheduler.js';
 import type {
   Config,
   EditorType,
-  GeminiClient,
   AnyToolInvocation,
 } from '@vybestack/llxprt-code-core';
 import {
@@ -155,7 +154,7 @@ describe('useGeminiStream', () => {
 
     mockAddItem = vi.fn();
     // Define the mock for getGeminiClient
-    const mockGetGeminiClient = vi.fn().mockImplementation(() => {
+    const _mockGetGeminiClient = vi.fn().mockImplementation(() => {
       // MockedGeminiClientClass is defined in the module scope by the previous change.
       // It will use the mockStartChat and mockSendMessageStream that are managed within beforeEach.
       const clientInstance = new MockedGeminiClientClass(mockConfig);
@@ -193,7 +192,6 @@ describe('useGeminiStream', () => {
       ),
       getProjectRoot: vi.fn(() => '/test/dir'),
       getCheckpointingEnabled: vi.fn(() => false),
-      getGeminiClient: mockGetGeminiClient,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
@@ -896,8 +894,8 @@ describe('useGeminiStream', () => {
       expect(client.addHistory).toHaveBeenCalledWith({
         role: 'user',
         parts: [
-          ...(cancelledToolCall1.response.responseParts as Part[]),
-          ...(cancelledToolCall2.response.responseParts as Part[]),
+          ...(cancelledToolCall1.response.responseParts),
+          ...(cancelledToolCall2.response.responseParts),
         ],
       });
 
@@ -2153,7 +2151,7 @@ describe('useGeminiStream', () => {
 
     const { result } = renderHook(() =>
       useGeminiStream(
-        mockConfig.getGeminiClient() as GeminiClient,
+        mockConfig.getGeminiClient(),
         [],
         mockAddItem,
         mockConfig,

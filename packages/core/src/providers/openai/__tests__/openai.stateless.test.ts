@@ -13,7 +13,6 @@ import {
 } from '../../../runtime/providerRuntimeContext.js';
 import { createRuntimeInvocationContext } from '../../../runtime/RuntimeInvocationContext.js';
 import { createRuntimeConfigStub } from '../../../test-utils/runtime.js';
-import type { Config } from '../../../config/config.js';
 import {
   createProviderCallOptions,
   type ProviderCallOptionsInit,
@@ -195,7 +194,7 @@ describe('OpenAI provider stateless contract tests', () => {
         temperature: 0.42,
         'max-tokens': 512,
       }),
-    }) as Config;
+    });
     const callOptions = buildCallOptions(provider, {
       settings: settingsPrimary,
       config: configPrimary,
@@ -216,7 +215,7 @@ describe('OpenAI provider stateless contract tests', () => {
         temperature: 0.85,
         'max-tokens': 128,
       }),
-    }) as Config;
+    });
     const runtimeOverride = createProviderRuntimeContext({
       runtimeId: 'runtime-config',
       settingsService: settingsOverride,
@@ -246,7 +245,7 @@ describe('OpenAI provider stateless contract tests', () => {
     });
     const config = createRuntimeConfigStub(settings, {
       getEphemeralSettings: getEphemerals,
-    }) as Config;
+    });
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-invocation',
       settingsService: settings,

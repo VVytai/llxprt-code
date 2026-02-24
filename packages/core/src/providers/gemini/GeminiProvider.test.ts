@@ -222,7 +222,7 @@ describe('GeminiProvider', () => {
       (part) => 'functionResponse' in part,
     ) as { functionResponse: { response: Record<string, unknown> } };
     const responsePayload = functionResponsePart.functionResponse
-      .response as Record<string, unknown>;
+      .response;
 
     expect(responsePayload.status).toBe('error');
     expect(responsePayload.error).toBe('file too large');

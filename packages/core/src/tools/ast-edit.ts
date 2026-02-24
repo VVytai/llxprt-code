@@ -1819,7 +1819,7 @@ class ASTEditToolInvocation
       'Current',
       'Proposed',
       DEFAULT_CREATE_PATCH_OPTIONS,
-    ) as string;
+    );
 
     const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',
@@ -1950,7 +1950,7 @@ class ASTEditToolInvocation
         'Current',
         'Proposed',
         DEFAULT_CREATE_PATCH_OPTIONS,
-      ) as string;
+      );
 
       const editPreviewLlmContent = [
         `LLXPRT EDIT PREVIEW: ${this.params.file_path}`,
@@ -2086,7 +2086,7 @@ class ASTEditToolInvocation
         'Current',
         'Applied',
         DEFAULT_CREATE_PATCH_OPTIONS,
-      ) as string;
+      );
 
       const displayResult = {
         fileDiff,

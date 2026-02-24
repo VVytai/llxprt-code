@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HistoryService } from './HistoryService.js';
-import { ToolCallBlock } from './IContent.js';
+import { type ToolCallBlock as _ToolCallBlock } from './IContent.js';
 
 describe('Compression locking', () => {
   let historyService: HistoryService;
@@ -131,7 +131,7 @@ describe('Compression locking', () => {
 
     // Should have only one tool call with this ID
     const callsWithId = toolCalls.filter(
-      (tc) => (tc as ToolCallBlock).id === toolCallId,
+      (tc) => (tc).id === toolCallId,
     );
     expect(callsWithId.length).toBe(1);
   });
@@ -198,7 +198,7 @@ describe('Compression locking', () => {
         (b) =>
           b.type === 'text' &&
           'text' in b &&
-          (b.text as string).startsWith('Compression'),
+          (b.text).startsWith('Compression'),
       ),
     );
 

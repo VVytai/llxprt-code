@@ -12,7 +12,7 @@ import * as path from 'node:path';
 vi.mock('@vybestack/llxprt-code-core', async () => {
   const actual = (await vi.importActual(
     '@vybestack/llxprt-code-core',
-  )) as Record<string, unknown>;
+  ));
   return {
     ...actual,
     Storage: {

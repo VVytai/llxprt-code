@@ -68,7 +68,7 @@ export class SecureInputHandler {
 
         const lineBreakMatch = patContent.match(/[\r\n]/);
         if (lineBreakMatch) {
-          const keyToMask = patContent.substring(0, lineBreakMatch.index!);
+          const keyToMask = patContent.substring(0, lineBreakMatch.index);
           const afterLineBreak = patContent.substring(lineBreakMatch.index!);
           return `${prefix}${this.maskValue(keyToMask)}${afterLineBreak}`;
         } else {
@@ -85,7 +85,7 @@ export class SecureInputHandler {
         const valueContent = keySaveMatch[2];
         const lineBreakMatch = valueContent.match(/[\r\n]/);
         if (lineBreakMatch) {
-          const keyToMask = valueContent.substring(0, lineBreakMatch.index!);
+          const keyToMask = valueContent.substring(0, lineBreakMatch.index);
           const afterLineBreak = valueContent.substring(lineBreakMatch.index!);
           return `${prefix}${this.maskValue(keyToMask)}${afterLineBreak}`;
         }

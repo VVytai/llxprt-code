@@ -1789,8 +1789,8 @@ describe('subagent.ts', () => {
         await vi.advanceTimersByTimeAsync(6 * 60 * 1000);
 
         // Now resolve the stream. The model returns 'stop'.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolveStream!(createMockStream(['stop'])() as any);
+         
+        resolveStream!(createMockStream(['stop'])());
 
         await runPromise;
 

@@ -12,9 +12,6 @@ import { DiffRenderer } from './DiffRenderer.js';
 import { RenderInline } from '../../utils/InlineMarkdownRenderer.js';
 import type {
   ToolCallConfirmationDetails,
-  ToolEditConfirmationDetails,
-  ToolExecuteConfirmationDetails,
-  ToolMcpConfirmationDetails,
   Config,
 } from '@vybestack/llxprt-code-core';
 import {
@@ -218,7 +215,7 @@ export const ToolConfirmationMessage: React.FC<
         key: 'Modify with external editor',
       });
     }
-    const editDetails = confirmationDetails as ToolEditConfirmationDetails;
+    const editDetails = confirmationDetails;
     const metadata = editDetails.metadata;
     const astValidation = metadata?.astValidation as
       | { valid: boolean; errors: string[] }
@@ -242,7 +239,7 @@ export const ToolConfirmationMessage: React.FC<
                   <Text color={Colors.AccentRed} bold>
                     ⚠ AST Validation Failed
                   </Text>
-                  {(astValidation.errors as string[]).map(
+                  {(astValidation.errors).map(
                     (err: string, i: number) => (
                       <Text key={i} color={Colors.AccentRed}>
                         - {err}
@@ -269,7 +266,7 @@ export const ToolConfirmationMessage: React.FC<
     );
   } else if (confirmationDetails.type === 'exec') {
     const executionProps =
-      confirmationDetails as ToolExecuteConfirmationDetails;
+      confirmationDetails;
 
     question = `Allow execution of: '${executionProps.rootCommand}'?`;
     options.push({
@@ -366,7 +363,7 @@ export const ToolConfirmationMessage: React.FC<
     );
   } else {
     // mcp tool confirmation
-    const mcpProps = confirmationDetails as ToolMcpConfirmationDetails;
+    const mcpProps = confirmationDetails;
 
     bodyContent = (
       <Box flexDirection="column" paddingX={1} marginLeft={1}>

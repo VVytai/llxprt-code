@@ -19,7 +19,6 @@ import {
   ContentValidation,
   type ToolCallBlock,
   type ToolResponseBlock,
-  type TextBlock,
 } from './IContent.js';
 import { EventEmitter } from 'events';
 import { type ITokenizer } from '../../providers/tokenizers/ITokenizer.js';
@@ -284,12 +283,12 @@ export class HistoryService
       blockTypes: content.blocks?.map((b) => b.type),
       toolCallIds: content.blocks
         ?.filter((b) => b.type === 'tool_call')
-        .map((b) => (b as ToolCallBlock).id),
+        .map((b) => (b).id),
       toolResponseIds: content.blocks
         ?.filter((b) => b.type === 'tool_response')
         .map((b) => ({
-          callId: (b as ToolResponseBlock).callId,
-          toolName: (b as ToolResponseBlock).toolName,
+          callId: (b).callId,
+          toolName: (b).toolName,
         })),
       contentId: content.metadata?.id,
       modelName,
@@ -775,13 +774,13 @@ export class HistoryService
             blocks: content.blocks?.map((b) => ({
               type: b.type,
               textLength:
-                b.type === 'text' ? (b as TextBlock).text?.length : null,
+                b.type === 'text' ? (b).text?.length : null,
               textPreview:
                 b.type === 'text'
-                  ? (b as TextBlock).text?.substring(0, 50)
+                  ? (b).text?.substring(0, 50)
                   : null,
               isEmpty:
-                b.type === 'text' ? !(b as TextBlock).text?.trim() : false,
+                b.type === 'text' ? !(b).text?.trim() : false,
             })),
             metadata: {
               hasUsage: !!content.metadata?.usage,
@@ -969,7 +968,7 @@ export class HistoryService
       if (!content.blocks) continue;
       for (const block of content.blocks) {
         if (block.type === 'tool_response') {
-          const response = block as ToolResponseBlock;
+          const response = block;
           if (response.callId) {
             respondedCallIds.add(response.callId);
           }
@@ -985,7 +984,7 @@ export class HistoryService
       for (const block of content.blocks) {
         if (block.type !== 'tool_call') continue;
 
-        const toolCall = block as ToolCallBlock;
+        const toolCall = block;
         if (!toolCall.id) continue;
         if (seenToolCallIds.has(toolCall.id)) continue;
         seenToolCallIds.add(toolCall.id);
@@ -1013,7 +1012,7 @@ export class HistoryService
       if (!content.blocks) continue;
       for (const block of content.blocks) {
         if (block.type === 'tool_response') {
-          const response = block as ToolResponseBlock;
+          const response = block;
           if (response.callId) {
             respondedCallIds.add(response.callId);
           }
@@ -1177,7 +1176,7 @@ export class HistoryService
       if (content.blocks && content.blocks.length > 0) {
         for (const block of content.blocks) {
           if (block.type === 'tool_call') {
-            seenToolCallIds.add((block as ToolCallBlock).id);
+            seenToolCallIds.add((block).id);
           }
         }
       }
@@ -1186,7 +1185,7 @@ export class HistoryService
         const missingResponses = content.blocks.filter(
           (block) =>
             block.type === 'tool_response' &&
-            !seenToolCallIds.has((block as ToolResponseBlock).callId),
+            !seenToolCallIds.has((block).callId),
         ) as ToolResponseBlock[];
 
         if (missingResponses.length > 0) {
@@ -1248,7 +1247,7 @@ export class HistoryService
       if (!content.blocks?.length) continue;
       for (const block of content.blocks) {
         if (block.type !== 'tool_response') continue;
-        const callId = (block as ToolResponseBlock).callId;
+        const callId = (block).callId;
         if (callId) {
           respondedCallIds.add(callId);
         }
@@ -1317,7 +1316,7 @@ export class HistoryService
       if (!content.blocks?.length) continue;
       for (const block of content.blocks) {
         if (block.type !== 'tool_call') continue;
-        const id = (block as ToolCallBlock).id;
+        const id = (block).id;
         if (id && !toolCallIndexById.has(id)) {
           toolCallIndexById.set(id, i);
         }
@@ -1450,7 +1449,7 @@ export class HistoryService
         speaker: content.speaker,
         blocks: content.blocks.map((block) => {
           if (block.type === 'tool_call') {
-            const toolCall = block as ToolCallBlock;
+            const toolCall = block;
             // For tool calls, sanitize the parameters to remove circular refs
             return {
               type: 'tool_call',
@@ -1459,7 +1458,7 @@ export class HistoryService
               parameters: this.sanitizeParams(toolCall.parameters),
             } as ToolCallBlock;
           } else if (block.type === 'tool_response') {
-            const toolResponse = block as ToolResponseBlock;
+            const toolResponse = block;
             // For tool responses, sanitize the result to remove circular refs
             return {
               type: 'tool_response',

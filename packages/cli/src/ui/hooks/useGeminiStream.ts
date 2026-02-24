@@ -14,7 +14,6 @@ import {
   ServerGeminiErrorEvent as ErrorEvent,
   ServerGeminiChatCompressedEvent,
   ServerGeminiFinishedEvent,
-  ServerGeminiContextWindowWillOverflowEvent,
   getErrorMessage,
   isNodeError,
   MessageSenderType,
@@ -29,7 +28,6 @@ import {
   parseAndFormatApiError,
   getCodeAssistServer,
   UserTierId,
-  ServerGeminiCitationEvent,
   EmojiFilter,
   type EmojiFilterMode,
   DEFAULT_AGENT_ID,
@@ -1149,15 +1147,15 @@ export const useGeminiStream = (
             break;
           case ServerGeminiEventType.ContextWindowWillOverflow:
             handleContextWindowWillOverflowEvent(
-              (event as ServerGeminiContextWindowWillOverflowEvent).value
+              (event).value
                 .estimatedRequestTokenCount,
-              (event as ServerGeminiContextWindowWillOverflowEvent).value
+              (event).value
                 .remainingTokenCount,
             );
             break;
           case ServerGeminiEventType.Finished:
             handleFinishedEvent(
-              event as ServerGeminiFinishedEvent,
+              event,
               userMessageTimestamp,
             );
             break;
@@ -1175,7 +1173,7 @@ export const useGeminiStream = (
             break;
           case ServerGeminiEventType.Citation:
             handleCitationEvent(
-              (event as ServerGeminiCitationEvent).value,
+              (event).value,
               userMessageTimestamp,
             );
             break;
@@ -1296,7 +1294,7 @@ export const useGeminiStream = (
         query,
         userMessageTimestamp,
         abortSignal,
-        prompt_id!,
+        prompt_id,
       );
 
       if (!shouldProceed || queryToSend === null) {
@@ -1321,7 +1319,7 @@ export const useGeminiStream = (
         const stream = geminiClient.sendMessageStream(
           queryToSend,
           abortSignal,
-          prompt_id!,
+          prompt_id,
         );
         const processingStatus = await processGeminiStreamEvents(
           stream,

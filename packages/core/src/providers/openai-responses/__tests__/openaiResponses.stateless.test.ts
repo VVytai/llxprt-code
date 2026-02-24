@@ -13,7 +13,6 @@ import {
 } from '../../../runtime/providerRuntimeContext.js';
 import { createRuntimeInvocationContext } from '../../../runtime/RuntimeInvocationContext.js';
 import { createRuntimeConfigStub } from '../../../test-utils/runtime.js';
-import type { Config } from '../../../config/config.js';
 import { getCoreSystemPromptAsync } from '../../../core/prompts.js';
 import OpenAI from 'openai';
 import {
@@ -169,8 +168,8 @@ describe('OpenAI Responses provider stateless contract tests', () => {
     );
     const settingsA = createSettings('conversation-A', 'parent-1');
     const settingsB = createSettings('conversation-B', 'parent-2');
-    const configA = createRuntimeConfigStub(settingsA) as Config;
-    const configB = createRuntimeConfigStub(settingsB) as Config;
+    const configA = createRuntimeConfigStub(settingsA);
+    const configB = createRuntimeConfigStub(settingsB);
     const runtimeA = createProviderRuntimeContext({
       runtimeId: 'runtime-A',
       settingsService: settingsA,
@@ -216,7 +215,7 @@ describe('OpenAI Responses provider stateless contract tests', () => {
     const settingsA = createSettings('conversation-A', 'parent-A');
     const configA = createRuntimeConfigStub(settingsA, {
       getUserMemory: () => 'openai-responses-memory-A',
-    }) as Config;
+    });
     const runtimeA = createProviderRuntimeContext({
       runtimeId: 'runtime-A',
       settingsService: settingsA,
@@ -242,7 +241,7 @@ describe('OpenAI Responses provider stateless contract tests', () => {
     const settingsB = createSettings('conversation-B', 'parent-B');
     const configB = createRuntimeConfigStub(settingsB, {
       getUserMemory: () => 'openai-responses-memory-B',
-    }) as Config;
+    });
     const runtimeB = createProviderRuntimeContext({
       runtimeId: 'runtime-B',
       settingsService: settingsB,
@@ -280,7 +279,7 @@ describe('OpenAI Responses provider stateless contract tests', () => {
         temperature: 0.17,
         'max-output-tokens': 2048,
       }),
-    }) as Config;
+    });
     const runtimeA = createProviderRuntimeContext({
       runtimeId: 'runtime-config',
       settingsService: settingsA,
@@ -312,7 +311,7 @@ describe('OpenAI Responses provider stateless contract tests', () => {
         temperature: 0.44,
         'max-output-tokens': 512,
       }),
-    }) as Config;
+    });
     const runtimeB = createProviderRuntimeContext({
       runtimeId: 'runtime-config',
       settingsService: settingsB,
@@ -346,7 +345,7 @@ describe('OpenAI Responses provider stateless contract tests', () => {
     });
     const config = createRuntimeConfigStub(settings, {
       getEphemeralSettings: getEphemerals,
-    }) as Config;
+    });
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-invocation',
       settingsService: settings,

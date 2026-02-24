@@ -52,7 +52,7 @@ function createTestConfigWithNotificationHook(command: string): Config {
     getModel: () => 'test-model',
     getHookSystem: () => {
       if (!hookSystem) {
-        hookSystem = new HookSystem(config as Config);
+        hookSystem = new HookSystem(config);
       }
       return hookSystem;
     },

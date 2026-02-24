@@ -17,8 +17,6 @@
 import type {
   IContent,
   TextBlock,
-  ToolCallBlock,
-  ToolResponseBlock,
 } from '../../services/history/IContent.js';
 import type { Config } from '../../config/config.js';
 import { limitOutputTokens } from '../../utils/toolOutputLimiter.js';
@@ -60,10 +58,10 @@ export function buildResponsesInputFromContent(
     } else if (c.speaker === 'ai') {
       const textBlocks = c.blocks.filter(
         (b) => b.type === 'text',
-      ) as TextBlock[];
+      );
       const toolCallBlocks = c.blocks.filter(
         (b) => b.type === 'tool_call',
-      ) as ToolCallBlock[];
+      );
 
       const contentText = textBlocks.map((b) => b.text).join('');
 
@@ -85,7 +83,7 @@ export function buildResponsesInputFromContent(
     } else if (c.speaker === 'tool') {
       const toolResponseBlocks = c.blocks.filter(
         (b) => b.type === 'tool_response',
-      ) as ToolResponseBlock[];
+      );
 
       for (const toolResponseBlock of toolResponseBlocks) {
         const rawResult =

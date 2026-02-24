@@ -203,7 +203,7 @@ describe('Multi-Provider Integration Tests', () => {
           },
         });
 
-        const openaiProvider = new OpenAIProvider(apiKey!, baseURL);
+        const openaiProvider = new OpenAIProvider(apiKey, baseURL);
         openaiProvider.setRuntimeSettingsService?.(runtime.settingsService);
         openaiProvider.setConfig?.(runtime.config);
 
@@ -360,7 +360,7 @@ describe('Multi-Provider Integration Tests', () => {
         },
       });
 
-      const openaiProvider = new OpenAIProvider(apiKey!, baseURL);
+      const openaiProvider = new OpenAIProvider(apiKey, baseURL);
       openaiProvider.setRuntimeSettingsService?.(runtime.settingsService);
       openaiProvider.setConfig?.(runtime.config);
 
@@ -424,7 +424,7 @@ describe('Multi-Provider Integration Tests', () => {
         },
       });
 
-      const openaiProvider = new OpenAIProvider(apiKey!, baseURL);
+      const openaiProvider = new OpenAIProvider(apiKey, baseURL);
       openaiProvider.setRuntimeSettingsService?.(runtime.settingsService);
       openaiProvider.setConfig?.(runtime.config);
 
@@ -488,7 +488,7 @@ describe('Multi-Provider Integration Tests', () => {
           },
         });
 
-        const openaiProvider = new OpenAIProvider(apiKey!, baseURL);
+        const openaiProvider = new OpenAIProvider(apiKey, baseURL);
         openaiProvider.setRuntimeSettingsService?.(runtime.settingsService);
         openaiProvider.setConfig?.(runtime.config);
 
@@ -602,7 +602,7 @@ describe('Multi-Provider Integration Tests', () => {
         },
       });
 
-      const openaiProvider = new OpenAIProvider(apiKey!, baseURL);
+      const openaiProvider = new OpenAIProvider(apiKey, baseURL);
       openaiProvider.setRuntimeSettingsService?.(runtime.settingsService);
       openaiProvider.setConfig?.(runtime.config);
 

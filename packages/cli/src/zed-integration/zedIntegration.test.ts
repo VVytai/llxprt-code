@@ -21,7 +21,7 @@ vi.mock('../runtime/runtimeSettings.js', () => ({
 
 const mockClearCachedCredentialFile = vi.fn<() => Promise<void>>();
 vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
+  const actual = (await importOriginal());
   return {
     ...actual,
     clearCachedCredentialFile: (...args: unknown[]) =>

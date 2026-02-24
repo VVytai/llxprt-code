@@ -10,7 +10,7 @@ import {
   DirectWebFetchToolParams,
 } from './direct-web-fetch.js';
 import { Config } from '../config/config.js';
-import { ToolInvocation, ToolResult } from './tools.js';
+import { type ToolResult as _ToolResult } from './tools.js';
 import fetch from 'node-fetch';
 
 vi.mock('node-fetch');
@@ -37,10 +37,7 @@ describe('DirectWebFetchTool', () => {
       url: 'ftp://example.com',
       format: 'text',
     };
-    const invocation = tool.build(params) as ToolInvocation<
-      DirectWebFetchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const result = await invocation.execute(new AbortController().signal);
     expect(result.error).toBeDefined();
@@ -52,10 +49,7 @@ describe('DirectWebFetchTool', () => {
       url: 'https://example.com',
       format: 'text',
     };
-    const invocation = tool.build(params) as ToolInvocation<
-      DirectWebFetchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const htmlContent = '<html><body><h1>Hello</h1><p>World</p></body></html>';
     mockedFetch.mockResolvedValue({
@@ -90,10 +84,7 @@ describe('DirectWebFetchTool', () => {
       url: 'https://example.com',
       format: 'markdown',
     };
-    const invocation = tool.build(params) as ToolInvocation<
-      DirectWebFetchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     const htmlContent = '<h1>Hello</h1><p>World</p>';
     mockedFetch.mockResolvedValue({
@@ -120,10 +111,7 @@ describe('DirectWebFetchTool', () => {
       url: 'https://example.com',
       format: 'text',
     };
-    const invocation = tool.build(params) as ToolInvocation<
-      DirectWebFetchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockRejectedValue(new Error('Network error'));
 
@@ -138,10 +126,7 @@ describe('DirectWebFetchTool', () => {
       url: 'https://example.com',
       format: 'text',
     };
-    const invocation = tool.build(params) as ToolInvocation<
-      DirectWebFetchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     // Create an error with a cause chain
     const rootCause = new Error('ENOTFOUND');
@@ -161,10 +146,7 @@ describe('DirectWebFetchTool', () => {
       url: 'https://example.com/large',
       format: 'text',
     };
-    const invocation = tool.build(params) as ToolInvocation<
-      DirectWebFetchToolParams,
-      ToolResult
-    >;
+    const invocation = tool.build(params);
 
     mockedFetch.mockResolvedValue({
       ok: true,
@@ -188,10 +170,7 @@ describe('DirectWebFetchTool', () => {
         url: 'https://example.com',
         format: 'text',
       };
-      const invocation = tool.build(params) as ToolInvocation<
-        DirectWebFetchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const htmlContent = '<html><body>Success after retry</body></html>';
       let attemptCount = 0;
@@ -229,10 +208,7 @@ describe('DirectWebFetchTool', () => {
         url: 'https://example.com',
         format: 'text',
       };
-      const invocation = tool.build(params) as ToolInvocation<
-        DirectWebFetchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       mockedFetch.mockResolvedValue({
         ok: false,
@@ -255,10 +231,7 @@ describe('DirectWebFetchTool', () => {
         url: 'https://example.com',
         format: 'text',
       };
-      const invocation = tool.build(params) as ToolInvocation<
-        DirectWebFetchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const htmlContent = '<html><body>Success after 503</body></html>';
       let attemptCount = 0;
@@ -301,10 +274,7 @@ describe('DirectWebFetchTool', () => {
         url: 'https://example.com',
         format: 'text',
       };
-      const invocation = tool.build(params) as ToolInvocation<
-        DirectWebFetchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const abortController = new AbortController();
       abortController.abort();
@@ -322,10 +292,7 @@ describe('DirectWebFetchTool', () => {
         format: 'text',
         timeout: 1, // 1 second timeout
       };
-      const invocation = tool.build(params) as ToolInvocation<
-        DirectWebFetchToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       // Mock fetch that respects abort signal (like real node-fetch)
       mockedFetch.mockImplementation(

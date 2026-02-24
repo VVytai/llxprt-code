@@ -273,7 +273,7 @@ class MemoryToolInvocation extends BaseToolInvocation<
       'Current',
       'Proposed',
       DEFAULT_CREATE_PATCH_OPTIONS,
-    ) as string;
+    );
 
     const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',

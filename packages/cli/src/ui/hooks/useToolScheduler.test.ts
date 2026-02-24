@@ -142,7 +142,7 @@ const buildMockScheduler = (
             await call.invocation.shouldConfirmExecute(_signal);
           if (shouldConfirm) {
             const confirmationDetails =
-              shouldConfirm as ToolCallConfirmationDetails;
+              shouldConfirm;
             const waitingCall: WaitingToolCall = {
               status: 'awaiting_approval',
               request: call.request,
@@ -308,12 +308,12 @@ const mockConfig = {
       if (existing) {
         existing.setCallbacks({
           ...callbacks,
-          config: mockConfig as Config,
+          config: mockConfig,
         });
         return Promise.resolve(existing);
       }
 
-      const scheduler = buildMockScheduler(mockConfig as Config, callbacks);
+      const scheduler = buildMockScheduler(mockConfig, callbacks);
       createdSchedulers.set(sessionId, scheduler);
       return Promise.resolve(scheduler);
     },

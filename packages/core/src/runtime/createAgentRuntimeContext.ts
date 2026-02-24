@@ -203,19 +203,19 @@ export function createAgentRuntimeContext(
         (getLiveSetting(
           'reasoning.format',
           options.settings['reasoning.format'],
-        ) as 'native' | 'field' | undefined) ??
+        )) ??
         EPHEMERAL_DEFAULTS.reasoning.format,
       stripFromContext: (): 'all' | 'allButLast' | 'none' =>
         (getLiveSetting(
           'reasoning.stripFromContext',
           options.settings['reasoning.stripFromContext'],
-        ) as 'all' | 'allButLast' | 'none' | undefined) ??
+        )) ??
         EPHEMERAL_DEFAULTS.reasoning.stripFromContext,
       effort: (): 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | undefined =>
         getLiveSetting(
           'reasoning.effort',
           options.settings['reasoning.effort'],
-        ) as 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | undefined,
+        ),
       maxTokens: (): number | undefined => {
         const maxTokensValue = getLiveSetting(
           'reasoning.maxTokens',

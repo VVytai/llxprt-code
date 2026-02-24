@@ -972,7 +972,7 @@ export class GemmaToolCallParser implements ITextToolCallParser {
       }
 
       if (char === '"' || char === "'") {
-        inQuote = char as '"' | "'";
+        inQuote = char;
         continue;
       }
 

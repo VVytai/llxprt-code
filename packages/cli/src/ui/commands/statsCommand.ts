@@ -160,7 +160,7 @@ async function fetchAllQuotaInfo(
         for (const bucket of sortedBuckets) {
           const usageInfo = anthropicUsageInfo.get(bucket)!;
           const lines = formatAllUsagePeriods(
-            usageInfo as Record<string, unknown>,
+            usageInfo,
           );
 
           if (lines.length > 0) {

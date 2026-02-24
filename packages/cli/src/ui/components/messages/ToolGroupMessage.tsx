@@ -149,7 +149,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
 
           return tool;
         })
-        .filter(Boolean) as IndividualToolCallDisplay[],
+        .filter(Boolean),
     [toolCalls, isTodoPanelEnabled, textualTodoOutput, todos.length],
   );
 

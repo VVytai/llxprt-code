@@ -292,7 +292,7 @@ export class HighDensityStrategy implements CompressionStrategy {
       const entry = history[i];
       if (entry.speaker === 'human' || entry.speaker === 'ai') {
         // Preserve human and AI entries intact (REQ-HD-008.4)
-        newHistory.push(entry as IContent);
+        newHistory.push(entry);
       } else if (entry.speaker === 'tool') {
         // Summarize tool response blocks (REQ-HD-008.3)
         const summarized = this.summarizeToolResponseBlocks(entry, history);
@@ -302,7 +302,7 @@ export class HighDensityStrategy implements CompressionStrategy {
 
     // 3b: Push tail entries intact (REQ-HD-008.2)
     for (let i = tailStartIndex; i < originalCount; i++) {
-      newHistory.push(history[i] as IContent);
+      newHistory.push(history[i]);
     }
 
     // STEP 4: Truncate if still over target (@pseudocode lines 76-85)
@@ -362,7 +362,7 @@ export class HighDensityStrategy implements CompressionStrategy {
                 e.blocks.some(
                   (b) =>
                     b.type === 'tool_response' &&
-                    (b as ToolResponseBlock).callId === id,
+                    (b).callId === id,
                 ),
             ),
         );
@@ -393,7 +393,7 @@ export class HighDensityStrategy implements CompressionStrategy {
       return {
         ...block,
         result: this.buildToolSummaryText(
-          block as ToolResponseBlock,
+          block,
           fullHistory,
         ),
       } as ToolResponseBlock;
@@ -435,9 +435,9 @@ export class HighDensityStrategy implements CompressionStrategy {
       for (const b of entry.blocks) {
         if (
           b.type === 'tool_call' &&
-          (b as ToolCallBlock).id === block.callId
+          (b).id === block.callId
         ) {
-          const params = (b as ToolCallBlock).parameters;
+          const params = (b).parameters;
           keyParam = extractFilePath(params);
           break;
         }
@@ -623,7 +623,7 @@ export class HighDensityStrategy implements CompressionStrategy {
 
       const filteredBlocks = history[aiIndex].blocks.filter(
         (b) =>
-          b.type !== 'tool_call' || !staleCalls.has((b as ToolCallBlock).id),
+          b.type !== 'tool_call' || !staleCalls.has((b).id),
       );
 
       if (
@@ -671,7 +671,7 @@ export class HighDensityStrategy implements CompressionStrategy {
         const filteredBlocks = entry.blocks.filter(
           (b) =>
             b.type !== 'tool_response' ||
-            !staleCallIds.has((b as ToolResponseBlock).callId),
+            !staleCallIds.has((b).callId),
         );
         if (filteredBlocks.length === 0) {
           removals.add(index);

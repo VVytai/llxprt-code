@@ -146,7 +146,7 @@ export class HookRegistry {
         continue;
       }
 
-      const typedEventName = eventName as HookEventName;
+      const typedEventName = eventName;
 
       if (!Array.isArray(definitions)) {
         debugLogger.warn(

@@ -239,13 +239,13 @@ export class LoggingProviderWrapper implements IProvider {
     // Handle legacy constructor signature for backward compatibility
     // New usage should NOT pass config here - config comes per-call
     if (configOrRedactor && 'redactMessage' in configOrRedactor) {
-      this.redactor = configOrRedactor as ConversationDataRedactor;
+      this.redactor = configOrRedactor;
     } else if (
       configOrRedactor &&
       'getConversationLoggingEnabled' in configOrRedactor
     ) {
       // Legacy usage - create redactor from config
-      const config = configOrRedactor as Config;
+      const config = configOrRedactor;
       this.redactor = new ConfigBasedRedactor(config.getRedactionConfig());
     }
 
@@ -558,7 +558,7 @@ export class LoggingProviderWrapper implements IProvider {
             `Before logRequest: contents length = ${normalizedOptions.contents?.length}`,
         );
         await this.logRequest(
-          activeConfig!,
+          activeConfig,
           normalizedOptions.contents,
           normalizedOptions.tools,
           promptId,
@@ -701,7 +701,7 @@ export class LoggingProviderWrapper implements IProvider {
       for await (const chunk of stream) {
         // Extract token usage and finishReason from IContent metadata
         if (chunk && typeof chunk === 'object') {
-          const content = chunk as IContent;
+          const content = chunk;
           if (content.metadata?.usage) {
             latestTokenUsage = content.metadata.usage;
           }
@@ -814,7 +814,7 @@ export class LoggingProviderWrapper implements IProvider {
 
         // Extract token usage and finishReason from IContent metadata
         if (chunk && typeof chunk === 'object') {
-          const content = chunk as IContent;
+          const content = chunk;
           if (content.metadata?.usage) {
             latestTokenUsage = content.metadata.usage;
           }

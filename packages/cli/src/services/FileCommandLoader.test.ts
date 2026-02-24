@@ -221,7 +221,7 @@ describe('FileCommandLoader', () => {
     const loader = new FileCommandLoader(mockConfig);
     const commands = await loader.loadCommands(signal);
     expect(commands).toHaveLength(1);
-    expect(commands[0]!.name).toBe('gcp:pipelines:run');
+    expect(commands[0].name).toBe('gcp:pipelines:run');
   });
 
   it('creates namespaces from nested directories', async () => {
@@ -299,11 +299,11 @@ describe('FileCommandLoader', () => {
       projectResult?.type === 'submit_prompt',
       'Incorrect action type for project command',
     );
-    type SubmitPromptAction3 = Extract<
+    type _SubmitPromptAction3 = Extract<
       typeof projectResult,
       { type: 'submit_prompt' }
     >;
-    const submitResult2 = projectResult as SubmitPromptAction3;
+    const submitResult2 = projectResult;
     expect(submitResult2.content).toBe('Project prompt');
   });
 

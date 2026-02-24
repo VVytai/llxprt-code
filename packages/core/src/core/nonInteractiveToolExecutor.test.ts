@@ -429,7 +429,7 @@ describe('executeToolCall response structure (Phase 3b.1)', () => {
       getExcludeTools: () => [],
       getEphemeralSettings: () => ephemerals,
       getEphemeralSetting: (key: string) =>
-        ephemerals[key as keyof typeof ephemerals],
+        ephemerals[key],
       getPolicyEngine: includePolicyEngine
         ? policyEngineReturnsUndefined
           ? () => undefined as unknown as PolicyEngine

@@ -11,7 +11,6 @@ import {
   setActiveProviderRuntimeContext,
 } from '../../../runtime/providerRuntimeContext.js';
 import { createRuntimeConfigStub } from '../../../test-utils/runtime.js';
-import type { Config } from '../../../config/config.js';
 import type { IContent } from '../../../services/history/IContent.js';
 import type { IProviderConfig } from '../../types/IProviderConfig.js';
 import { GeminiProvider } from '../GeminiProvider.js';
@@ -130,7 +129,7 @@ class TestGeminiProvider extends GeminiProvider {
       httpOptions,
       config as never,
       baseURL,
-    )) as Awaited<ReturnType<typeof createCodeAssistContentGenerator>>;
+    ));
   }
 }
 
@@ -211,7 +210,7 @@ describe('Gemini provider thinkingLevel tests', () => {
     const provider = new TestGeminiProvider();
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-think-2x');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-think-2x',
@@ -260,7 +259,7 @@ describe('Gemini provider thinkingLevel tests', () => {
     const provider = new TestGeminiProvider();
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-think-3x');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-think-3x',
@@ -327,7 +326,7 @@ describe('Gemini provider thinkingLevel tests', () => {
       const provider = new TestGeminiProvider();
       const settings = new SettingsService();
       settings.set('call-id', `runtime-effort-${effort}`);
-      const config = createRuntimeConfigStub(settings) as Config;
+      const config = createRuntimeConfigStub(settings);
       provider.setConfig(config);
       const runtime = createProviderRuntimeContext({
         runtimeId: `runtime-effort-${effort}`,
@@ -378,7 +377,7 @@ describe('Gemini provider thinkingLevel tests', () => {
     const provider = new TestGeminiProvider();
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-think-3x-default');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-think-3x-default',
@@ -430,7 +429,7 @@ describe('Gemini provider thinkingLevel tests', () => {
     const provider = new TestGeminiProvider();
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-think-2x-budget');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-think-2x-budget',
@@ -480,7 +479,7 @@ describe('Gemini provider thinkingLevel tests', () => {
     const provider = new TestGeminiProvider();
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-think-2x-auto');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-think-2x-auto',

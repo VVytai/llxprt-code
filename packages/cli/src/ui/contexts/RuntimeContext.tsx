@@ -157,7 +157,7 @@ export const RuntimeContextProvider: React.FC<PropsWithChildren<unknown>> = ({
 
   const bridge = useMemo(() => {
     const normalizedMetadata =
-      (runtime.metadata as Record<string, unknown> | undefined) ?? {};
+      (runtime.metadata) ?? {};
     return createBridge(runtimeId, normalizedMetadata);
   }, [runtimeId, runtime]);
 
@@ -201,7 +201,7 @@ export function getRuntimeBridge(): RuntimeContextBridge {
       ? runtime.runtimeId
       : 'legacy-singleton') ?? 'legacy-singleton';
   const metadata =
-    (runtime.metadata as Record<string, unknown> | undefined) ?? {};
+    (runtime.metadata) ?? {};
   const bridge = createBridge(runtimeId, metadata);
   bridge.enterScope();
   latestBridge = bridge;

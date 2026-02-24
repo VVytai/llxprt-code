@@ -536,7 +536,7 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
 
-    const readStream = stdin as NodeJS.ReadStream;
+    const readStream = stdin;
 
     if (editorState?.paused && typeof readStream.resume === 'function') {
       readStream.resume();
@@ -589,7 +589,7 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
 
-    const readStream = stdin as NodeJS.ReadStream;
+    const readStream = stdin;
 
     externalEditorStateRef.current = {
       paused: false,
@@ -959,7 +959,7 @@ export const AppContainer = (props: AppContainerProps) => {
   } = useProviderDialog({
     addMessage: (msg) =>
       addItem(
-        { type: msg.type as MessageType, text: msg.content },
+        { type: msg.type, text: msg.content },
         msg.timestamp.getTime(),
       ),
     appState,
@@ -1011,7 +1011,7 @@ export const AppContainer = (props: AppContainerProps) => {
   } = useLoadProfileDialog({
     addMessage: (msg) =>
       addItem(
-        { type: msg.type as MessageType, text: msg.content },
+        { type: msg.type, text: msg.content },
         msg.timestamp.getTime(),
       ),
     appState,
@@ -1052,7 +1052,7 @@ export const AppContainer = (props: AppContainerProps) => {
   } = useProfileManagement({
     addMessage: (msg) =>
       addItem(
-        { type: msg.type as MessageType, text: msg.content },
+        { type: msg.type, text: msg.content },
         msg.timestamp.getTime(),
       ),
     appState,
@@ -1069,7 +1069,7 @@ export const AppContainer = (props: AppContainerProps) => {
   } = useToolsDialog({
     addMessage: (msg) =>
       addItem(
-        { type: msg.type as MessageType, text: msg.content },
+        { type: msg.type, text: msg.content },
         msg.timestamp.getTime(),
       ),
     appState,

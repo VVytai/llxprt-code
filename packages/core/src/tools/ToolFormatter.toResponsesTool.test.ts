@@ -280,8 +280,8 @@ describe('ToolFormatter.toResponsesTool', () => {
       string,
       Record<string, unknown>
     >;
-    const field = properties.field as Record<string, unknown>;
-    const patternField = properties.pattern_field as Record<string, unknown>;
+    const field = properties.field;
+    const patternField = properties.pattern_field;
     expect(field.minimum).toBe(0);
     expect(field.maximum).toBe(100);
     expect(field.default).toBe(50);

@@ -276,7 +276,7 @@ function resolveActiveRuntimeIdentity(): {
       ? context.runtimeId
       : LEGACY_RUNTIME_ID;
   const metadata =
-    (context.metadata as Record<string, unknown> | undefined) ?? {};
+    (context.metadata) ?? {};
 
   return { runtimeId, metadata };
 }
@@ -975,7 +975,7 @@ export function buildRuntimeProfileSnapshot(): Profile {
 
   const ephemeralSettings = config.getEphemeralSettings();
   const snapshot: Record<string, unknown> = {};
-  const ephemeralRecord = ephemeralSettings as Record<string, unknown>;
+  const ephemeralRecord = ephemeralSettings;
   const hasAuthKeyfile =
     ephemeralRecord['auth-keyfile'] !== undefined &&
     ephemeralRecord['auth-keyfile'] !== null;
