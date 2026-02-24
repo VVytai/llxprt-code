@@ -10,8 +10,8 @@
 | 5 | REIMPLEMENT | 299cc9be (A2A /init) | DONE | 95e0a738f | A2A /init command + streaming + auto-execute |
 | 6 | REIMPLEMENT | 1e734d7e (drag/drop) | DONE | faa2af9ba | Multi-file drag/drop with escaped space handling |
 | 7 | REIMPLEMENT | 3b2a4ba2 (IDE ext refactor) | DONE | b50c3ac33+ebbdb642f | Port file, 1-based chars, truncation + lint fix + reader compat |
-| 8 | PICK x5 | e84c4bfb, edbe5480, 20164ebc, d2a1a456, d9f94103 | TODO | | |
-| 9 | REIMPLEMENT | 6dea66f1 (stats flex) | TODO | | |
+| 8 | PICK x5 | e84c4bfb, edbe5480, 20164ebc, d2a1a456, d9f94103 | DONE | 2f2a008b1..777736d10 | All clean; clearcut properly excluded |
+| 9 | REIMPLEMENT | 6dea66f1 (stats flex) | DONE | 552a7e72a | Remove flex from stats; test gap persists from B3 |
 | 10 | REIMPLEMENT | 5f298c17 (always-allow) | TODO | | HIGH RISK |
 | 11 | REIMPLEMENT | a47af8e2 (commandPrefix) | TODO | | |
 | 12 | REIMPLEMENT | 126c32ac (hook refresh) | TODO | | |
