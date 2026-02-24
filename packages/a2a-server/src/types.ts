@@ -42,6 +42,7 @@ export enum CoderAgentEvent {
 export interface AgentSettings {
   kind: CoderAgentEvent.StateAgentSettingsEvent;
   workspacePath: string;
+  autoExecute?: boolean;
 }
 
 export interface ToolCallConfirmation {

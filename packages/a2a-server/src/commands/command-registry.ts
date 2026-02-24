@@ -6,6 +6,7 @@
 
 import { ExtensionsCommand } from './extensions.js';
 import { RestoreCommand } from './restore.js';
+import { InitCommand } from './init.js';
 import type { Command } from './types.js';
 
 class CommandRegistry {
@@ -14,6 +15,7 @@ class CommandRegistry {
   constructor() {
     this.register(new ExtensionsCommand());
     this.register(new RestoreCommand());
+    this.register(new InitCommand());
   }
 
   register(command: Command) {

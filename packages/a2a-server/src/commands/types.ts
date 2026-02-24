@@ -5,6 +5,7 @@
  */
 
 import type { Config, GitService } from '@vybestack/llxprt-code-core';
+import type { AgentExecutor, ExecutionEventBus } from '@a2a-js/sdk/server';
 
 export interface CommandArgument {
   readonly name: string;
@@ -15,6 +16,8 @@ export interface CommandArgument {
 export interface CommandContext {
   config: Config;
   git?: GitService;
+  agentExecutor?: AgentExecutor;
+  eventBus?: ExecutionEventBus;
 }
 
 export interface Command {
@@ -24,6 +27,7 @@ export interface Command {
   readonly subCommands?: Command[];
   readonly topLevel?: boolean;
   readonly requiresWorkspace?: boolean;
+  readonly streaming?: boolean;
 
   execute(
     context: CommandContext,

@@ -145,7 +145,13 @@ export class CoderAgentExecutor implements AgentExecutor {
   ): Promise<TaskWrapper> {
     const agentSettings = agentSettingsInput || ({} as AgentSettings);
     const config = await this.getConfig(agentSettings, taskId);
-    const runtimeTask = await Task.create(taskId, contextId, config, eventBus);
+    const runtimeTask = await Task.create(
+      taskId,
+      contextId,
+      config,
+      eventBus,
+      agentSettings.autoExecute,
+    );
     const contentGeneratorConfig2 =
       runtimeTask.config.getContentGeneratorConfig();
     if (contentGeneratorConfig2) {
