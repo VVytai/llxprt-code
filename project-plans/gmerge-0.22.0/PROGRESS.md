@@ -12,12 +12,12 @@
 | 7 | REIMPLEMENT | 3b2a4ba2 (IDE ext refactor) | DONE | b50c3ac33+ebbdb642f | Port file, 1-based chars, truncation + lint fix + reader compat |
 | 8 | PICK x5 | e84c4bfb, edbe5480, 20164ebc, d2a1a456, d9f94103 | DONE | 2f2a008b1..777736d10 | All clean; clearcut properly excluded |
 | 9 | REIMPLEMENT | 6dea66f1 (stats flex) | DONE | 552a7e72a | Remove flex from stats; test gap persists from B3 |
-| 10 | REIMPLEMENT | 5f298c17 (always-allow) | TODO | | HIGH RISK |
-| 11 | REIMPLEMENT | a47af8e2 (commandPrefix) | TODO | | |
-| 12 | REIMPLEMENT | 126c32ac (hook refresh) | TODO | | |
-| 13 | REIMPLEMENT | 942bcfc6 (typecasts) | TODO | | |
-| 14 | PICK x4 | ec665ef4, bb0c0d8e, 79f664d5, ed4b440b | TODO | | |
-| 15 | REIMPLEMENT | 217e2b0e (non-interactive) | TODO | | |
-| 16 | REIMPLEMENT | d236df5b (tool fragmentation) | TODO | | HIGH RISK |
-| 17 | REIMPLEMENT | 0c3eb826 (A2A interactive) | TODO | | |
-| 18 | CLEANUP | findFiles removal | TODO | | |
+| 10 | REIMPLEMENT | 5f298c17 (always-allow) | DONE | 42ee44f76 | Persistent always-allow policies; local TOML; zero telemetry |
+| 11 | REIMPLEMENT | a47af8e2 (commandPrefix) | DONE | 37046bac1..af9fe6e23 | Word boundary + compound cmd safety; rm vs rmdir remediation |
+| 12 | REIMPLEMENT | 126c32ac (hook refresh) | DONE | b3e72bc93..19549a05b | Removed guards, added disposal, extension loader wired |
+| 13 | REIMPLEMENT | 942bcfc6 (typecasts) | DONE | 3bc229f10 | ESLint rule in all 4 configs; ~623 assertions removed |
+| 14 | PICK x4 | ec665ef4, bb0c0d8e, 79f664d5, ed4b440b | DONE | 0902e6f58..8db1741c6 | Partial 79f664d5; branding remediation needed |
+| 15 | REIMPLEMENT | 217e2b0e (non-interactive) | DONE | 20d74e40b | Non-interactive error + YOLO bypass + parallel batch safety |
+| 16 | REIMPLEMENT | d236df5b (tool fragmentation) | DONE | 739a86cc2 | Provider-agnostic multimodal encapsulation fix |
+| 17 | REIMPLEMENT | 0c3eb826 (A2A interactive) | DONE | 7254da254 | interactive: true in A2A config; 1-line impl, 17-line test |
+| 18 | CLEANUP | findFiles removal | SKIP | N/A | Already removed in prior sync (v0.21.3) |

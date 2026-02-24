@@ -33,3 +33,60 @@
 - **Lint**: PASS (verified on core + cli packages individually)
 - **Typecheck**: Same pre-existing failures as B1A
 - **Branding**: CLEAN in all changed files
+
+### Batch 9 — REIMPLEMENT 6dea66f1 (stats flex)
+- Removed `width="100%"` from Section, renamed `tableWidth` → `totalWidth` in ModelUsageTable
+- StatsDisplay tests have pre-existing rendering error (React/Ink component rendering, from B3 snapshot gap)
+- Lint/typecheck: PASS
+
+### Batch 10 — REIMPLEMENT 5f298c17 (always-allow) [HIGH RISK]
+- Implemented persistent always-allow policies with local TOML storage (~/.llxprt/policies/auto-saved.toml)
+- 16 new persistence tests covering TOML format, shell prefix matching, MCP granularity, error handling
+- Zero telemetry verified (pre-existing ClearcutLogger comment in telemetry/sdk.ts NOT from this batch)
+- Security: no denylist for dangerous commands — plan said "consider", upstream doesn't have it either
+- Atomic writes (tmp + rename) prevent corruption
+
+### Batch 11 — REIMPLEMENT a47af8e2 (commandPrefix safety) [SECURITY]
+- Word boundary regex: `(?:[\s"]|$)` suffix prevents "git log" matching "git logout"
+- Compound command splitting: recursive validation of &&, ||, ;, | sub-commands
+- Remediation: added rm vs rmdir prefix confusion regression test (19 total security tests)
+- Fail-safe: parse failure → ASK_USER (not fail-open)
+
+### Batch 12 — REIMPLEMENT 126c32ac (hook refresh)
+- Removed HookRegistryNotInitializedError and initialization guards
+- Added HookEventHandler disposal before re-init (LLxprt-specific memory leak fix — upstream doesn't have MessageBus subscriptions)
+- ExtensionLoader now calls hookSystem.initialize() after refreshMemory()
+- 4 new hook-reinit tests + updated existing tests
+
+### Batch 13 — REIMPLEMENT 942bcfc6 (redundant typecasts)
+- Added @typescript-eslint/no-unnecessary-type-assertion to all 4 eslint configs (root, ui, lsp, vscode-ide-companion)
+- ~623 unnecessary type assertions removed via eslint --fix
+- 3 legitimate assertions preserved with eslint-disable-next-line comments
+
+### Batch 14 — PICK x4 (late)
+- ec665ef4: Integration test cleanup — added _interactiveRuns tracking and cleanup
+- bb0c0d8e: TestRig.run() simplified to options object signature
+- 79f664d5 (PARTIAL): Raw token counts in StatsDisplay; skipped stream-json-formatter (doesn't exist in LLxprt)
+- ed4b440b: Quota error fix applied cleanly
+- Remediation needed: @google/gemini-cli-core branding in json-output.test.ts and StatsDisplay.tsx; syntax error and unused vars in mcp_server_cyclic_schema.test.ts
+
+### Batch 15 — REIMPLEMENT 217e2b0e (non-interactive confirmation)
+- Added isInteractive() check in coreToolScheduler after YOLO/allowed-tools bypass
+- Mixed-batch test: safe tool executes while dangerous tool errors (parallel execution safety)
+- 4 new tests + 17 existing mock configs updated with isInteractive: () => true
+
+### Batch 16 — REIMPLEMENT d236df5b (tool fragmentation) [HIGH RISK]
+- Fixed convertToFunctionResponse() to use supportsMultimodalFunctionResponse(model) gating
+- Gemini 3: nested multimodal in functionResponse.parts
+- Gemini 2/Claude/GPT: backward-compatible sibling/default path
+- Edge cases covered: text-only, image-only, mixed, empty, single-part
+- Provider-agnostic: non-Gemini models safely get default behavior
+
+### Batch 17 — REIMPLEMENT 0c3eb826 (A2A interactive)
+- Added `interactive: true` to A2A ConfigParameters (1 line)
+- Behavioral test verifies isInteractive() returns true, getNonInteractive() returns false
+- A2A package not marked private (pre-existing)
+
+### Batch 18 — CLEANUP: findFiles removal
+- SKIP: findFiles() already removed from FileSystemService interface, implementation, and tests in prior sync (v0.21.3)
+- Verified: zero findFiles references in packages/ (only FindFiles tool alias in glob.ts and OpenAI tests — different thing)
