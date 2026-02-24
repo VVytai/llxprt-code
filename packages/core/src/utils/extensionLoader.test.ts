@@ -115,4 +115,87 @@ describe('SimpleExtensionLoader', () => {
       },
     );
   });
+
+  describe('Hook system integration (126c32ac)', () => {
+    it('should call hookSystem.initialize() after extension changes (RED → GREEN)', async () => {
+      // RED: This test will FAIL because extensionLoader doesn't call hookSystem.initialize()
+      const mockHookSystemInit = vi.fn();
+      const mockRefreshMemory = vi.fn();
+      
+      const mockConfigWithHooks = {
+        getMcpClientManager: () => ({
+          startExtension: vi.fn(),
+        }),
+        getEnableExtensionReloading: () => true,
+        refreshMemory: mockRefreshMemory,
+        getHookSystem: () => ({
+          initialize: mockHookSystemInit,
+        }),
+      } as unknown as Config;
+
+      const extensionWithHooks = {
+        name: 'test-ext',
+        isActive: true,
+        version: '1.0.0',
+        path: '/ext',
+        contextFiles: [],
+        id: 'ext-123',
+      };
+
+      extensionReloadingEnabled = true;
+      const loader = new SimpleExtensionLoader([]);
+      await loader.start(mockConfigWithHooks);
+      
+      mockRefreshMemory.mockClear();
+      mockHookSystemInit.mockClear();
+
+      // Load extension — triggers refresh
+      await loader.loadExtension(extensionWithHooks);
+
+      // RED: This assertion will FAIL because hookSystem.initialize() not called
+      expect(mockRefreshMemory).toHaveBeenCalledOnce();
+      expect(mockHookSystemInit).toHaveBeenCalledOnce();
+    });
+
+    it('should call hookSystem.initialize() after unload (RED → GREEN)', async () => {
+      // RED: Similar test for unload path
+      const mockHookSystemInit = vi.fn();
+      const mockRefreshMemory = vi.fn();
+      
+      const mockConfigWithHooks = {
+        getMcpClientManager: () => ({
+          startExtension: vi.fn(),
+          stopExtension: vi.fn(),
+        }),
+        getEnableExtensionReloading: () => true,
+        refreshMemory: mockRefreshMemory,
+        getHookSystem: () => ({
+          initialize: mockHookSystemInit,
+        }),
+      } as unknown as Config;
+
+      const extensionWithHooks = {
+        name: 'test-ext',
+        isActive: true,
+        version: '1.0.0',
+        path: '/ext',
+        contextFiles: [],
+        id: 'ext-123',
+      };
+
+      extensionReloadingEnabled = true;
+      const loader = new SimpleExtensionLoader([extensionWithHooks]);
+      await loader.start(mockConfigWithHooks);
+      
+      mockRefreshMemory.mockClear();
+      mockHookSystemInit.mockClear();
+
+      // Unload extension — triggers refresh
+      await loader.unloadExtension(extensionWithHooks);
+
+      // RED: This assertion will FAIL because hookSystem.initialize() not called
+      expect(mockRefreshMemory).toHaveBeenCalledOnce();
+      expect(mockHookSystemInit).toHaveBeenCalledOnce();
+    });
+  });
 });
