@@ -2029,9 +2029,7 @@ export class OAuthManager {
    * Uses the CodeAssist retrieveUserQuota API via direct HTTP calls.
    * Returns a map of bucket name to quota response.
    */
-  async getAllGeminiUsageInfo(): Promise<
-    Map<string, Record<string, unknown>>
-  > {
+  async getAllGeminiUsageInfo(): Promise<Map<string, Record<string, unknown>>> {
     const result = new Map<string, Record<string, unknown>>();
 
     // Get all buckets for gemini

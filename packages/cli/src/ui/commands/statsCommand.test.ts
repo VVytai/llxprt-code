@@ -514,9 +514,7 @@ describe('statsCommand', () => {
               tokenType: 'input_tokens',
               remainingAmount: '8000',
               remainingFraction: 0.8,
-              resetTime: new Date(
-                Date.now() + 30 * 60 * 1000,
-              ).toISOString(),
+              resetTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
             },
             {
               modelId: 'gemini-2.5-flash',

@@ -733,7 +733,9 @@ describe('CoreToolScheduler', () => {
     const onToolCallsUpdate = vi.fn();
 
     const mockPolicyEngine = createMockPolicyEngine();
-    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
@@ -771,7 +773,8 @@ describe('CoreToolScheduler', () => {
 
     // ASSERT
     expect(onAllToolCallsComplete).toHaveBeenCalled();
-    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
     expect(completedCalls).toHaveLength(1);
     expect(completedCalls[0].status).toBe('error');
 
@@ -807,7 +810,9 @@ describe('CoreToolScheduler', () => {
     const onToolCallsUpdate = vi.fn();
 
     const mockPolicyEngine = createMockPolicyEngine();
-    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
@@ -848,7 +853,8 @@ describe('CoreToolScheduler', () => {
 
     // ASSERT
     expect(onAllToolCallsComplete).toHaveBeenCalled();
-    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
     expect(completedCalls[0].status).toBe('success'); // Not error
   });
 
@@ -875,7 +881,9 @@ describe('CoreToolScheduler', () => {
     const onToolCallsUpdate = vi.fn();
 
     const mockPolicyEngine = createMockPolicyEngine();
-    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
@@ -916,7 +924,8 @@ describe('CoreToolScheduler', () => {
 
     // ASSERT
     expect(onAllToolCallsComplete).toHaveBeenCalled();
-    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
     expect(completedCalls[0].status).toBe('success'); // Not error
   });
 
@@ -952,7 +961,9 @@ describe('CoreToolScheduler', () => {
     const onToolCallsUpdate = vi.fn();
 
     const mockPolicyEngine = createMockPolicyEngine();
-    mockPolicyEngine.evaluate = vi.fn().mockReturnValue(PolicyDecision.ASK_USER);
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
 
     const mockConfig = {
       getSessionId: () => 'test-session-id',
@@ -1000,10 +1011,13 @@ describe('CoreToolScheduler', () => {
 
     // ASSERT
     expect(onAllToolCallsComplete).toHaveBeenCalled();
-    const completedCalls = onAllToolCallsComplete.mock.calls[0][0] as ToolCall[];
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
     expect(completedCalls).toHaveLength(2);
 
-    const safeCall = completedCalls.find((c) => c.request.callId === 'safe-call');
+    const safeCall = completedCalls.find(
+      (c) => c.request.callId === 'safe-call',
+    );
     const dangerousCall = completedCalls.find(
       (c) => c.request.callId === 'dangerous-call',
     );
@@ -1017,8 +1031,6 @@ describe('CoreToolScheduler', () => {
     expect(errorMessage).toContain('requires user confirmation');
     expect(errorMessage).toContain('non-interactive mode');
   });
-
-
 
   it('propagates agentId from request to completed call payloads', async () => {
     const mockTool = new MockTool('mockTool');
@@ -1253,7 +1265,7 @@ describe('CoreToolScheduler', () => {
         getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
         getEnableHooks: () => false,
         getPolicyEngine: vi.fn().mockReturnValue(createMockPolicyEngine()),
-      getModel: () => DEFAULT_GEMINI_MODEL,
+        getModel: () => DEFAULT_GEMINI_MODEL,
       } as unknown as Config;
 
       // Create scheduler
@@ -1740,7 +1752,6 @@ describe('convertToFunctionResponse', () => {
     ).toContain('[Output truncated due to token limit]');
   });
 });
-
 
 class MockEditToolInvocation extends BaseToolInvocation<
   Record<string, unknown>,
@@ -3281,7 +3292,7 @@ it('injects agentId into ContextAwareTool context', async () => {
     getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
     getEnableHooks: () => false,
     getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
+    getModel: () => DEFAULT_GEMINI_MODEL,
   } as unknown as Config;
 
   const scheduler = new CoreToolScheduler({

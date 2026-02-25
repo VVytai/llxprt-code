@@ -132,9 +132,7 @@ function formatQuotaResetTime(resetTime: string): string {
   }
 }
 
-function formatGeminiQuotaLines(
-  quotaData: Record<string, unknown>,
-): string[] {
+function formatGeminiQuotaLines(quotaData: Record<string, unknown>): string[] {
   const buckets = quotaData.buckets;
   if (!Array.isArray(buckets) || buckets.length === 0) {
     return [];

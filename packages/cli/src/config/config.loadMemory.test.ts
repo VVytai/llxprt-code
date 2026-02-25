@@ -27,7 +27,8 @@ vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
       let userMemory = params.userMemory;
       let llxprtMdFileCount = params.llxprtMdFileCount ?? 0;
       const ephemerals: Record<string, unknown> = {};
-      const settingsServiceInstance = new (actual.SettingsService as new () => SettingsService)();
+      const settingsServiceInstance =
+        new (actual.SettingsService as new () => SettingsService)();
 
       return {
         getProvider: vi.fn(() => provider),

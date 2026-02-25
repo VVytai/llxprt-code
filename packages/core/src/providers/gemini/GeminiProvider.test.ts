@@ -510,7 +510,9 @@ describe('GeminiProvider', () => {
   });
 
   describe('multimodal tool response handling', () => {
-    const createToolIContent = (mediaBlocks: Array<{ mimeType: string; data: string }> = []): IContent[] => {
+    const createToolIContent = (
+      mediaBlocks: Array<{ mimeType: string; data: string }> = [],
+    ): IContent[] => {
       const blocks: IContent['blocks'] = [
         {
           type: 'tool_response',
@@ -528,7 +530,10 @@ describe('GeminiProvider', () => {
         });
       }
       return [
-        { speaker: 'human', blocks: [{ type: 'text', text: 'take a screenshot' }] },
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'take a screenshot' }],
+        },
         { speaker: 'tool', blocks },
       ] as IContent[];
     };
@@ -536,7 +541,11 @@ describe('GeminiProvider', () => {
     it('nests media inside functionResponse.parts for Gemini 3 models', async () => {
       const fakeStream = {
         async *[Symbol.asyncIterator]() {
-          yield { candidates: [{ content: { parts: [{ text: 'I see the screenshot' }] } }] };
+          yield {
+            candidates: [
+              { content: { parts: [{ text: 'I see the screenshot' }] } },
+            ],
+          };
         },
       };
       generateContentStreamMock.mockResolvedValueOnce(fakeStream);
@@ -546,7 +555,9 @@ describe('GeminiProvider', () => {
       const generator = provider.generateChatCompletion(
         createProviderCallOptions({
           providerName: provider.name,
-          contents: createToolIContent([{ mimeType: 'image/png', data: 'iVBOR...' }]),
+          contents: createToolIContent([
+            { mimeType: 'image/png', data: 'iVBOR...' },
+          ]),
           resolved: { model: 'gemini-3-flash-preview' },
         }),
       );
@@ -554,26 +565,38 @@ describe('GeminiProvider', () => {
 
       const request = generateContentStreamMock.mock.calls[0][0];
       const toolMessage = request.contents.find(
-        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+        (msg: { role: string }) =>
+          msg.role === 'user' &&
+          msg.parts?.some((p: Part) => 'functionResponse' in p),
       );
       expect(toolMessage).toBeDefined();
 
-      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      const frPart = toolMessage.parts.find(
+        (p: Part) => 'functionResponse' in p,
+      );
       // Media should be nested inside functionResponse.parts, not as a sibling
       expect(frPart.functionResponse.parts).toBeDefined();
       expect(frPart.functionResponse.parts).toHaveLength(1);
-      expect(frPart.functionResponse.parts[0].inlineData.mimeType).toBe('image/png');
+      expect(frPart.functionResponse.parts[0].inlineData.mimeType).toBe(
+        'image/png',
+      );
       expect(frPart.functionResponse.parts[0].inlineData.data).toBe('iVBOR...');
 
       // No sibling inlineData parts
-      const siblingMedia = toolMessage.parts.filter((p: Part) => 'inlineData' in p);
+      const siblingMedia = toolMessage.parts.filter(
+        (p: Part) => 'inlineData' in p,
+      );
       expect(siblingMedia).toHaveLength(0);
     });
 
     it('keeps media as sibling parts for Gemini 2 models', async () => {
       const fakeStream = {
         async *[Symbol.asyncIterator]() {
-          yield { candidates: [{ content: { parts: [{ text: 'I see the screenshot' }] } }] };
+          yield {
+            candidates: [
+              { content: { parts: [{ text: 'I see the screenshot' }] } },
+            ],
+          };
         },
       };
       generateContentStreamMock.mockResolvedValueOnce(fakeStream);
@@ -583,7 +606,9 @@ describe('GeminiProvider', () => {
       const generator = provider.generateChatCompletion(
         createProviderCallOptions({
           providerName: provider.name,
-          contents: createToolIContent([{ mimeType: 'image/png', data: 'iVBOR...' }]),
+          contents: createToolIContent([
+            { mimeType: 'image/png', data: 'iVBOR...' },
+          ]),
           resolved: { model: 'gemini-2.5-flash' },
         }),
       );
@@ -591,16 +616,22 @@ describe('GeminiProvider', () => {
 
       const request = generateContentStreamMock.mock.calls[0][0];
       const toolMessage = request.contents.find(
-        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+        (msg: { role: string }) =>
+          msg.role === 'user' &&
+          msg.parts?.some((p: Part) => 'functionResponse' in p),
       );
       expect(toolMessage).toBeDefined();
 
-      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      const frPart = toolMessage.parts.find(
+        (p: Part) => 'functionResponse' in p,
+      );
       // No nested parts for Gemini 2
       expect(frPart.functionResponse.parts).toBeUndefined();
 
       // Media should be a sibling part
-      const siblingMedia = toolMessage.parts.filter((p: Part) => 'inlineData' in p);
+      const siblingMedia = toolMessage.parts.filter(
+        (p: Part) => 'inlineData' in p,
+      );
       expect(siblingMedia).toHaveLength(1);
       expect(siblingMedia[0].inlineData.mimeType).toBe('image/png');
     });
@@ -629,12 +660,20 @@ describe('GeminiProvider', () => {
 
       const request = generateContentStreamMock.mock.calls[0][0];
       const toolMessage = request.contents.find(
-        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+        (msg: { role: string }) =>
+          msg.role === 'user' &&
+          msg.parts?.some((p: Part) => 'functionResponse' in p),
       );
-      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      const frPart = toolMessage.parts.find(
+        (p: Part) => 'functionResponse' in p,
+      );
       expect(frPart.functionResponse.parts).toHaveLength(2);
-      expect(frPart.functionResponse.parts[0].inlineData.mimeType).toBe('image/png');
-      expect(frPart.functionResponse.parts[1].inlineData.mimeType).toBe('image/jpeg');
+      expect(frPart.functionResponse.parts[0].inlineData.mimeType).toBe(
+        'image/png',
+      );
+      expect(frPart.functionResponse.parts[1].inlineData.mimeType).toBe(
+        'image/jpeg',
+      );
     });
 
     it('handles text-only tool response (no media) for any model', async () => {
@@ -650,7 +689,7 @@ describe('GeminiProvider', () => {
       const generator = provider.generateChatCompletion(
         createProviderCallOptions({
           providerName: provider.name,
-          contents: createToolIContent([]),  // no media
+          contents: createToolIContent([]), // no media
           resolved: { model: 'gemini-3-flash-preview' },
         }),
       );
@@ -658,9 +697,13 @@ describe('GeminiProvider', () => {
 
       const request = generateContentStreamMock.mock.calls[0][0];
       const toolMessage = request.contents.find(
-        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+        (msg: { role: string }) =>
+          msg.role === 'user' &&
+          msg.parts?.some((p: Part) => 'functionResponse' in p),
       );
-      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      const frPart = toolMessage.parts.find(
+        (p: Part) => 'functionResponse' in p,
+      );
       // No nested parts when there are no media blocks
       expect(frPart.functionResponse.parts).toBeUndefined();
       // Only the functionResponse part, no siblings
@@ -682,8 +725,18 @@ describe('GeminiProvider', () => {
         {
           speaker: 'tool',
           blocks: [
-            { type: 'tool_response', callId: 'call-1', toolName: 'screenshot', result: {} },
-            { type: 'media', mimeType: 'image/png', data: 'imgdata', encoding: 'base64' },
+            {
+              type: 'tool_response',
+              callId: 'call-1',
+              toolName: 'screenshot',
+              result: {},
+            },
+            {
+              type: 'media',
+              mimeType: 'image/png',
+              data: 'imgdata',
+              encoding: 'base64',
+            },
           ],
         },
       ] as IContent[];
@@ -699,13 +752,15 @@ describe('GeminiProvider', () => {
 
       const request = generateContentStreamMock.mock.calls[0][0];
       const toolMessage = request.contents.find(
-        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+        (msg: { role: string }) =>
+          msg.role === 'user' &&
+          msg.parts?.some((p: Part) => 'functionResponse' in p),
       );
-      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      const frPart = toolMessage.parts.find(
+        (p: Part) => 'functionResponse' in p,
+      );
       expect(frPart.functionResponse.parts).toHaveLength(1);
       expect(frPart.functionResponse.parts[0].inlineData.data).toBe('imgdata');
     });
   });
-
-
 });

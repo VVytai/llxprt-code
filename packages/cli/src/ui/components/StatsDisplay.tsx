@@ -80,8 +80,7 @@ const buildModelRows = (models: Record<string, ModelMetrics>) => {
       const cachedTokens = metrics.tokens.cached;
       const promptTokens = metrics.tokens.prompt;
       // Use input if available, otherwise compute from prompt - cached
-      const inputTokens =
-        metrics.tokens.input ?? promptTokens - cachedTokens;
+      const inputTokens = metrics.tokens.input ?? promptTokens - cachedTokens;
       return {
         key: name,
         modelName,
@@ -303,14 +302,14 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           <StatRow title="Tool Calls:">
             <Text color={theme.text.primary}>
               {tools.totalCalls} ({' '}
-              <Text color={theme.status.success}>[OK] {tools.totalSuccess}</Text>{' '}
+              <Text color={theme.status.success}>
+                [OK] {tools.totalSuccess}
+              </Text>{' '}
               <Text color={theme.status.error}>x {tools.totalFail}</Text> )
             </Text>
           </StatRow>
           <StatRow title="Success Rate:">
-            <Text color={successColor}>
-              {computed.successRate.toFixed(1)}%
-            </Text>
+            <Text color={successColor}>{computed.successRate.toFixed(1)}%</Text>
           </StatRow>
           {computed.totalDecisions > 0 && (
             <StatRow title="User Agreement:">

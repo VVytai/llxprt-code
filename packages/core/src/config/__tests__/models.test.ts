@@ -5,10 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  isGemini2Model,
-  isGemini3Model,
-} from '../models.js';
+import { isGemini2Model, isGemini3Model } from '../models.js';
 
 describe('isGemini2Model()', () => {
   it('returns true for gemini-2.5-pro', () => {
