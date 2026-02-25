@@ -517,6 +517,17 @@ export class TestRig {
     const { command, initialArgs } = this._getCommandAndArgs(extraArgs);
     const commandArgs = [...initialArgs];
 
+    // Filter out TERM_PROGRAM to prevent IDE detection
+    const filteredEnv = Object.entries(process.env).reduce(
+      (acc, [key, value]) => {
+        if (key !== 'TERM_PROGRAM' && key !== 'TERM_PROGRAM_VERSION') {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {} as NodeJS.ProcessEnv,
+    );
+
     const execOptions: {
       cwd: string;
       encoding: 'utf-8';
@@ -526,7 +537,7 @@ export class TestRig {
       cwd: this.testDir!,
       encoding: 'utf-8',
       env: {
-        ...process.env,
+        ...filteredEnv,
         // Ensure browser launch is suppressed in tests
         NO_BROWSER: 'true',
         LLXPRT_NO_BROWSER_AUTH: 'true',
@@ -543,7 +554,7 @@ export class TestRig {
       if (Array.isArray(options.args)) {
         commandArgs.push(...options.args);
       } else {
-        commandArgs.push(options.args);
+        commandArgs.push('--prompt', options.args);
       }
     }
 
@@ -560,10 +571,7 @@ export class TestRig {
     const child = spawn(command, commandArgs, {
       cwd: this.testDir!,
       stdio: 'pipe',
-      env: {
-        ...execOptions.env,
-        HOME: this.testDir!,
-      },
+      env: execOptions.env,
     });
 
     let stdout = '';
@@ -667,10 +675,6 @@ export class TestRig {
     const child = spawn(command, commandArgs, {
       cwd: this.testDir!,
       stdio: 'pipe',
-      env: {
-        ...process.env,
-        HOME: this.testDir!,
-      },
     });
 
     let stdout = '';
@@ -1188,17 +1192,27 @@ export class TestRig {
       }
     }
 
+    // Filter out TERM_PROGRAM to prevent IDE detection
+    const filteredEnv = Object.entries(process.env).reduce(
+      (acc, [key, value]) => {
+        if (
+          value !== undefined &&
+          key !== 'TERM_PROGRAM' &&
+          key !== 'TERM_PROGRAM_VERSION'
+        ) {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+
     const ptyOptions: pty.IPtyForkOptions = {
       name: 'xterm-color',
       cols: 80,
       rows: 80,
       cwd: this.testDir!,
-      env: {
-        ...Object.fromEntries(
-          Object.entries(env).filter(([, v]) => v !== undefined),
-        ),
-        HOME: this.testDir!,
-      } as { [key: string]: string },
+      env: filteredEnv,
     };
 
     const executable = command === 'node' ? process.execPath : command;

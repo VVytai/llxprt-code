@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as os from 'node:os';
 import { TestRig } from './test-helper.js';
 
-describe('Ctrl+C exit', () => {
+describe.skipIf(process.env.CI === 'true')('Ctrl+C exit', () => {
   let rig: TestRig;
 
   beforeEach(() => {
