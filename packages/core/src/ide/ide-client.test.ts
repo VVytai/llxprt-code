@@ -12,6 +12,7 @@ import {
   beforeEach,
   afterEach,
   type Mocked,
+  type Mock,
 } from 'vitest';
 import { IdeClient, IDEConnectionStatus } from './ide-client.js';
 import * as fs from 'node:fs';
@@ -160,6 +161,115 @@ describe('IdeClient', () => {
       );
       expect(ideClient.getConnectionStatus().details).toContain(
         'Failed to connect',
+      );
+    });
+
+    it('should discover port file using readdir in new location', async () => {
+      const portFileContent = { port: '7070', authToken: 'test-token' };
+      (
+        vi.mocked(fs.promises.readdir) as Mock<
+          (path: fs.PathLike) => Promise<string[]>
+        >
+      ).mockResolvedValue(['llxprt-ide-server-12345-7070.json']);
+      vi.mocked(fs.promises.readFile).mockResolvedValue(
+        JSON.stringify(portFileContent),
+      );
+
+      IdeClient.resetInstance();
+      const ideClient = await IdeClient.getInstance();
+      await ideClient.connect();
+
+      expect(fs.promises.readdir).toHaveBeenCalledWith(
+        path.join('/tmp', 'llxprt', 'ide'),
+      );
+      expect(fs.promises.readFile).toHaveBeenCalledWith(
+        path.join('/tmp', 'llxprt', 'ide', 'llxprt-ide-server-12345-7070.json'),
+        'utf8',
+      );
+      expect(StreamableHTTPClientTransport).toHaveBeenCalledWith(
+        new URL('http://127.0.0.1:7070/mcp'),
+        expect.any(Object),
+      );
+      expect(ideClient.getConnectionStatus().status).toBe(
+        IDEConnectionStatus.Connected,
+      );
+    });
+
+    it('should handle empty directory when discovering port files', async () => {
+      (
+        vi.mocked(fs.promises.readdir) as Mock<
+          (path: fs.PathLike) => Promise<string[]>
+        >
+      ).mockResolvedValue([]);
+      vi.mocked(fs.promises.readFile).mockRejectedValue(
+        new Error('File not found'),
+      );
+
+      IdeClient.resetInstance();
+      const ideClient = await IdeClient.getInstance();
+      await ideClient.connect();
+
+      expect(fs.promises.readdir).toHaveBeenCalledWith(
+        path.join('/tmp', 'llxprt', 'ide'),
+      );
+      expect(ideClient.getConnectionStatus().status).toBe(
+        IDEConnectionStatus.Disconnected,
+      );
+    });
+
+    it('should fall back to old location when readdir fails', async () => {
+      (
+        vi.mocked(fs.promises.readdir) as Mock<
+          (path: fs.PathLike) => Promise<string[]>
+        >
+      ).mockRejectedValue(new Error('Directory not found'));
+
+      const oldLocationConfig = { port: '6060' };
+      vi.mocked(fs.promises.readFile).mockResolvedValue(
+        JSON.stringify(oldLocationConfig),
+      );
+
+      IdeClient.resetInstance();
+      const ideClient = await IdeClient.getInstance();
+      await ideClient.connect();
+
+      expect(fs.promises.readdir).toHaveBeenCalled();
+      expect(fs.promises.readFile).toHaveBeenCalledWith(
+        path.join('/tmp', 'llxprt-ide-server-12345.json'),
+        'utf8',
+      );
+      expect(StreamableHTTPClientTransport).toHaveBeenCalledWith(
+        new URL('http://127.0.0.1:6060/mcp'),
+        expect.any(Object),
+      );
+      expect(ideClient.getConnectionStatus().status).toBe(
+        IDEConnectionStatus.Connected,
+      );
+    });
+
+    it('should ignore non-matching files in port directory', async () => {
+      (
+        vi.mocked(fs.promises.readdir) as Mock<
+          (path: fs.PathLike) => Promise<string[]>
+        >
+      ).mockResolvedValue([
+        'other-file.json',
+        'llxprt-ide-server-99999-8080.json', // Wrong PID
+        'llxprt-ide-server-12345-9090.txt', // Wrong extension
+      ]);
+      vi.mocked(fs.promises.readFile).mockRejectedValue(
+        new Error('File not found'),
+      );
+
+      IdeClient.resetInstance();
+      const ideClient = await IdeClient.getInstance();
+      await ideClient.connect();
+
+      expect(fs.promises.readdir).toHaveBeenCalledWith(
+        path.join('/tmp', 'llxprt', 'ide'),
+      );
+      expect(ideClient.getConnectionStatus().status).toBe(
+        IDEConnectionStatus.Disconnected,
       );
     });
   });

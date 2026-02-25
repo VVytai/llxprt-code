@@ -42,6 +42,7 @@ import {
   type Part,
   type PartListUnion,
   type FunctionCall,
+  type FunctionResponsePart,
 } from '@google/genai';
 import { supportsMultimodalFunctionResponse } from '../config/models.js';
 import {
@@ -274,15 +275,15 @@ export function convertToFunctionResponse(
             'Only the functionResponse will be used, other parts will be ignored',
         );
       }
-      return [
-        {
-          functionResponse: {
-            id: callId,
-            name: toolName,
-            response: part.functionResponse.response,
-          },
+      const passthroughPart = {
+        functionResponse: {
+          id: callId,
+          name: toolName,
+          response: part.functionResponse.response,
         },
-      ];
+      };
+      // Apply output limits to the passthrough case as well
+      return [limitFunctionResponsePart(passthroughPart, toolName, config)];
     }
     // Ignore other part types (e.g., functionCall)
   }
@@ -303,8 +304,18 @@ export function convertToFunctionResponse(
   if (inlineDataParts.length > 0) {
     if (isMultimodalFRSupported) {
       // Nest inlineData if supported by the model (Gemini 3+)
-      (part.functionResponse as unknown as { parts: Part[] }).parts =
-        inlineDataParts;
+      // Convert Part[] to FunctionResponsePart[] by extracting inlineData/fileData
+      const responseParts: FunctionResponsePart[] = inlineDataParts
+        .map((p) => {
+          if (p.inlineData) {
+            return { inlineData: p.inlineData } as FunctionResponsePart;
+          } else if (p.fileData) {
+            return { fileData: p.fileData } as FunctionResponsePart;
+          }
+          return undefined;
+        })
+        .filter((p): p is FunctionResponsePart => p !== undefined);
+      part.functionResponse!.parts = responseParts;
     } else {
       // Otherwise treat as siblings (backward compat for Gemini 2, all other providers)
       siblingParts.push(...inlineDataParts);

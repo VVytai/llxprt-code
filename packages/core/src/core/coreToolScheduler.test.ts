@@ -192,7 +192,6 @@ describe('CoreToolScheduler', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -680,7 +679,6 @@ describe('CoreToolScheduler', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -750,7 +748,6 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -826,7 +823,6 @@ describe('CoreToolScheduler', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -894,7 +890,6 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -972,7 +967,6 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -1068,7 +1062,6 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -1217,7 +1210,6 @@ describe('CoreToolScheduler', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1332,7 +1324,6 @@ describe('CoreToolScheduler with payload', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -2154,7 +2145,6 @@ describe('CoreToolScheduler edit cancellation', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2473,7 +2463,6 @@ describe('CoreToolScheduler YOLO mode', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -3128,7 +3117,6 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3249,7 +3237,6 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -3374,7 +3361,6 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -3510,7 +3496,6 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3607,7 +3592,6 @@ it('injects agentId into ContextAwareTool context', async () => {
     getEnableHooks: () => false,
     getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
       getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
   } as unknown as Config;
 
   const scheduler = new CoreToolScheduler({
@@ -3678,7 +3662,6 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -3788,7 +3771,6 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
@@ -4015,8 +3997,6 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
-      getModel: () => DEFAULT_GEMINI_MODEL,
-      getModel: () => DEFAULT_GEMINI_MODEL,
       getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 

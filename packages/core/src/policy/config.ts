@@ -454,7 +454,9 @@ export function createPolicyUpdater(
       // Convert commandPrefix to argsPattern for in-memory rule
       if (message.commandPrefix) {
         const escapedPrefix = escapeRegex(message.commandPrefix);
-        argsPattern = new RegExp(`"command":"${escapedPrefix}`);
+        argsPattern = new RegExp(
+          '"command":"' + escapedPrefix + String.raw`(?:[\s"]|$)`,
+        );
       }
 
       // Add in-memory rule (works for current session)

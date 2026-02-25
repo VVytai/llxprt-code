@@ -32,5 +32,5 @@ export function isGemini3Model(model: string): boolean {
  * @returns True if the model supports multimodal function responses.
  */
 export function supportsMultimodalFunctionResponse(model: string): boolean {
-  return model.startsWith('gemini-3-');
+  return isGemini3Model(model);
 }

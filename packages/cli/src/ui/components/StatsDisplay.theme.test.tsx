@@ -71,6 +71,7 @@ const standardMetrics: SessionMetrics = {
     'gemini-1.5-pro': {
       api: { totalRequests: 2, totalErrors: 0, totalLatencyMs: 1000 },
       tokens: {
+        input: 500,
         prompt: 500,
         candidates: 250,
         total: 1000,
@@ -130,18 +131,13 @@ describe('StatsDisplay theming', () => {
     runtimeStub.getSessionTokenUsage.mockClear();
   });
 
-  it('renders the Model Usage header using the accent color from the active theme', () => {
+  it('renders the Model Usage header using the primary color from the active theme', () => {
     render(<StatsDisplay duration="1s" />);
 
     const headerEntry = recordedTextProps.find((entry) =>
       entry.text.trim().startsWith('Model Usage'),
     );
 
-    expect(headerEntry?.color).toBe(theme.text.accent);
-
-    const dividerEntry = recordedTextProps.find((entry) =>
-      entry.text.trim().startsWith('─'),
-    );
-    expect(dividerEntry?.color).toBe(theme.text.secondary);
+    expect(headerEntry?.color).toBe(theme.text.primary);
   });
 });

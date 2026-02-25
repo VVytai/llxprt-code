@@ -138,6 +138,34 @@ function parseAllAtCommands(query: string): AtCommandPart[] {
 }
 
 /**
+ * Helper function to handle resource read errors by adding items to history
+ * and returning an error result.
+ */
+function handleResourceReadError(
+  resourceReadDisplays: IndividualToolCallDisplay[],
+  addItem: UseHistoryManagerReturn['addItem'],
+  userMessageTimestamp: number,
+): HandleAtCommandResult {
+  addItem(
+    {
+      type: 'tool_group',
+      agentId: DEFAULT_AGENT_ID,
+      tools: resourceReadDisplays,
+    } as Omit<HistoryItem, 'id'>,
+    userMessageTimestamp,
+  );
+  const firstError = resourceReadDisplays.find(
+    (d) => d.status === ToolCallStatus.Error,
+  )!;
+  const errorMessages = resourceReadDisplays
+    .filter((d) => d.status === ToolCallStatus.Error)
+    .map((d) => d.resultDisplay);
+  console.error(errorMessages);
+  const errorMsg = `Exiting due to an error processing the @ command: ${firstError.resultDisplay}`;
+  return { processedQuery: null, error: errorMsg };
+}
+
+/**
  * Processes user input potentially containing one or more '@<path>' commands.
  * If found, it attempts to read the specified files/directories using the
  * 'read_many_files' tool. The user query is modified to include resolved paths,
@@ -504,24 +532,11 @@ export async function handleAtCommand({
         confirmationDetails: undefined,
       };
       resourceReadDisplays.push(toolCallDisplay);
-      addItem(
-        {
-          type: 'tool_group',
-          agentId: DEFAULT_AGENT_ID,
-          tools: resourceReadDisplays,
-        } as Omit<HistoryItem, 'id'>,
+      return handleResourceReadError(
+        resourceReadDisplays,
+        addItem,
         userMessageTimestamp,
       );
-      // Find the first error to report
-      const firstError = resourceReadDisplays.find(
-        (d) => d.status === ToolCallStatus.Error,
-      )!;
-      const errorMessages = resourceReadDisplays
-        .filter((d) => d.status === ToolCallStatus.Error)
-        .map((d) => d.resultDisplay);
-      console.error(errorMessages);
-      const errorMsg = `Exiting due to an error processing the @ command: ${firstError.resultDisplay}`;
-      return { processedQuery: null, error: errorMsg };
     }
 
     try {
@@ -550,24 +565,11 @@ export async function handleAtCommand({
         confirmationDetails: undefined,
       };
       resourceReadDisplays.push(toolCallDisplay);
-      addItem(
-        {
-          type: 'tool_group',
-          agentId: DEFAULT_AGENT_ID,
-          tools: resourceReadDisplays,
-        } as Omit<HistoryItem, 'id'>,
+      return handleResourceReadError(
+        resourceReadDisplays,
+        addItem,
         userMessageTimestamp,
       );
-      // Find the first error to report
-      const firstError = resourceReadDisplays.find(
-        (d) => d.status === ToolCallStatus.Error,
-      )!;
-      const errorMessages = resourceReadDisplays
-        .filter((d) => d.status === ToolCallStatus.Error)
-        .map((d) => d.resultDisplay);
-      console.error(errorMessages);
-      const errorMsg = `Exiting due to an error processing the @ command: ${firstError.resultDisplay}`;
-      return { processedQuery: null, error: errorMsg };
     }
   }
 
