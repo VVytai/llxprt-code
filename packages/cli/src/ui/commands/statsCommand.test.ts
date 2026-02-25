@@ -493,4 +493,88 @@ describe('statsCommand', () => {
 
     vi.restoreAllMocks();
   });
+
+  it('should show Gemini quota when CodeAssistServer is available', async () => {
+    const { CodeAssistServer, getCodeAssistServer } = await import(
+      '@vybestack/llxprt-code-core'
+    );
+
+    const mockServer = Object.create(CodeAssistServer.prototype);
+    mockServer.projectId = 'test-project';
+    mockServer.retrieveUserQuota = vi.fn().mockResolvedValue({
+      buckets: [
+        {
+          modelId: 'gemini-2.5-pro',
+          tokenType: 'input_tokens',
+          remainingAmount: '8000',
+          remainingFraction: 0.8,
+          resetTime: new Date(
+            Date.now() + 30 * 60 * 1000,
+          ).toISOString(),
+        },
+        {
+          modelId: 'gemini-2.5-flash',
+          tokenType: 'input_tokens',
+          remainingAmount: '45000',
+          remainingFraction: 0.95,
+        },
+      ],
+    });
+
+    // Wire mock config to return our fake server
+    vi.spyOn(
+      { getCodeAssistServer } as { getCodeAssistServer: typeof getCodeAssistServer },
+      'getCodeAssistServer',
+    );
+    const coreModule = await import('@vybestack/llxprt-code-core');
+    vi.spyOn(coreModule, 'getCodeAssistServer').mockReturnValue(mockServer);
+
+    const quotaSubCommand = statsCommand.subCommands?.find(
+      (cmd) => cmd.name === 'quota',
+    );
+    if (!quotaSubCommand?.action) throw new Error('No quota subcommand');
+
+    await quotaSubCommand.action(mockContext, '');
+
+    const addItemCalls = vi.mocked(mockContext.ui.addItem).mock.calls;
+    const lastItem = addItemCalls[addItemCalls.length - 1]?.[0] as {
+      type: MessageType;
+      text?: string;
+    };
+
+    expect(lastItem.type).toBe(MessageType.INFO);
+    expect(lastItem.text).toContain('Gemini Quota Information');
+    expect(lastItem.text).toContain('gemini-2.5-pro');
+    expect(lastItem.text).toContain('80%');
+    expect(lastItem.text).toContain('gemini-2.5-flash');
+    expect(lastItem.text).toContain('95%');
+
+    vi.restoreAllMocks();
+  });
+
+  it('should gracefully handle Gemini quota fetch failure', async () => {
+    const { CodeAssistServer } = await import('@vybestack/llxprt-code-core');
+    const coreModule = await import('@vybestack/llxprt-code-core');
+
+    const mockServer = Object.create(CodeAssistServer.prototype);
+    mockServer.projectId = 'test-project';
+    mockServer.retrieveUserQuota = vi
+      .fn()
+      .mockRejectedValue(new Error('Network error'));
+
+    vi.spyOn(coreModule, 'getCodeAssistServer').mockReturnValue(mockServer);
+
+    const quotaSubCommand = statsCommand.subCommands?.find(
+      (cmd) => cmd.name === 'quota',
+    );
+    if (!quotaSubCommand?.action) throw new Error('No quota subcommand');
+
+    await quotaSubCommand.action(mockContext, '');
+
+    // Should not crash — graceful failure results in no quota section or "no quota available"
+    const addItemCalls = vi.mocked(mockContext.ui.addItem).mock.calls;
+    expect(addItemCalls.length).toBeGreaterThan(0);
+
+    vi.restoreAllMocks();
+  });
 });

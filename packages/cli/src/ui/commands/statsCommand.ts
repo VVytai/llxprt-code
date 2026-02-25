@@ -15,12 +15,15 @@ import {
 } from './types.js';
 import { getRuntimeApi } from '../contexts/RuntimeContext.js';
 import {
+  CodeAssistServer,
   CodexUsageInfoSchema,
+  type Config,
   DebugLogger,
   detectApiKeyProvider,
   fetchApiKeyQuota,
   formatAllUsagePeriods,
   formatCodexUsage,
+  getCodeAssistServer,
 } from '@vybestack/llxprt-code-core';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -112,12 +115,77 @@ async function fetchApiKeyProviderQuota(
   );
 }
 
+function formatQuotaResetTime(resetTime: string): string {
+  try {
+    const reset = new Date(resetTime);
+    const now = new Date();
+    const diffMs = reset.getTime() - now.getTime();
+    if (diffMs <= 0) {
+      return 'now';
+    }
+    const diffMin = Math.ceil(diffMs / 60000);
+    if (diffMin < 60) {
+      return `${diffMin}m`;
+    }
+    const diffHr = Math.floor(diffMin / 60);
+    const remainMin = diffMin % 60;
+    return remainMin > 0 ? `${diffHr}h ${remainMin}m` : `${diffHr}h`;
+  } catch {
+    return resetTime;
+  }
+}
+
+async function fetchGeminiQuota(
+  config: Config | null,
+): Promise<string[]> {
+  if (!config) {
+    return [];
+  }
+
+  const server = getCodeAssistServer(config);
+  if (!(server instanceof CodeAssistServer) || !server.projectId) {
+    return [];
+  }
+
+  try {
+    const quota = await server.retrieveUserQuota({
+      project: server.projectId,
+    });
+    if (!quota.buckets || quota.buckets.length === 0) {
+      return [];
+    }
+
+    const lines: string[] = [];
+    for (const bucket of quota.buckets) {
+      const model = bucket.modelId ?? 'unknown';
+      const tokenType = bucket.tokenType ?? 'tokens';
+      const remaining = bucket.remainingAmount ?? '?';
+      const fraction =
+        bucket.remainingFraction != null
+          ? ` (${Math.round(bucket.remainingFraction * 100)}%)`
+          : '';
+      const resetStr = bucket.resetTime
+        ? ` · resets in ${formatQuotaResetTime(bucket.resetTime)}`
+        : '';
+      lines.push(`  ${model} ${tokenType}: ${remaining}${fraction}${resetStr}`);
+    }
+    return lines;
+  } catch (error) {
+    logger.warn(
+      'Failed to fetch Gemini quota:',
+      error instanceof Error ? error.message : String(error),
+    );
+    return [];
+  }
+}
+
 /**
  * Fetch all available quota information for the default stats view.
  * Returns formatted lines ready for display, or empty array if no quota available.
  */
 async function fetchAllQuotaInfo(
   runtimeApi: ReturnType<typeof getRuntimeApi>,
+  config: Config | null,
 ): Promise<string[]> {
   const output: string[] = [];
   const oauthManager = runtimeApi.getCliOAuthManager();
@@ -234,6 +302,16 @@ async function fetchAllQuotaInfo(
       output.push(`## ${apiKeyQuotaResult.provider} Quota Information\n`);
       output.push(...apiKeyQuotaResult.lines);
     }
+
+    // 3. Fetch Gemini quota via Code Assist (Google OAuth users only)
+    const geminiQuotaLines = await fetchGeminiQuota(config);
+    if (geminiQuotaLines.length > 0) {
+      if (output.length > 0) {
+        output.push('');
+      }
+      output.push('## Gemini Quota Information\n');
+      output.push(...geminiQuotaLines);
+    }
   } catch (error) {
     logger.warn(
       'Error fetching quota info for default stats view:',
@@ -261,7 +339,7 @@ async function defaultSessionView(context: CommandContext): Promise<void> {
 
   // Fetch quota information
   const runtimeApi = getRuntimeApi();
-  const quotaLines = await fetchAllQuotaInfo(runtimeApi);
+  const quotaLines = await fetchAllQuotaInfo(runtimeApi, context.services.config);
 
   const statsItem: HistoryItemStats = {
     type: MessageType.STATS,
@@ -346,13 +424,13 @@ export const statsCommand: SlashCommand = {
         const runtimeApi = getRuntimeApi();
 
         try {
-          const quotaLines = await fetchAllQuotaInfo(runtimeApi);
+          const quotaLines = await fetchAllQuotaInfo(runtimeApi, context.services.config);
 
           if (quotaLines.length === 0) {
             context.ui.addItem(
               {
                 type: MessageType.INFO,
-                text: 'No quota information available. Supported providers: Anthropic (OAuth), Codex (OAuth), Z.ai, Synthetic, Chutes, Kimi.',
+                text: 'No quota information available. Supported providers: Anthropic (OAuth), Codex (OAuth), Gemini (Google OAuth), Z.ai, Synthetic, Chutes, Kimi.',
               },
               Date.now(),
             );
