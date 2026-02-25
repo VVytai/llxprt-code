@@ -414,6 +414,50 @@ describe('settings-validation', () => {
       const result = validateSettings(validSettings);
       expect(result.success).toBe(true);
     });
+
+    it('should accept E2E test helper settings with sandbox=false', () => {
+      const result = validateSettings({
+        general: { disableAutoUpdate: true },
+        ui: { theme: 'Green Screen', useAlternateBuffer: true },
+        telemetry: {
+          enabled: true,
+          target: 'local',
+          otlpEndpoint: '',
+          outfile: '/tmp/test.log',
+        },
+        promptService: { baseDir: '/tmp/bundle' },
+        sandbox: false,
+        provider: 'openai',
+        debug: true,
+        ide: { enabled: false, hasSeenNudge: true },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept sandbox as boolean false', () => {
+      const result = validateSettings({ sandbox: false });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept sandbox as boolean true', () => {
+      const result = validateSettings({ sandbox: true });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept sandbox as string "docker"', () => {
+      const result = validateSettings({ sandbox: 'docker' });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept sandbox as string "none"', () => {
+      const result = validateSettings({ sandbox: 'none' });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept sandbox as string path', () => {
+      const result = validateSettings({ sandbox: '/usr/bin/sandbox' });
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('formatValidationError', () => {

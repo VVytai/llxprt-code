@@ -475,7 +475,6 @@ export class TestRig {
       });
     }
 
-
     // Fail fast if required configuration is missing (unless using fake responses)
     if (!this.fakeResponsesPath) {
       if (!provider) {
