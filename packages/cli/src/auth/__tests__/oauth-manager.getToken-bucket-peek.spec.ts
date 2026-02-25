@@ -9,16 +9,13 @@ import { OAuthManager, OAuthProvider } from '../oauth-manager.js';
 import { TokenStore, OAuthToken } from '../types.js';
 
 /**
- * Issue 1616: getToken Bucket Peek Loop Tests (RED phase TDD)
+ * Issue 1616: getToken Bucket Peek Loop Tests
  *
- * These tests assert the EXPECTED behavior after the fix:
- * 1. getToken() does NOT call tryFailover() during token discovery
- * 2. getToken() peeks other profile buckets via raw tokenStore reads
- * 3. getToken() switches session bucket if another bucket has a valid token
- * 4. getToken() falls through to authenticateMultipleBuckets if no valid token
- *
- * Against CURRENT code, tests 2/3/5 should FAIL because the current code
- * calls tryFailover() instead of peeking buckets.
+ * These tests validate the fixed behavior where getToken():
+ * 1. Does NOT call tryFailover() during token discovery
+ * 2. Peeks other profile buckets via raw tokenStore reads
+ * 3. Switches session bucket if a valid token is found in another bucket
+ * 4. Falls through to authenticateMultipleBuckets if no valid token found
  */
 
 function createMockTokenStore(): TokenStore {
@@ -127,19 +124,24 @@ vi.mock('../../runtime/runtimeSettings.js', () => ({
   }),
 }));
 
-vi.mock('../../config/profileManager.js', async () => {
-  const actual = await vi.importActual('../../config/profileManager.js');
+// Mock the core package's ProfileManager, which is dynamically imported by
+// getProfileManagerCtor() in oauth-manager.ts via import('@vybestack/llxprt-code-core').
+// Without this, getProfileBuckets() would try to load real profiles from disk,
+// causing tests to depend on local filesystem state.
+vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@vybestack/llxprt-code-core')>();
   return {
     ...actual,
-    createProfileManager: vi.fn(async () => ({
-      loadProfile: vi.fn(async (name: string) => {
+    ProfileManager: class MockProfileManager {
+      async loadProfile(name: string) {
         const profile = mockProfiles.get(name);
         if (!profile) {
           throw new Error(`Profile ${name} not found`);
         }
         return profile;
-      }),
-    })),
+      }
+    },
   };
 });
 
@@ -215,7 +217,6 @@ describe('Issue 1616: getToken bucket peek loop', () => {
       },
     );
 
-    // Mock handler that returns false from tryFailover (current code calls it, fix won't)
     const tryFailoverSpy = vi.fn().mockResolvedValue(false);
     const mockFailoverHandler = {
       tryFailover: tryFailoverSpy,
@@ -229,9 +230,6 @@ describe('Issue 1616: getToken bucket peek loop', () => {
 
     manager.setConfigGetter(() => createMockConfig(mockFailoverHandler));
 
-    // Expected: getToken peeks claudius in the keystore, finds valid token, returns it
-    // Current code: calls tryFailover(false), falls through to authenticateMultipleBuckets,
-    // which needs browser auth → won't return 'claudius-bucket-token'
     const result = await manager.getToken('anthropic');
 
     expect(result).toBe('claudius-bucket-token');
@@ -280,8 +278,6 @@ describe('Issue 1616: getToken bucket peek loop', () => {
 
     await manager.getToken('anthropic');
 
-    // Expected: tryFailover was NEVER called — getToken uses peek loop instead
-    // Current code: tryFailover IS called at line 697 → this assertion fails
     expect(tryFailoverSpy).not.toHaveBeenCalled();
   });
 
@@ -334,8 +330,6 @@ describe('Issue 1616: getToken bucket peek loop', () => {
 
     manager.setConfigGetter(() => createMockConfig(mockFailoverHandler));
 
-    // Expected: peek loop skips expired claudius, finds valid vybestack, returns it
-    // Current code: calls tryFailover, doesn't peek → won't return 'vybestack-token'
     const result = await manager.getToken('anthropic');
 
     expect(result).toBe('vybestack-token');
@@ -382,13 +376,10 @@ describe('Issue 1616: getToken bucket peek loop', () => {
 
     manager.setConfigGetter(() => createMockConfig(mockFailoverHandler));
 
-    // Spy on setSessionBucket
     const setSessionBucketSpy = vi.spyOn(manager, 'setSessionBucket');
 
     await manager.getToken('anthropic');
 
-    // Expected: peek loop found claudius token → switched session bucket to claudius
-    // Current code: doesn't peek → doesn't switch → this fails
     expect(setSessionBucketSpy).toHaveBeenCalledWith('anthropic', 'claudius');
   });
 });

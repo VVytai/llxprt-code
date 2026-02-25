@@ -696,7 +696,9 @@ export class OAuthManager {
       if (profileBuckets.length > 1) {
         const nowInSeconds = Math.floor(Date.now() / 1000);
         const thirtySecondsFromNow = nowInSeconds + 30;
+        const alreadyTriedBucket = this.getSessionBucket(providerName);
         for (const peekBucket of profileBuckets) {
+          if (peekBucket === alreadyTriedBucket) continue;
           try {
             const peekToken = await this.tokenStore.getToken(
               providerName,
