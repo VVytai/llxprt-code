@@ -21,3 +21,4 @@
 | 16 | REIMPLEMENT | d236df5b (tool fragmentation) | DONE | 739a86cc2 | Provider-agnostic multimodal encapsulation fix |
 | 17 | REIMPLEMENT | 0c3eb826 (A2A interactive) | DONE | 7254da254 | interactive: true in A2A config; 1-line impl, 17-line test |
 | 18 | CLEANUP | findFiles removal | SKIP | N/A | Already removed in prior sync (v0.21.3) |
+| POST | REMEDIATE | B7,B8,B11,B14,B16+pre | DONE | 2076a2699 | Post-audit regression fixes; 8 TS errors fixed, 0 introduced |

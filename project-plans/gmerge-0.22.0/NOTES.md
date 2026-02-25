@@ -90,3 +90,43 @@
 ### Batch 18 — CLEANUP: findFiles removal
 - SKIP: findFiles() already removed from FileSystemService interface, implementation, and tests in prior sync (v0.21.3)
 - Verified: zero findFiles references in packages/ (only FindFiles tool alias in glob.ts and OpenAI tests — different thing)
+
+---
+
+## Phase 4 — Post-Audit Remediation (commit 2076a2699)
+
+### Issues found by deepthinker post-hoc audit, fixed in single remediation commit:
+
+#### B7 (IDE extension refactor)
+- Missing `Mock` import in ide-client.test.ts — added to vitest imports
+- Missing readdir port discovery tests — added 4 behavioral tests (46 total pass)
+
+#### B8 (atCommandProcessor DRY)
+- Duplicated error handling blocks at lines ~507 and ~553 — extracted `handleResourceReadError()` helper
+
+#### B11 (commandPrefix safety)
+- Word boundary regex `(?:\s|$)` didn't handle quoted commands — fixed to `(?:[\s"]|$)`
+- Updated persistence.test.ts assertion to match corrected regex
+
+#### B14 (StatsDisplay)
+- Imported non-existent `RetrieveUserQuotaResponse` and `VALID_GEMINI_MODELS` from upstream — removed
+- Reverted `StatsDisplayProps.quotas` back to `quotaLines?: string[]`
+- Removed non-existent `bold` prop from `<ThemedGradient>`
+- Added explicit types to `buildModelRows` callbacks (fix implicit any)
+- Updated snapshots and theme tests
+
+#### B16 (coreToolScheduler)
+- Unsafe double-cast `as unknown as FunctionResponsePart[]` — replaced with proper conversion
+- Passthrough case missing `limitFunctionResponsePart` — applied consistently
+- `supportsMultimodalFunctionResponse` duplicated logic — delegated to `isGemini3Model()`
+- Removed 20 duplicate `getModel` lines in test file
+
+#### Pre-existing issues
+- ClearcutLogger comment in sdk.ts line 163 — removed
+- A2A server package.json missing `"private": true` — added
+
+### Verification results
+- Lint: PASS (zero warnings)
+- Typecheck: 10 pre-existing errors remain (tree-sitter wasm, zed-integration, config tests) — none introduced by our changes, 8 fixed
+- All changed-file tests pass: ide-client (46), atCommandProcessor (41), persistence (16), StatsDisplay (18), coreToolScheduler (56)
+- interactiveMode.test.ts failure confirmed pre-existing (same failure without our changes)
