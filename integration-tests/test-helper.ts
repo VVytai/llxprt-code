@@ -465,6 +465,17 @@ export class TestRig {
     const keyFile =
       env['OPENAI_API_KEYFILE'] ?? env['LLXPRT_TEST_PROFILE_KEYFILE'];
 
+    // Debug: Log environment variables in CI
+    if (env['CI'] === 'true' || env['VERBOSE'] === 'true') {
+      console.log('[TestRig] Environment variables:', {
+        provider,
+        model,
+        baseUrl: baseUrl ? `${baseUrl.substring(0, 30)}...` : 'UNDEFINED',
+        hasApiKey: !!apiKey,
+      });
+    }
+
+
     // Fail fast if required configuration is missing (unless using fake responses)
     if (!this.fakeResponsesPath) {
       if (!provider) {
@@ -566,6 +577,16 @@ export class TestRig {
       const profileName = env['LLXPRT_TEST_PROFILE'].trim();
       // Insert profile-load flags after the initial args (node, bundle path)
       commandArgs.splice(2, 0, '--profile-load', profileName);
+    }
+
+    // Debug: Log command being executed in CI
+    if (env['CI'] === 'true' || env['VERBOSE'] === 'true') {
+      console.log('[TestRig] Spawning command:', {
+        command,
+        args: commandArgs,
+        cwd: this.testDir,
+        hasBaseUrl: commandArgs.includes('--baseurl'),
+      });
     }
 
     const child = spawn(command, commandArgs, {
