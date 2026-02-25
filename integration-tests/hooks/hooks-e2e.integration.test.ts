@@ -82,6 +82,7 @@ function createRealConfig(options: {
     getTargetDir: () => TEST_SCRIPTS_DIR,
     getExtensions: () => [],
     getModel: () => 'test-model',
+    getSessionRecordingService: () => undefined,
     getHookSystem: () => {
       if (!hookSystem) {
         hookSystem = new HookSystem(config as Config);

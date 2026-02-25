@@ -560,7 +560,10 @@ export class TestRig {
     const child = spawn(command, commandArgs, {
       cwd: this.testDir!,
       stdio: 'pipe',
-      env: execOptions.env,
+      env: {
+        ...execOptions.env,
+        HOME: this.testDir!,
+      },
     });
 
     let stdout = '';
@@ -664,6 +667,10 @@ export class TestRig {
     const child = spawn(command, commandArgs, {
       cwd: this.testDir!,
       stdio: 'pipe',
+      env: {
+        ...process.env,
+        HOME: this.testDir!,
+      },
     });
 
     let stdout = '';
@@ -1186,9 +1193,12 @@ export class TestRig {
       cols: 80,
       rows: 80,
       cwd: this.testDir!,
-      env: Object.fromEntries(
-        Object.entries(env).filter(([, v]) => v !== undefined),
-      ) as { [key: string]: string },
+      env: {
+        ...Object.fromEntries(
+          Object.entries(env).filter(([, v]) => v !== undefined),
+        ),
+        HOME: this.testDir!,
+      } as { [key: string]: string },
     };
 
     const executable = command === 'node' ? process.execPath : command;
