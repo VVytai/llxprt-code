@@ -102,6 +102,17 @@ export class BucketFailoverHandlerImpl implements BucketFailoverHandler {
     // Clear reasons from previous attempt (REQ-1598-CL09)
     this.lastFailoverReasons = {};
 
+    // Re-sync cursor from session state so that external session-bucket
+    // switches (e.g. the peek loop in OAuthManager.getToken) are visible
+    // to the failover algorithm.
+    const sessionBucket = this.oauthManager.getSessionBucket(this.provider);
+    if (sessionBucket) {
+      const idx = this.buckets.indexOf(sessionBucket);
+      if (idx >= 0) {
+        this.currentBucketIndex = idx;
+      }
+    }
+
     const currentBucket = this.getCurrentBucket();
 
     // ============================================================
