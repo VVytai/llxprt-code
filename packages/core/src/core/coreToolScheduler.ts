@@ -1662,11 +1662,13 @@ export class CoreToolScheduler {
       // Success case — use tighter per-tool limits when the batch risked
       // exceeding the context window (#1301)
       const outputConfig = this.batchOutputConfig ?? this.config;
+      const model =
+        this.config.getContentGeneratorConfig?.()?.model ?? '';
       const response = convertToFunctionResponse(
         toolName,
         callId,
         result.llmContent,
-        this.config.getModel(),
+        model,
         outputConfig,
       );
       const metadataAgentId = extractAgentIdFromMetadata(result.metadata);

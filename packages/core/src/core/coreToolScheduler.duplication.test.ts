@@ -206,6 +206,7 @@ describe('CoreToolScheduler Duplication Prevention', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      isInteractive: () => true,
     } as unknown as Config;
 
     const onAllToolCallsComplete = vi.fn();
@@ -330,6 +331,7 @@ describe('CoreToolScheduler Duplication Prevention', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      isInteractive: () => true,
     } as unknown as Config;
 
     const onAllToolCallsComplete = vi.fn();
@@ -430,6 +432,7 @@ describe('CoreToolScheduler Duplication Prevention', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      isInteractive: () => true,
     } as unknown as Config;
 
     // Create TWO schedulers (this simulates the bug where subagents create their own schedulers)
@@ -547,6 +550,7 @@ describe('BUG: Tool executing before user approval in DEFAULT mode', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      isInteractive: () => true,
     } as unknown as Config;
 
     const onAllToolCallsComplete = vi.fn();

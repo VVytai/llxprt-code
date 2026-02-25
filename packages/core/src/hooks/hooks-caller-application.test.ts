@@ -180,6 +180,8 @@ function createConfigWithHook(options: {
     getExtensions: () => [],
     getDisabledHooks: () => [],
     getModel: () => 'test-model',
+    getSessionRecordingService: () => undefined,
+    isInteractive: () => true,
     getHookSystem() {
       if (!hookSystem) {
         hookSystem = new HookSystem(config);

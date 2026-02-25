@@ -12,7 +12,7 @@ import {
 } from './googleQuotaErrors.js';
 import * as errorParser from './googleErrors.js';
 import type { GoogleApiError } from './googleErrors.js';
-import { ModelNotFoundError } from './httpErrors.js';
+import { ModelNotFoundError } from './retry.js';
 
 describe('classifyGoogleError', () => {
   afterEach(() => {
