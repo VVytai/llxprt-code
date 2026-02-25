@@ -33,9 +33,9 @@ conditionalTest('hidden todo reminders stay out of transcript', async () => {
     ),
   });
 
-  const result = await rig.run(
-    'Without creating a todo list, run list_directory on "." followed by read_file on package.json, then respond with your findings.',
-  );
+  const result = await rig.run({
+    args: 'Without creating a todo list, run list_directory on "." followed by read_file on package.json, then respond with your findings.',
+  });
 
   const visibleReminder =
     result.includes(

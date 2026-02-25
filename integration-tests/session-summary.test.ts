@@ -25,7 +25,7 @@ describe('session-summary flag', () => {
 
   it('should write a session summary in non-interactive mode', async () => {
     const summaryPath = join(rig.testDir!, 'summary.json');
-    await rig.run('Say hello', '--session-summary', summaryPath);
+    await rig.run({ args: ['Say hello', '--session-summary', summaryPath] });
 
     const summaryContent = readFileSync(summaryPath, 'utf-8');
     const summary = JSON.parse(summaryContent);
