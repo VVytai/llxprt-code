@@ -1311,6 +1311,11 @@ export const useGeminiStream = (
         // Reset bucket failover handler for this new user turn so all buckets are tried fresh,
         // starting from the primary (first) bucket in the profile.
         config.getBucketFailoverHandler?.()?.reset?.();
+      } else {
+        // @fix issue1616: For continuations, clear stale exhaustion state so
+        // RetryOrchestrator can try all buckets again without a full reset
+        // (which would move back to the primary bucket).
+        config.getBucketFailoverHandler?.()?.resetSession?.();
       }
 
       setIsResponding(true);

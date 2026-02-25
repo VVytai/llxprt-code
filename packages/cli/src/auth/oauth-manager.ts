@@ -686,29 +686,42 @@ export class OAuthManager {
       return token.access_token;
     }
 
-    // @fix issue1191: Try bucket failover before triggering full OAuth re-authentication
-    const failoverConfig = this.getConfig?.();
-    const failoverHandler = failoverConfig?.getBucketFailoverHandler?.();
-    if (failoverHandler?.isEnabled()) {
-      logger.debug(
-        () =>
-          `[issue1191] Session bucket has no token for ${providerName}, attempting bucket failover before OAuth`,
-      );
-      const failoverResult = await failoverHandler.tryFailover();
-      if (failoverResult) {
-        const failoverToken = await this.getOAuthToken(providerName);
-        if (failoverToken) {
-          logger.debug(
-            () =>
-              `[issue1191] Bucket failover succeeded for ${providerName}, returning token`,
-          );
-          return failoverToken.access_token;
+    // @fix issue1616: Peek other profile buckets for a valid token before triggering
+    // full OAuth re-authentication. Unlike the previous approach (issue1191), this does
+    // NOT call tryFailover() — that is reserved exclusively for RetryOrchestrator to
+    // handle API-error-driven failover. This peek loop only reads the token store
+    // directly without mutating any failover state.
+    {
+      const profileBuckets = await this.getProfileBuckets(providerName);
+      if (profileBuckets.length > 1) {
+        const nowInSeconds = Math.floor(Date.now() / 1000);
+        const thirtySecondsFromNow = nowInSeconds + 30;
+        for (const peekBucket of profileBuckets) {
+          try {
+            const peekToken = await this.tokenStore.getToken(
+              providerName,
+              peekBucket,
+            );
+            if (peekToken && peekToken.expiry > thirtySecondsFromNow) {
+              logger.debug(
+                () =>
+                  `[issue1616] Found valid token in bucket '${peekBucket}' for ${providerName}, switching session`,
+              );
+              this.setSessionBucket(providerName, peekBucket);
+              return peekToken.access_token;
+            }
+          } catch (peekError) {
+            logger.debug(
+              `[issue1616] Token peek failed for ${providerName}/${peekBucket}:`,
+              peekError,
+            );
+          }
         }
+        logger.debug(
+          () =>
+            `[issue1616] No valid token found in any bucket for ${providerName}, falling through to OAuth`,
+        );
       }
-      logger.debug(
-        () =>
-          `[issue1191] Bucket failover did not yield a token for ${providerName}, falling through to OAuth`,
-      );
     }
 
     // For other providers, trigger OAuth flow
