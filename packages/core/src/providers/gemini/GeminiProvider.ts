@@ -12,6 +12,7 @@ import {
   type IContent,
   type ToolCallBlock,
   type ThinkingBlock,
+  type MediaBlock,
 } from '../../services/history/IContent.js';
 import { Config } from '../../config/config.js';
 import { getCoreSystemPromptAsync } from '../../core/prompts.js';
@@ -1089,29 +1090,49 @@ export class GeminiProvider extends BaseProvider {
           throw new Error('Tool content must have a tool_response block');
         }
 
+        const mediaBlocks = c.blocks.filter(
+          (b): b is MediaBlock => b.type === 'media',
+        );
+
         const payload = buildToolResponsePayload(
           toolResponseBlock,
           configForMessages,
         );
-        contents.push({
-          role: 'user',
-          parts: [
-            {
-              functionResponse: {
-                id: toolResponseBlock.callId,
-                name: toolResponseBlock.toolName,
-                response: {
-                  status: payload.status,
-                  result: payload.result,
-                  error: payload.error,
-                  truncated: payload.truncated,
-                  originalLength: payload.originalLength,
-                  limitMessage: payload.limitMessage,
-                },
-              },
+
+        const frPart: Part = {
+          functionResponse: {
+            id: toolResponseBlock.callId,
+            name: toolResponseBlock.toolName,
+            response: {
+              status: payload.status,
+              result: payload.result,
+              error: payload.error,
+              truncated: payload.truncated,
+              originalLength: payload.originalLength,
+              limitMessage: payload.limitMessage,
             },
-          ],
-        });
+          },
+        };
+
+        if (mediaBlocks.length > 0 && isGemini3Model(currentModel)) {
+          // Gemini 3+: nest media inside functionResponse.parts
+          frPart.functionResponse!.parts = mediaBlocks.map((mb) => ({
+            inlineData: { mimeType: mb.mimeType, data: mb.data },
+          }));
+          contents.push({ role: 'user', parts: [frPart] });
+        } else if (mediaBlocks.length > 0) {
+          // Gemini 2 and below: media as sibling parts
+          const parts: Part[] = [frPart];
+          for (const mb of mediaBlocks) {
+            parts.push({
+              inlineData: { mimeType: mb.mimeType, data: mb.data },
+            } as Part);
+          }
+          contents.push({ role: 'user', parts });
+        } else {
+          // No media — just the functionResponse
+          contents.push({ role: 'user', parts: [frPart] });
+        }
       }
     }
 

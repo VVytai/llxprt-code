@@ -42,9 +42,7 @@ import {
   type Part,
   type PartListUnion,
   type FunctionCall,
-  type FunctionResponsePart,
 } from '@google/genai';
-import { supportsMultimodalFunctionResponse } from '../config/models.js';
 import {
   isModifiableDeclarativeTool,
   type ModifyContext,
@@ -244,7 +242,6 @@ export function convertToFunctionResponse(
   toolName: string,
   callId: string,
   llmContent: PartListUnion,
-  model: string,
   config?: ToolOutputSettingsProvider,
 ): Part[] {
   // Handle simple string case
@@ -297,30 +294,8 @@ export function convertToFunctionResponse(
     },
   };
 
-  // Handle binary content based on model support
-  const isMultimodalFRSupported = supportsMultimodalFunctionResponse(model);
-  const siblingParts: Part[] = [...fileDataParts]; // fileData always sibling
-
-  if (inlineDataParts.length > 0) {
-    if (isMultimodalFRSupported) {
-      // Nest inlineData if supported by the model (Gemini 3+)
-      // Convert Part[] to FunctionResponsePart[] by extracting inlineData/fileData
-      const responseParts: FunctionResponsePart[] = inlineDataParts
-        .map((p) => {
-          if (p.inlineData) {
-            return { inlineData: p.inlineData } as FunctionResponsePart;
-          } else if (p.fileData) {
-            return { fileData: p.fileData } as FunctionResponsePart;
-          }
-          return undefined;
-        })
-        .filter((p): p is FunctionResponsePart => p !== undefined);
-      part.functionResponse!.parts = responseParts;
-    } else {
-      // Otherwise treat as siblings (backward compat for Gemini 2, all other providers)
-      siblingParts.push(...inlineDataParts);
-    }
-  }
+  // Handle binary content - use sibling format for all providers
+  const siblingParts: Part[] = [...fileDataParts, ...inlineDataParts];
 
   // Add descriptive text if response object is empty but we have binary content
   if (
@@ -1662,13 +1637,10 @@ export class CoreToolScheduler {
       // Success case — use tighter per-tool limits when the batch risked
       // exceeding the context window (#1301)
       const outputConfig = this.batchOutputConfig ?? this.config;
-      const model =
-        this.config.getContentGeneratorConfig?.()?.model ?? '';
       const response = convertToFunctionResponse(
         toolName,
         callId,
         result.llmContent,
-        model,
         outputConfig,
       );
       const metadataAgentId = extractAgentIdFromMetadata(result.metadata);

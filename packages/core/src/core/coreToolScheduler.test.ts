@@ -1505,11 +1505,10 @@ describe('CoreToolScheduler with payload', () => {
 describe('convertToFunctionResponse', () => {
   const toolName = 'testTool';
   const callId = 'call1';
-  const defaultModel = 'gemini-2.5-pro';
 
   it('should handle simple string llmContent', () => {
     const llmContent = 'Simple text output';
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1523,7 +1522,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a single Part with text', () => {
     const llmContent: Part = { text: 'Text from Part object' };
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1537,7 +1536,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a PartListUnion array with a single text Part', () => {
     const llmContent: PartListUnion = [{ text: 'Text from array' }];
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1553,7 +1552,7 @@ describe('convertToFunctionResponse', () => {
     const llmContent: Part = {
       inlineData: { mimeType: 'image/png', data: 'base64...' },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1572,7 +1571,7 @@ describe('convertToFunctionResponse', () => {
     const llmContent: Part = {
       fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1593,7 +1592,7 @@ describe('convertToFunctionResponse', () => {
       { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
       { text: 'Another text part' },
     ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1610,7 +1609,7 @@ describe('convertToFunctionResponse', () => {
     const llmContent: PartListUnion = [
       { inlineData: { mimeType: 'image/gif', data: 'gifdata...' } },
     ];
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1627,7 +1626,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a generic Part (not text, inlineData, or fileData)', () => {
     const llmContent: Part = { functionCall: { name: 'test', args: {} } };
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1641,7 +1640,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle empty string llmContent', () => {
     const llmContent = '';
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1655,7 +1654,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as an empty array', () => {
     const llmContent: PartListUnion = [];
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1669,7 +1668,7 @@ describe('convertToFunctionResponse', () => {
 
   it('should handle llmContent as a Part with undefined inlineData/fileData/text', () => {
     const llmContent: Part = {}; // An empty part object
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1688,7 +1687,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Tool completed successfully' },
       },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1708,7 +1707,7 @@ describe('convertToFunctionResponse', () => {
         response: { output: 'Tool completed successfully' },
       },
     };
-    const result = convertToFunctionResponse(toolName, callId, llmContent, defaultModel);
+    const result = convertToFunctionResponse(toolName, callId, llmContent);
     expect(result).toEqual([
       {
         functionResponse: {
@@ -1734,7 +1733,6 @@ describe('convertToFunctionResponse', () => {
       toolName,
       callId,
       llmContent,
-      defaultModel,
       config,
     );
     expect(
@@ -1742,314 +1740,6 @@ describe('convertToFunctionResponse', () => {
     ).toContain('[Output truncated due to token limit]');
   });
 });
-
-describe('convertToFunctionResponse - Gemini 3 multimodal handling', () => {
-  const toolName = 'testTool';
-  const callId = 'call1';
-  const gemini3Model = 'gemini-3-pro';
-  const gemini2Model = 'gemini-2.5-pro';
-
-  describe('inlineData handling', () => {
-    it('should nest inlineData within functionResponse.parts for Gemini 3', () => {
-      const llmContent: Part = {
-        inlineData: { mimeType: 'image/png', data: 'base64...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(1);
-      expect(result[0].functionResponse).toBeDefined();
-      expect(result[0].functionResponse!.name).toBe(toolName);
-      expect(result[0].functionResponse!.id).toBe(callId);
-      expect(result[0].functionResponse!.response).toEqual({
-        output: 'Binary content provided (1 item(s)).',
-      });
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toEqual([
-        llmContent,
-      ]);
-    });
-
-    it('should use siblings for inlineData with Gemini 2', () => {
-      const llmContent: Part = {
-        inlineData: { mimeType: 'image/png', data: 'base64...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini2Model,
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[0].functionResponse).toBeDefined();
-      expect(result[0].functionResponse!.response).toEqual({
-        output: 'Binary content provided (1 item(s)).',
-      });
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toBeUndefined();
-      expect(result[1]).toEqual(llmContent);
-    });
-
-    it('should use siblings for inlineData with Claude', () => {
-      const llmContent: Part = {
-        inlineData: { mimeType: 'image/png', data: 'base64...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        'claude-3-5-sonnet',
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[1]).toEqual(llmContent);
-    });
-
-    it('should use siblings for inlineData with GPT', () => {
-      const llmContent: Part = {
-        inlineData: { mimeType: 'image/png', data: 'base64...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        'gpt-4o',
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[1]).toEqual(llmContent);
-    });
-  });
-
-  describe('fileData handling (always siblings)', () => {
-    it('should keep fileData as sibling for Gemini 3', () => {
-      const llmContent: Part = {
-        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[0].functionResponse).toBeDefined();
-      expect(result[1]).toEqual(llmContent);
-    });
-
-    it('should keep fileData as sibling for Gemini 2', () => {
-      const llmContent: Part = {
-        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini2Model,
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[1]).toEqual(llmContent);
-    });
-  });
-
-  describe('mixed content handling', () => {
-    it('should handle text + inlineData + fileData for Gemini 3', () => {
-      const llmContent: PartListUnion = [
-        { text: 'Part 1' },
-        { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
-        { text: 'Part 2' },
-        { fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' } },
-      ];
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(2);
-      expect(result[0].functionResponse!.response).toEqual({
-        output: 'Part 1\nPart 2',
-      });
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toEqual([
-        { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
-      ]);
-      expect(result[1]).toEqual({
-        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
-      });
-    });
-
-    it('should handle text + inlineData + fileData for Gemini 2', () => {
-      const llmContent: PartListUnion = [
-        { text: 'Part 1' },
-        { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
-        { text: 'Part 2' },
-        { fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' } },
-      ];
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini2Model,
-      );
-
-      expect(result).toHaveLength(3);
-      expect(result[0].functionResponse!.response).toEqual({
-        output: 'Part 1\nPart 2',
-      });
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toBeUndefined();
-      expect(result[1]).toEqual({
-        fileData: { mimeType: 'application/pdf', fileUri: 'gs://...' },
-      });
-      expect(result[2]).toEqual({
-        inlineData: { mimeType: 'image/jpeg', data: 'base64data...' },
-      });
-    });
-
-    it('should handle multiple images for Gemini 3', () => {
-      const llmContent: PartListUnion = [
-        { inlineData: { mimeType: 'image/png', data: 'img1...' } },
-        { inlineData: { mimeType: 'image/jpeg', data: 'img2...' } },
-      ];
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(1);
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toHaveLength(2);
-    });
-
-    it('should handle multiple images for Gemini 2', () => {
-      const llmContent: PartListUnion = [
-        { inlineData: { mimeType: 'image/png', data: 'img1...' } },
-        { inlineData: { mimeType: 'image/jpeg', data: 'img2...' } },
-      ];
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini2Model,
-      );
-
-      expect(result).toHaveLength(3);
-      expect(result[1].inlineData).toBeDefined();
-      expect(result[2].inlineData).toBeDefined();
-    });
-  });
-
-  describe('edge cases', () => {
-    it('should handle text-only output (no binary)', () => {
-      const llmContent = 'Plain text output';
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(1);
-      expect(result[0].functionResponse!.response).toEqual({
-        output: 'Plain text output',
-      });
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toBeUndefined();
-    });
-
-    it('should handle image-only output (no text) for Gemini 3', () => {
-      const llmContent: Part = {
-        inlineData: { mimeType: 'image/gif', data: 'gifdata...' },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(1);
-      expect(result[0].functionResponse!.response).toEqual({
-        output: 'Binary content provided (1 item(s)).',
-      });
-      expect((result[0].functionResponse as { parts?: Part[] }).parts).toEqual([
-        llmContent,
-      ]);
-    });
-
-    it('should handle empty string for Gemini 3', () => {
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        '',
-        gemini3Model,
-      );
-
-      expect(result).toEqual([
-        {
-          functionResponse: {
-            name: toolName,
-            id: callId,
-            response: { output: '' },
-          },
-        },
-      ]);
-    });
-
-    it('should handle empty array for Gemini 3', () => {
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        [],
-        gemini3Model,
-      );
-
-      expect(result).toEqual([
-        {
-          functionResponse: {
-            name: toolName,
-            id: callId,
-            response: {},
-          },
-        },
-      ]);
-    });
-
-    it('should preserve existing functionResponse metadata', () => {
-      const existingResponse = {
-        flags: ['flag1'],
-        isError: false,
-        customData: { key: 'value' },
-      };
-      const llmContent: Part = {
-        functionResponse: {
-          id: 'inner-call-id',
-          name: 'inner-tool-name',
-          response: existingResponse,
-        },
-      };
-      const result = convertToFunctionResponse(
-        toolName,
-        callId,
-        llmContent,
-        gemini3Model,
-      );
-
-      expect(result).toHaveLength(1);
-      expect(result[0].functionResponse).toEqual({
-        id: callId,
-        name: toolName,
-        response: existingResponse,
-      });
-    });
-  });
-});
-
 
 
 class MockEditToolInvocation extends BaseToolInvocation<

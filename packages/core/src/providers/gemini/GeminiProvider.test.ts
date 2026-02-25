@@ -508,4 +508,204 @@ describe('GeminiProvider', () => {
       expect(mockAuthResolver.resolveAuthentication).toHaveBeenCalled();
     });
   });
+
+  describe('multimodal tool response handling', () => {
+    const createToolIContent = (mediaBlocks: Array<{ mimeType: string; data: string }> = []): IContent[] => {
+      const blocks: IContent['blocks'] = [
+        {
+          type: 'tool_response',
+          callId: 'call-1',
+          toolName: 'screenshot',
+          result: { output: 'Screenshot taken' },
+        },
+      ];
+      for (const mb of mediaBlocks) {
+        blocks.push({
+          type: 'media',
+          mimeType: mb.mimeType,
+          data: mb.data,
+          encoding: 'base64',
+        });
+      }
+      return [
+        { speaker: 'human', blocks: [{ type: 'text', text: 'take a screenshot' }] },
+        { speaker: 'tool', blocks },
+      ] as IContent[];
+    };
+
+    it('nests media inside functionResponse.parts for Gemini 3 models', async () => {
+      const fakeStream = {
+        async *[Symbol.asyncIterator]() {
+          yield { candidates: [{ content: { parts: [{ text: 'I see the screenshot' }] } }] };
+        },
+      };
+      generateContentStreamMock.mockResolvedValueOnce(fakeStream);
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const provider = new GeminiProvider('test-key');
+      const generator = provider.generateChatCompletion(
+        createProviderCallOptions({
+          providerName: provider.name,
+          contents: createToolIContent([{ mimeType: 'image/png', data: 'iVBOR...' }]),
+          resolved: { model: 'gemini-3-flash-preview' },
+        }),
+      );
+      await generator.next();
+
+      const request = generateContentStreamMock.mock.calls[0][0];
+      const toolMessage = request.contents.find(
+        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+      );
+      expect(toolMessage).toBeDefined();
+
+      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      // Media should be nested inside functionResponse.parts, not as a sibling
+      expect(frPart.functionResponse.parts).toBeDefined();
+      expect(frPart.functionResponse.parts).toHaveLength(1);
+      expect(frPart.functionResponse.parts[0].inlineData.mimeType).toBe('image/png');
+      expect(frPart.functionResponse.parts[0].inlineData.data).toBe('iVBOR...');
+
+      // No sibling inlineData parts
+      const siblingMedia = toolMessage.parts.filter((p: Part) => 'inlineData' in p);
+      expect(siblingMedia).toHaveLength(0);
+    });
+
+    it('keeps media as sibling parts for Gemini 2 models', async () => {
+      const fakeStream = {
+        async *[Symbol.asyncIterator]() {
+          yield { candidates: [{ content: { parts: [{ text: 'I see the screenshot' }] } }] };
+        },
+      };
+      generateContentStreamMock.mockResolvedValueOnce(fakeStream);
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const provider = new GeminiProvider('test-key');
+      const generator = provider.generateChatCompletion(
+        createProviderCallOptions({
+          providerName: provider.name,
+          contents: createToolIContent([{ mimeType: 'image/png', data: 'iVBOR...' }]),
+          resolved: { model: 'gemini-2.5-flash' },
+        }),
+      );
+      await generator.next();
+
+      const request = generateContentStreamMock.mock.calls[0][0];
+      const toolMessage = request.contents.find(
+        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+      );
+      expect(toolMessage).toBeDefined();
+
+      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      // No nested parts for Gemini 2
+      expect(frPart.functionResponse.parts).toBeUndefined();
+
+      // Media should be a sibling part
+      const siblingMedia = toolMessage.parts.filter((p: Part) => 'inlineData' in p);
+      expect(siblingMedia).toHaveLength(1);
+      expect(siblingMedia[0].inlineData.mimeType).toBe('image/png');
+    });
+
+    it('handles multiple media blocks for Gemini 3', async () => {
+      const fakeStream = {
+        async *[Symbol.asyncIterator]() {
+          yield { candidates: [{ content: { parts: [{ text: 'ack' }] } }] };
+        },
+      };
+      generateContentStreamMock.mockResolvedValueOnce(fakeStream);
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const provider = new GeminiProvider('test-key');
+      const generator = provider.generateChatCompletion(
+        createProviderCallOptions({
+          providerName: provider.name,
+          contents: createToolIContent([
+            { mimeType: 'image/png', data: 'img1' },
+            { mimeType: 'image/jpeg', data: 'img2' },
+          ]),
+          resolved: { model: 'gemini-3-pro-preview' },
+        }),
+      );
+      await generator.next();
+
+      const request = generateContentStreamMock.mock.calls[0][0];
+      const toolMessage = request.contents.find(
+        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+      );
+      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      expect(frPart.functionResponse.parts).toHaveLength(2);
+      expect(frPart.functionResponse.parts[0].inlineData.mimeType).toBe('image/png');
+      expect(frPart.functionResponse.parts[1].inlineData.mimeType).toBe('image/jpeg');
+    });
+
+    it('handles text-only tool response (no media) for any model', async () => {
+      const fakeStream = {
+        async *[Symbol.asyncIterator]() {
+          yield { candidates: [{ content: { parts: [{ text: 'ack' }] } }] };
+        },
+      };
+      generateContentStreamMock.mockResolvedValueOnce(fakeStream);
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const provider = new GeminiProvider('test-key');
+      const generator = provider.generateChatCompletion(
+        createProviderCallOptions({
+          providerName: provider.name,
+          contents: createToolIContent([]),  // no media
+          resolved: { model: 'gemini-3-flash-preview' },
+        }),
+      );
+      await generator.next();
+
+      const request = generateContentStreamMock.mock.calls[0][0];
+      const toolMessage = request.contents.find(
+        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+      );
+      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      // No nested parts when there are no media blocks
+      expect(frPart.functionResponse.parts).toBeUndefined();
+      // Only the functionResponse part, no siblings
+      expect(toolMessage.parts).toHaveLength(1);
+    });
+
+    it('handles media-only tool response (empty text result)', async () => {
+      const fakeStream = {
+        async *[Symbol.asyncIterator]() {
+          yield { candidates: [{ content: { parts: [{ text: 'ack' }] } }] };
+        },
+      };
+      generateContentStreamMock.mockResolvedValueOnce(fakeStream);
+      process.env.GEMINI_API_KEY = 'test-key';
+
+      const provider = new GeminiProvider('test-key');
+      const contents: IContent[] = [
+        { speaker: 'human', blocks: [{ type: 'text', text: 'screenshot' }] },
+        {
+          speaker: 'tool',
+          blocks: [
+            { type: 'tool_response', callId: 'call-1', toolName: 'screenshot', result: {} },
+            { type: 'media', mimeType: 'image/png', data: 'imgdata', encoding: 'base64' },
+          ],
+        },
+      ] as IContent[];
+
+      const generator = provider.generateChatCompletion(
+        createProviderCallOptions({
+          providerName: provider.name,
+          contents,
+          resolved: { model: 'gemini-3-flash-preview' },
+        }),
+      );
+      await generator.next();
+
+      const request = generateContentStreamMock.mock.calls[0][0];
+      const toolMessage = request.contents.find(
+        (msg: { role: string }) => msg.role === 'user' && msg.parts?.some((p: Part) => 'functionResponse' in p),
+      );
+      const frPart = toolMessage.parts.find((p: Part) => 'functionResponse' in p);
+      expect(frPart.functionResponse.parts).toHaveLength(1);
+      expect(frPart.functionResponse.parts[0].inlineData.data).toBe('imgdata');
+    });
+  });
+
+
 });
