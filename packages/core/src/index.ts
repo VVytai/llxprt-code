@@ -292,6 +292,7 @@ export { getOpenAIProviderInfo } from './providers/openai/getOpenAIProviderInfo.
 export { OpenAIVercelProvider } from './providers/openai-vercel/index.js';
 export { AnthropicProvider } from './providers/anthropic/AnthropicProvider.js';
 export * from './providers/anthropic/usageInfo.js';
+export * from './providers/gemini/usageInfo.js';
 export * from './providers/openai/codexUsageInfo.js';
 export * from './providers/zai/usageInfo.js';
 export * from './providers/synthetic/usageInfo.js';

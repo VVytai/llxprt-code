@@ -2024,6 +2024,52 @@ export class OAuthManager {
     return result;
   }
 
+  /**
+   * Get Gemini quota information for all authenticated buckets.
+   * Uses the CodeAssist retrieveUserQuota API via direct HTTP calls.
+   * Returns a map of bucket name to quota response.
+   */
+  async getAllGeminiUsageInfo(): Promise<
+    Map<string, Record<string, unknown>>
+  > {
+    const result = new Map<string, Record<string, unknown>>();
+
+    // Get all buckets for gemini
+    const buckets = await this.tokenStore.listBuckets('gemini');
+
+    // If no buckets, try 'default'
+    const bucketsToCheck = buckets.length > 0 ? buckets : ['default'];
+
+    const { fetchGeminiQuota } = await import('@vybestack/llxprt-code-core');
+
+    for (const bucket of bucketsToCheck) {
+      const token = await this.tokenStore.getToken('gemini', bucket);
+      if (!token) {
+        continue;
+      }
+
+      // Check if token is expired
+      const nowInSeconds = Math.floor(Date.now() / 1000);
+      if (token.expiry <= nowInSeconds) {
+        continue;
+      }
+
+      try {
+        const quotaInfo = await fetchGeminiQuota(token.access_token);
+        if (quotaInfo) {
+          result.set(bucket, quotaInfo as unknown as Record<string, unknown>);
+        }
+      } catch (error) {
+        logger.debug(
+          `Error fetching Gemini quota for bucket ${bucket}:`,
+          error,
+        );
+      }
+    }
+
+    return result;
+  }
+
   private async getProfileBuckets(providerName: string): Promise<string[]> {
     try {
       // Try to get profile from runtime settings

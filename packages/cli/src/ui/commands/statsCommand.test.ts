@@ -129,6 +129,9 @@ describe('statsCommand', () => {
       getAllCodexUsageInfo: vi
         .fn()
         .mockRejectedValue(new Error('codex unavailable')),
+      getAllGeminiUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
     };
 
     getCliOAuthManagerMock.mockReturnValue(oauthManager);
@@ -190,6 +193,9 @@ describe('statsCommand', () => {
         .fn()
         .mockRejectedValue(new Error('anthropic unavailable')),
       getAllCodexUsageInfo: vi.fn().mockResolvedValue(codexUsage),
+      getAllGeminiUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
     };
 
     getCliOAuthManagerMock.mockReturnValue(oauthManager);
@@ -310,6 +316,9 @@ describe('statsCommand', () => {
     const oauthManager = {
       getAllAnthropicUsageInfo: vi.fn().mockResolvedValue(anthropicUsage),
       getAllCodexUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
+      getAllGeminiUsageInfo: vi
         .fn()
         .mockResolvedValue(new Map<string, Record<string, unknown>>()),
     };
@@ -494,40 +503,43 @@ describe('statsCommand', () => {
     vi.restoreAllMocks();
   });
 
-  it('should show Gemini quota when CodeAssistServer is available', async () => {
-    const { CodeAssistServer, getCodeAssistServer } = await import(
-      '@vybestack/llxprt-code-core'
-    );
-
-    const mockServer = Object.create(CodeAssistServer.prototype);
-    mockServer.projectId = 'test-project';
-    mockServer.retrieveUserQuota = vi.fn().mockResolvedValue({
-      buckets: [
+  it('should show Gemini quota when OAuthManager returns quota data', async () => {
+    const geminiUsage = new Map<string, Record<string, unknown>>([
+      [
+        'default',
         {
-          modelId: 'gemini-2.5-pro',
-          tokenType: 'input_tokens',
-          remainingAmount: '8000',
-          remainingFraction: 0.8,
-          resetTime: new Date(
-            Date.now() + 30 * 60 * 1000,
-          ).toISOString(),
-        },
-        {
-          modelId: 'gemini-2.5-flash',
-          tokenType: 'input_tokens',
-          remainingAmount: '45000',
-          remainingFraction: 0.95,
+          buckets: [
+            {
+              modelId: 'gemini-2.5-pro',
+              tokenType: 'input_tokens',
+              remainingAmount: '8000',
+              remainingFraction: 0.8,
+              resetTime: new Date(
+                Date.now() + 30 * 60 * 1000,
+              ).toISOString(),
+            },
+            {
+              modelId: 'gemini-2.5-flash',
+              tokenType: 'input_tokens',
+              remainingAmount: '45000',
+              remainingFraction: 0.95,
+            },
+          ],
         },
       ],
-    });
+    ]);
 
-    // Wire mock config to return our fake server
-    vi.spyOn(
-      { getCodeAssistServer } as { getCodeAssistServer: typeof getCodeAssistServer },
-      'getCodeAssistServer',
-    );
-    const coreModule = await import('@vybestack/llxprt-code-core');
-    vi.spyOn(coreModule, 'getCodeAssistServer').mockReturnValue(mockServer);
+    const oauthManager = {
+      getAllAnthropicUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
+      getAllCodexUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
+      getAllGeminiUsageInfo: vi.fn().mockResolvedValue(geminiUsage),
+    };
+
+    getCliOAuthManagerMock.mockReturnValue(oauthManager);
 
     const quotaSubCommand = statsCommand.subCommands?.find(
       (cmd) => cmd.name === 'quota',
@@ -553,16 +565,19 @@ describe('statsCommand', () => {
   });
 
   it('should gracefully handle Gemini quota fetch failure', async () => {
-    const { CodeAssistServer } = await import('@vybestack/llxprt-code-core');
-    const coreModule = await import('@vybestack/llxprt-code-core');
+    const oauthManager = {
+      getAllAnthropicUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
+      getAllCodexUsageInfo: vi
+        .fn()
+        .mockResolvedValue(new Map<string, Record<string, unknown>>()),
+      getAllGeminiUsageInfo: vi
+        .fn()
+        .mockRejectedValue(new Error('Network error')),
+    };
 
-    const mockServer = Object.create(CodeAssistServer.prototype);
-    mockServer.projectId = 'test-project';
-    mockServer.retrieveUserQuota = vi
-      .fn()
-      .mockRejectedValue(new Error('Network error'));
-
-    vi.spyOn(coreModule, 'getCodeAssistServer').mockReturnValue(mockServer);
+    getCliOAuthManagerMock.mockReturnValue(oauthManager);
 
     const quotaSubCommand = statsCommand.subCommands?.find(
       (cmd) => cmd.name === 'quota',

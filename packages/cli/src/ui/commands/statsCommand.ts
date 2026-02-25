@@ -15,15 +15,12 @@ import {
 } from './types.js';
 import { getRuntimeApi } from '../contexts/RuntimeContext.js';
 import {
-  CodeAssistServer,
   CodexUsageInfoSchema,
-  type Config,
   DebugLogger,
   detectApiKeyProvider,
   fetchApiKeyQuota,
   formatAllUsagePeriods,
   formatCodexUsage,
-  getCodeAssistServer,
 } from '@vybestack/llxprt-code-core';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -135,48 +132,31 @@ function formatQuotaResetTime(resetTime: string): string {
   }
 }
 
-async function fetchGeminiQuota(
-  config: Config | null,
-): Promise<string[]> {
-  if (!config) {
+function formatGeminiQuotaLines(
+  quotaData: Record<string, unknown>,
+): string[] {
+  const buckets = quotaData.buckets;
+  if (!Array.isArray(buckets) || buckets.length === 0) {
     return [];
   }
 
-  const server = getCodeAssistServer(config);
-  if (!(server instanceof CodeAssistServer) || !server.projectId) {
-    return [];
-  }
-
-  try {
-    const quota = await server.retrieveUserQuota({
-      project: server.projectId,
-    });
-    if (!quota.buckets || quota.buckets.length === 0) {
-      return [];
-    }
-
-    const lines: string[] = [];
-    for (const bucket of quota.buckets) {
-      const model = bucket.modelId ?? 'unknown';
-      const tokenType = bucket.tokenType ?? 'tokens';
-      const remaining = bucket.remainingAmount ?? '?';
-      const fraction =
-        bucket.remainingFraction != null
-          ? ` (${Math.round(bucket.remainingFraction * 100)}%)`
-          : '';
-      const resetStr = bucket.resetTime
-        ? ` · resets in ${formatQuotaResetTime(bucket.resetTime)}`
+  const lines: string[] = [];
+  for (const bucket of buckets) {
+    const b = bucket as Record<string, unknown>;
+    const model = (b.modelId as string) ?? 'unknown';
+    const tokenType = (b.tokenType as string) ?? 'tokens';
+    const remaining = (b.remainingAmount as string) ?? '?';
+    const fraction =
+      typeof b.remainingFraction === 'number'
+        ? ` (${Math.round(b.remainingFraction * 100)}%)`
         : '';
-      lines.push(`  ${model} ${tokenType}: ${remaining}${fraction}${resetStr}`);
-    }
-    return lines;
-  } catch (error) {
-    logger.warn(
-      'Failed to fetch Gemini quota:',
-      error instanceof Error ? error.message : String(error),
-    );
-    return [];
+    const resetStr =
+      typeof b.resetTime === 'string'
+        ? ` · resets in ${formatQuotaResetTime(b.resetTime)}`
+        : '';
+    lines.push(`  ${model} ${tokenType}: ${remaining}${fraction}${resetStr}`);
   }
+  return lines;
 }
 
 /**
@@ -185,18 +165,19 @@ async function fetchGeminiQuota(
  */
 async function fetchAllQuotaInfo(
   runtimeApi: ReturnType<typeof getRuntimeApi>,
-  config: Config | null,
 ): Promise<string[]> {
   const output: string[] = [];
   const oauthManager = runtimeApi.getCliOAuthManager();
 
   try {
-    // 1. Fetch OAuth provider quotas (Anthropic + Codex)
+    // 1. Fetch OAuth provider quotas (Anthropic + Codex + Gemini)
     if (oauthManager) {
-      const [anthropicResult, codexResult] = await Promise.allSettled([
-        oauthManager.getAllAnthropicUsageInfo(),
-        oauthManager.getAllCodexUsageInfo(),
-      ]);
+      const [anthropicResult, codexResult, geminiResult] =
+        await Promise.allSettled([
+          oauthManager.getAllAnthropicUsageInfo(),
+          oauthManager.getAllCodexUsageInfo(),
+          oauthManager.getAllGeminiUsageInfo(),
+        ]);
 
       if (anthropicResult.status === 'rejected') {
         logger.warn(
@@ -215,6 +196,10 @@ async function fetchAllQuotaInfo(
       const codexUsageInfo =
         codexResult.status === 'fulfilled'
           ? codexResult.value
+          : new Map<string, Record<string, unknown>>();
+      const geminiUsageInfo =
+        geminiResult.status === 'fulfilled'
+          ? geminiResult.value
           : new Map<string, Record<string, unknown>>();
 
       // Collect Anthropic lines
@@ -291,6 +276,40 @@ async function fetchAllQuotaInfo(
           output.push(...codexLines);
         }
       }
+
+      // Collect Gemini quota lines (from CodeAssist retrieveUserQuota API)
+      if (geminiUsageInfo.size > 0) {
+        const geminiLines: string[] = [];
+
+        const sortedBuckets = Array.from(geminiUsageInfo.keys()).sort(
+          defaultFirstSort,
+        );
+
+        for (const bucket of sortedBuckets) {
+          const quotaData = geminiUsageInfo.get(bucket)!;
+          const lines = formatGeminiQuotaLines(quotaData);
+
+          if (lines.length > 0) {
+            if (geminiUsageInfo.size > 1) {
+              geminiLines.push(`### Bucket: ${bucket}\n`);
+            }
+            geminiLines.push(...lines);
+            geminiLines.push('');
+          }
+        }
+
+        if (geminiLines[geminiLines.length - 1] === '') {
+          geminiLines.pop();
+        }
+
+        if (geminiLines.length > 0) {
+          if (output.length > 0) {
+            output.push('');
+          }
+          output.push('## Gemini Quota Information\n');
+          output.push(...geminiLines);
+        }
+      }
     }
 
     // 2. Fetch API-key provider quota (Z.ai, Synthetic, Chutes, Kimi)
@@ -301,16 +320,6 @@ async function fetchAllQuotaInfo(
       }
       output.push(`## ${apiKeyQuotaResult.provider} Quota Information\n`);
       output.push(...apiKeyQuotaResult.lines);
-    }
-
-    // 3. Fetch Gemini quota via Code Assist (Google OAuth users only)
-    const geminiQuotaLines = await fetchGeminiQuota(config);
-    if (geminiQuotaLines.length > 0) {
-      if (output.length > 0) {
-        output.push('');
-      }
-      output.push('## Gemini Quota Information\n');
-      output.push(...geminiQuotaLines);
     }
   } catch (error) {
     logger.warn(
@@ -339,7 +348,7 @@ async function defaultSessionView(context: CommandContext): Promise<void> {
 
   // Fetch quota information
   const runtimeApi = getRuntimeApi();
-  const quotaLines = await fetchAllQuotaInfo(runtimeApi, context.services.config);
+  const quotaLines = await fetchAllQuotaInfo(runtimeApi);
 
   const statsItem: HistoryItemStats = {
     type: MessageType.STATS,
@@ -424,7 +433,7 @@ export const statsCommand: SlashCommand = {
         const runtimeApi = getRuntimeApi();
 
         try {
-          const quotaLines = await fetchAllQuotaInfo(runtimeApi, context.services.config);
+          const quotaLines = await fetchAllQuotaInfo(runtimeApi);
 
           if (quotaLines.length === 0) {
             context.ui.addItem(
