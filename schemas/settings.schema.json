@@ -143,8 +143,7 @@
       "title": "Sandbox",
       "description": "Sandbox execution environment (can be a boolean or a path string).",
       "markdownDescription": "Sandbox execution environment (can be a boolean or a path string).\n\n- Category: `Advanced`\n- Requires restart: `yes`",
-      "type": "object",
-      "additionalProperties": true
+      "$ref": "#/$defs/BooleanOrString"
     },
     "coreTools": {
       "title": "Core Tools",

@@ -137,7 +137,7 @@ In addition to a project settings file, a project's `.llxprt` directory can cont
 
 #### `sandbox`
 
-- **`sandbox`** (object):
+- **`sandbox`** (boolean | string):
   - **Description:** Sandbox execution environment (can be a boolean or a path string).
   - **Default:** `undefined`
   - **Requires restart:** Yes
