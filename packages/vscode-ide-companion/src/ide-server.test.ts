@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { IDEServer } from './ide-server.js';
-import { DiffManager } from './diff-manager.js';
+import { DiffContentProvider, DiffManager } from './diff-manager.js';
 
 vi.mock('vscode', () => ({
   EventEmitter: vi.fn(() => ({
@@ -79,7 +79,7 @@ describe('IDEServer', () => {
 
     diffManager = new DiffManager(
       log,
-      diffContentProvider as unknown as vscode.TextDocumentContentProvider,
+      diffContentProvider as unknown as DiffContentProvider,
     );
     ideServer = new IDEServer(log, diffManager);
 
