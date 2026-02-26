@@ -101,9 +101,7 @@ export function findForwardValidSplitPoint(
             (msg) =>
               msg.speaker === 'tool' &&
               msg.blocks.some(
-                (b) =>
-                  b.type === 'tool_response' &&
-                  (b).callId === toolCall.id,
+                (b) => b.type === 'tool_response' && b.callId === toolCall.id,
               ),
           );
         });
@@ -145,9 +143,7 @@ export function findBackwardValidSplitPoint(
             (msg) =>
               msg.speaker === 'tool' &&
               msg.blocks.some(
-                (b) =>
-                  b.type === 'tool_response' &&
-                  (b).callId === toolCall.id,
+                (b) => b.type === 'tool_response' && b.callId === toolCall.id,
               ),
           );
         });
