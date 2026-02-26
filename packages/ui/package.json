@@ -38,7 +38,8 @@
     "diff": "8.0.3",
     "@typescript-eslint/eslint-plugin": "8.54.0",
     "@typescript-eslint/parser": "8.54.0",
-    "@typescript-eslint/utils": "8.54.0"
+    "@typescript-eslint/utils": "8.54.0",
+    "minimatch": ">=10.2.1"
   },
   "dependencies": {
     "@vybestack/opentui-core": "^0.1.62",
@@ -63,7 +64,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-sonarjs": "^3.0.5",
     "globals": "^16.5.0",
-    "happy-dom": "^18.0.1",
+    "happy-dom": "^20.7.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.15"

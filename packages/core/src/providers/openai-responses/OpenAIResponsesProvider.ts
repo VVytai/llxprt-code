@@ -740,7 +740,10 @@ export class OpenAIResponsesProvider extends BaseProvider {
       options.resolved.baseURL ??
       this.getBaseURL() ??
       'https://api.openai.com/v1';
-    const baseURL = baseURLCandidate.replace(/\/+$/u, '');
+    let baseURL = baseURLCandidate;
+    while (baseURL.endsWith('/')) {
+      baseURL = baseURL.slice(0, -1);
+    }
 
     const isCodex = this.isCodexMode(baseURL);
 
