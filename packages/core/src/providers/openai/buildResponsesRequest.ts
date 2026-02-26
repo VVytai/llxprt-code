@@ -275,7 +275,10 @@ export function buildResponsesRequest(
       .filter((msg) => msg.speaker !== 'tool') // Exclude tool messages
       .map((msg) => {
         // Extract text content from blocks
-        const textBlocks = msg.blocks.filter((block) => block.type === 'text');
+        const textBlocks = msg.blocks.filter(
+          (block): block is Extract<typeof block, { type: 'text' }> =>
+            block.type === 'text',
+        );
         const content =
           textBlocks.length > 0
             ? textBlocks.map((block) => block.text).join('\n')

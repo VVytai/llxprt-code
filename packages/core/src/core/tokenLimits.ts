@@ -77,6 +77,8 @@ export function tokenLimit(
       return 200_000;
     case 'claude-opus-4-latest':
       return 500_000;
+    case 'claude-sonnet-4-6':
+      return 200_000;
     case 'claude-sonnet-4-latest':
       return 400_000;
     // Claude 3.7 series

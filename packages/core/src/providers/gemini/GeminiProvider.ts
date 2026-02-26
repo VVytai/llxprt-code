@@ -1151,43 +1151,31 @@ export class GeminiProvider extends BaseProvider {
       'reasoning'
     ] as Record<string, unknown> | undefined;
     const reasoningEnabled =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getModelBehavior('reasoning.enabled') as
-        | boolean
-        | undefined) ??
+      options.invocation?.getModelBehavior<boolean>('reasoning.enabled') ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.enabled'] ===
         true ||
         reasoningObj?.enabled === true);
     const reasoningIncludeInResponse =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getCliSetting('reasoning.includeInResponse') as
-        | boolean
-        | undefined) ??
+      options.invocation?.getCliSetting<boolean>(
+        'reasoning.includeInResponse',
+      ) ??
       ((earlyEphemerals as Record<string, unknown>)[
         'reasoning.includeInResponse'
       ] !== false &&
         reasoningObj?.includeInResponse !== false);
     const reasoningStripFromContext =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getCliSetting('reasoning.stripFromContext') as
-        | 'all'
-        | 'allButLast'
-        | 'none'
-        | undefined) ??
+      options.invocation?.getCliSetting<'all' | 'allButLast' | 'none'>(
+        'reasoning.stripFromContext',
+      ) ??
       ((earlyEphemerals as Record<string, unknown>)[
         'reasoning.stripFromContext'
       ] as 'all' | 'allButLast' | 'none') ??
       (reasoningObj?.stripFromContext as 'all' | 'allButLast' | 'none') ??
       'all';
     const reasoningEffort =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getModelBehavior('reasoning.effort') as
-        | 'minimal'
-        | 'low'
-        | 'medium'
-        | 'high'
-        | 'xhigh'
-        | undefined) ??
+      options.invocation?.getModelBehavior<
+        'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+      >('reasoning.effort') ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.effort'] as
         | 'minimal'
         | 'low'
@@ -1203,10 +1191,7 @@ export class GeminiProvider extends BaseProvider {
         | 'xhigh'
         | undefined);
     const reasoningMaxTokens =
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      (options.invocation?.getModelBehavior('reasoning.maxTokens') as
-        | number
-        | undefined) ??
+      options.invocation?.getModelBehavior<number>('reasoning.maxTokens') ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.maxTokens'] as
         | number
         | undefined) ??

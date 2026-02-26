@@ -18,6 +18,7 @@
 import type {
   ContentBlock,
   IContent,
+  TextBlock,
 } from '../../services/history/IContent.js';
 
 /**
@@ -100,7 +101,9 @@ export function findForwardValidSplitPoint(
             (msg) =>
               msg.speaker === 'tool' &&
               msg.blocks.some(
-                (b) => b.type === 'tool_response' && b.callId === toolCall.id,
+                (b) =>
+                  b.type === 'tool_response' &&
+                  (b).callId === toolCall.id,
               ),
           );
         });
@@ -142,7 +145,9 @@ export function findBackwardValidSplitPoint(
             (msg) =>
               msg.speaker === 'tool' &&
               msg.blocks.some(
-                (b) => b.type === 'tool_response' && b.callId === toolCall.id,
+                (b) =>
+                  b.type === 'tool_response' &&
+                  (b).callId === toolCall.id,
               ),
           );
         });
@@ -192,4 +197,67 @@ function extractFirstTaskContent(activeTodos: string): string | undefined {
 
   const task = firstLine.slice(firstCloseBracket + 1).trim();
   return task.length > 0 ? task : undefined;
+}
+
+/**
+ * Convert tool_call and tool_response blocks to plain text representations
+ * so the compression request doesn't trip Anthropic's strict tool_use /
+ * tool_result pairing validation.  Orphaned tool blocks (from interrupted
+ * loops or the loop-detector halting mid-tool-call) would otherwise cause
+ * 400 errors when sent to the LLM for summarisation.
+ *
+ * Messages whose speaker is 'tool' are re-tagged as 'human' since they
+ * no longer carry structural tool_result blocks.  All other block types
+ * (text, thinking, code, media) pass through unchanged.
+ */
+export function sanitizeHistoryForCompression(
+  messages: readonly IContent[],
+): IContent[] {
+  return messages.map((msg) => {
+    const hasToolBlocks = msg.blocks.some(
+      (b) => b.type === 'tool_call' || b.type === 'tool_response',
+    );
+    if (!hasToolBlocks && msg.speaker !== 'tool') {
+      return msg;
+    }
+
+    const sanitizedBlocks: ContentBlock[] = msg.blocks
+      .map((block): ContentBlock | null => {
+        if (block.type === 'tool_call') {
+          const tc = block;
+          let text = `[Tool Call: ${tc.name}]`;
+          if (tc.parameters !== undefined) {
+            try {
+              text += `\nParameters: ${JSON.stringify(tc.parameters)}`;
+            } catch {
+              text += '\nParameters: [unserializable]';
+            }
+          }
+          return { type: 'text', text } as TextBlock;
+        }
+        if (block.type === 'tool_response') {
+          const tr = block;
+          let text = `[Tool Result: ${tr.toolName}]`;
+          if (tr.error) {
+            text += `\nError: ${tr.error}`;
+          } else if (tr.result !== undefined) {
+            try {
+              const resultStr =
+                typeof tr.result === 'string'
+                  ? tr.result
+                  : JSON.stringify(tr.result);
+              text += `\nResult: ${resultStr}`;
+            } catch {
+              text += '\nResult: [unserializable]';
+            }
+          }
+          return { type: 'text', text } as TextBlock;
+        }
+        return block;
+      })
+      .filter((b): b is ContentBlock => b !== null);
+
+    const speaker = msg.speaker === 'tool' ? ('human' as const) : msg.speaker;
+    return { ...msg, speaker, blocks: sanitizedBlocks };
+  });
 }

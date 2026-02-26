@@ -1302,6 +1302,23 @@ export const useGeminiStream = (
         // Reset bucket failover handler for this new user turn so all buckets are tried fresh,
         // starting from the primary (first) bucket in the profile.
         config.getBucketFailoverHandler?.()?.reset?.();
+      } else {
+        // @fix issue1616: For continuations, clear stale exhaustion state so
+        // RetryOrchestrator can try all buckets again without a full reset
+        // (which would move back to the primary bucket).
+        config.getBucketFailoverHandler?.()?.resetSession?.();
+      }
+
+      // @fix issue1616: Eagerly authenticate all unauthenticated buckets at the
+      // turn boundary so they are ready for failover during the turn.
+      // Failures are non-fatal: partial auth still lets tryFailover() Pass 3
+      // attempt foreground reauth mid-turn for any remaining unauthenticated buckets.
+      try {
+        await config
+          .getBucketFailoverHandler?.()
+          ?.ensureBucketsAuthenticated?.();
+      } catch {
+        // Swallow — partial bucket auth is acceptable; mid-turn Pass 3 can recover.
       }
 
       setIsResponding(true);

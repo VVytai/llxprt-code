@@ -88,7 +88,6 @@ const buildModelRows = (models: Record<string, ModelMetrics>) => {
         cachedTokens: cachedTokens.toLocaleString(),
         inputTokens: inputTokens.toLocaleString(),
         outputTokens: metrics.tokens.candidates.toLocaleString(),
-        isActive: true,
       };
     },
   );

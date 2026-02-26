@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import { CoderAgentExecutor } from '../agent/executor.js';
 import { CoderAgentEvent } from '../types.js';
 import type { ExecutionEventBus } from '@a2a-js/sdk/server';
+import type { TaskStatusUpdateEvent } from '@a2a-js/sdk';
 import { createMockConfig } from '../utils/testing_utils.js';
 import type { CommandContext } from './types.js';
 import type { Config } from '@vybestack/llxprt-code-core';
@@ -80,12 +81,13 @@ describe('InitCommand', () => {
       // Check that publish was called with the right event
       expect(publishSpy).toHaveBeenCalled();
       const publishCall = publishSpy.mock.calls[0][0];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const event = publishCall as any;
+      const event = publishCall as TaskStatusUpdateEvent;
       expect(event.kind).toBe('status-update');
       expect(event.status.state).toBe('completed');
-      expect(event.status.message.parts[0].text).toContain('LLXPRT.md');
-      expect(event.status.message.parts[0].text).toContain('already exists');
+      const message = event.status.message!;
+      const firstPart = message.parts[0] as { text: string };
+      expect(firstPart.text).toContain('LLXPRT.md');
+      expect(firstPart.text).toContain('already exists');
 
       // Verify logger was also called
       expect(logger.info).toHaveBeenCalledWith(
