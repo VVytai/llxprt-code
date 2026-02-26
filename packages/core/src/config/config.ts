@@ -397,6 +397,15 @@ export interface BucketFailoverHandler {
    * Get the failure reasons for buckets that were skipped during last failover
    */
   getLastFailoverReasons?(): Record<string, BucketFailureReason>;
+
+  /**
+   * @fix issue1616
+   * Eagerly authenticate all unauthenticated buckets.
+   * Called at user-turn boundaries so all buckets have tokens before API calls begin.
+   * Respects auth-bucket-prompt and auth-bucket-delay ephemerals.
+   * No-op for single-bucket profiles.
+   */
+  ensureBucketsAuthenticated?(): Promise<void>;
 }
 
 export interface ConfigParameters {

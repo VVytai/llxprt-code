@@ -382,4 +382,35 @@ describe('Issue 1616: getToken bucket peek loop', () => {
 
     expect(setSessionBucketSpy).toHaveBeenCalledWith('anthropic', 'claudius');
   });
+
+  it('should return null for multi-bucket profiles when no bucket has a valid token', async () => {
+    await manager.toggleOAuthEnabled('anthropic');
+
+    mockCurrentProfileName = 'opusthinkingbucketed';
+    setMockProfile('opusthinkingbucketed', {
+      provider: 'anthropic',
+      auth: {
+        type: 'oauth',
+        buckets: ['default', 'claudius', 'vybestack'],
+      },
+    });
+
+    vi.mocked(tokenStore.getToken).mockResolvedValue(null);
+
+    const mockFailoverHandler = {
+      tryFailover: vi.fn().mockResolvedValue(false),
+      isEnabled: () => true,
+      getBuckets: () => ['default', 'claudius', 'vybestack'],
+      getCurrentBucket: () => 'default',
+      resetSession: vi.fn(),
+      reset: vi.fn(),
+      getLastFailoverReasons: vi.fn().mockReturnValue({}),
+    };
+    manager.setConfigGetter(() => createMockConfig(mockFailoverHandler));
+
+    const result = await manager.getToken('anthropic');
+
+    expect(result).toBeNull();
+    expect(mockProvider.initiateAuth).not.toHaveBeenCalled();
+  });
 });

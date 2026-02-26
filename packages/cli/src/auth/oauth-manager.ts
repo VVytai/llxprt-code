@@ -836,14 +836,21 @@ export class OAuthManager {
       }
     }
 
-    // No valid token on disk (or refresh failed), proceed with OAuth flow
+    // @fix issue1616: For multi-bucket profiles, getToken() is a pure lookup.
+    // Authentication is handled at the turn boundary via ensureBucketsAuthenticated().
+    // For single-bucket or non-bucketed profiles, preserve existing auth behavior.
     try {
       const buckets = await this.getProfileBuckets(providerName);
 
-      // Issue 913 FIX: When auth-bucket-prompt is enabled, route ALL profiles through
-      // MultiBucketAuthenticator to ensure the confirmation dialog is shown
-      // Import getEphemeralSetting dynamically to avoid circular dependencies
-      // Wrap in try-catch to handle cases where runtime context is not available (e.g., tests)
+      if (buckets.length > 1) {
+        // Multi-bucket: pure lookup only — return null.
+        // ensureBucketsAuthenticated() at turn boundary handles auth,
+        // tryFailover() Pass 3 handles mid-turn reauth.
+        return null;
+      }
+
+      // Single-bucket or no-bucket: preserve existing auth behavior
+      // (Issue 913: auth-bucket-prompt routes through MultiBucketAuthenticator)
       let showPrompt = false;
       try {
         const { getEphemeralSetting: getRuntimeEphemeralSetting } =
@@ -852,21 +859,13 @@ export class OAuthManager {
           (getRuntimeEphemeralSetting('auth-bucket-prompt') as boolean) ??
           false;
       } catch (runtimeError) {
-        // Runtime context not available (e.g., in tests) - fall back to non-prompt mode
         logger.debug(
           'Could not get ephemeral setting (runtime not initialized), using default',
           runtimeError,
         );
       }
 
-      if (buckets.length > 1) {
-        logger.debug(
-          `Multi-bucket lazy auth triggered for ${providerName} with ${buckets.length} buckets`,
-        );
-        await this.authenticateMultipleBuckets(providerName, buckets);
-      } else if (showPrompt) {
-        // Issue 913: Single/default bucket with prompt mode - use MultiBucketAuthenticator
-        // to ensure the confirmation dialog is shown before opening browser
+      if (showPrompt) {
         const effectiveBuckets = buckets.length === 1 ? buckets : ['default'];
         logger.debug(
           `Single-bucket auth with prompt mode for ${providerName}, bucket: ${effectiveBuckets[0]}`,
@@ -875,41 +874,18 @@ export class OAuthManager {
       } else {
         await this.authenticate(providerName);
       }
-      logger.debug(
-        () =>
-          `[FLOW] authenticate() completed for ${providerName}, fetching new token...`,
-      );
+
       const newToken = await this.getOAuthToken(providerName);
-      // Return the access token without any prefix - OAuth Bearer tokens should be used as-is
-      if (newToken) {
-        logger.debug(
-          () =>
-            `[FLOW] Returning new token for ${providerName}: ${newToken.access_token.substring(0, 10)}...`,
-        );
-      } else {
-        logger.debug(
-          () =>
-            `[FLOW] getOAuthToken() returned null after authenticate() for ${providerName}`,
-        );
-      }
       return newToken ? newToken.access_token : null;
     } catch (error) {
-      logger.debug(
-        () =>
-          `[FLOW] getToken() OAuth flow FAILED for ${providerName}: ${error instanceof Error ? error.message : error}`,
-      );
       // Special handling for Gemini - USE_EXISTING_GEMINI_OAUTH is not an error
-      // It's a signal to use the existing LOGIN_WITH_GOOGLE flow
       if (
         providerName === 'gemini' &&
         error instanceof Error &&
         error.message === 'USE_EXISTING_GEMINI_OAUTH'
       ) {
-        // Return null to signal that OAuth should be handled by GeminiProvider
         return null;
       }
-
-      // Re-throw the error so it's not silently swallowed
       logger.error(`OAuth authentication failed for ${providerName}:`, error);
       throw error;
     }
@@ -2107,7 +2083,7 @@ export class OAuthManager {
    * Issue 913: This method now supports eager authentication of all buckets upfront,
    * filtering out already-authenticated buckets to avoid unnecessary prompts.
    */
-  private async authenticateMultipleBuckets(
+  async authenticateMultipleBuckets(
     providerName: string,
     buckets: string[],
   ): Promise<void> {

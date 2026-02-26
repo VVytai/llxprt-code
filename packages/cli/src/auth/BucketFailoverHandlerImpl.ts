@@ -422,6 +422,23 @@ export class BucketFailoverHandlerImpl implements BucketFailoverHandler {
   }
 
   /**
+   * @fix issue1616
+   * Eagerly authenticate all unauthenticated buckets at turn boundaries.
+   * Delegates to OAuthManager.authenticateMultipleBuckets which respects
+   * auth-bucket-prompt/delay ephemerals and skips already-authenticated buckets.
+   * No-op for single-bucket profiles (no failover needed).
+   */
+  async ensureBucketsAuthenticated(): Promise<void> {
+    if (this.buckets.length <= 1) {
+      return;
+    }
+    await this.oauthManager.authenticateMultipleBuckets(
+      this.provider,
+      this.buckets,
+    );
+  }
+
+  /**
    * Reset the session tracking so failover can try buckets again in a new request.
    * Call this at the start of each new request to prevent infinite cycling.
    */

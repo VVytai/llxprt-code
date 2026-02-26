@@ -1318,6 +1318,18 @@ export const useGeminiStream = (
         config.getBucketFailoverHandler?.()?.resetSession?.();
       }
 
+      // @fix issue1616: Eagerly authenticate all unauthenticated buckets at the
+      // turn boundary so they are ready for failover during the turn.
+      // Failures are non-fatal: partial auth still lets tryFailover() Pass 3
+      // attempt foreground reauth mid-turn for any remaining unauthenticated buckets.
+      try {
+        await config
+          .getBucketFailoverHandler?.()
+          ?.ensureBucketsAuthenticated?.();
+      } catch {
+        // Swallow — partial bucket auth is acceptable; mid-turn Pass 3 can recover.
+      }
+
       setIsResponding(true);
       setInitError(null);
 
