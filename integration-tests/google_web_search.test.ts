@@ -8,6 +8,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TestRig, printDebugInfo, validateModelOutput } from './test-helper.js';
 import { GOOGLE_WEB_SEARCH_TOOL } from '../packages/core/src/tools/tool-names.js';
 
+// Skip web search tests in CI unless explicitly enabled via RUN_WEB_TESTS=true
+// This test depends on Gemini-backed server tools which aren't available in CI.
+const skipInCI =
+  process.env.CI === 'true' && process.env.RUN_WEB_TESTS !== 'true';
+
 describe('web search tool', () => {
   let rig: TestRig;
 
@@ -17,7 +22,7 @@ describe('web search tool', () => {
 
   afterEach(async () => await rig.cleanup());
 
-  it('should be able to search the web', async () => {
+  it.skipIf(skipInCI)('should be able to search the web', async () => {
     await rig.setup('should be able to search the web', {
       settings: { tools: { core: [GOOGLE_WEB_SEARCH_TOOL] } },
     });
