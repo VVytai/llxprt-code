@@ -390,7 +390,7 @@ describe('Footer', () => {
 
       expect(textContent).toContain('8.0GB');
       expect(textContent).not.toContain('4.8GB');
-      expect(textContent).toMatch(/Memory: 1[23]%/);
+      expect(textContent).toContain('Memory: 13%');
     });
   });
 });
