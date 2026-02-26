@@ -23,6 +23,14 @@ vi.mock('../../providers/providerManagerInstance.js', () => ({
   }),
 }));
 
+vi.mock('node:v8', () => ({
+  default: {
+    getHeapStatistics: vi.fn(() => ({
+      heap_size_limit: 8 * 1024 * 1024 * 1024,
+    })),
+  },
+}));
+
 describe('Footer Responsive Behavior', () => {
   let mockUseTerminalSize: MockedFunction<typeof useTerminalSize>;
 
