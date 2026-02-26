@@ -448,7 +448,7 @@ export function createPolicyUpdater(
     async (message: UpdatePolicy) => {
       const toolName = message.toolName;
       let argsPattern: RegExp | undefined;
-      
+
       if (message.argsPattern) {
         try {
           argsPattern = new RegExp(message.argsPattern);

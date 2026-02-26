@@ -22,7 +22,11 @@ import {
 function buildZodSchemaFromJsonSchema(def: any): z.ZodTypeAny {
   if (Array.isArray(def.type)) {
     const members = def.type.map((memberType: string) =>
-      buildZodSchemaFromJsonSchema({ ...def, anyOf: undefined, type: memberType }),
+      buildZodSchemaFromJsonSchema({
+        ...def,
+        anyOf: undefined,
+        type: memberType,
+      }),
     );
     if (members.length === 0) return z.unknown();
     if (members.length === 1) return members[0];
