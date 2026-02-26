@@ -80,7 +80,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ============================================================
-ajv@6.12.6
+ajv@6.14.0
 (https://github.com/ajv-validator/ajv.git)
 
 The MIT License (MIT)
@@ -1062,7 +1062,7 @@ THE SOFTWARE.
 
 
 ============================================================
-qs@6.14.0
+qs@6.15.0
 (https://github.com/ljharb/qs.git)
 
 BSD 3-Clause License
