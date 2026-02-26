@@ -10,6 +10,7 @@ import {
   shouldRelaunchForMemory,
   isDebugMode,
   RELAUNCH_EXIT_CODE,
+  MAX_HEAP_CAP_MB,
   parseDockerMemoryToMB,
   computeSandboxMemoryArgs,
 } from './bootstrap.js';
@@ -180,7 +181,10 @@ describe('bootstrap utilities', () => {
       const result = computeSandboxMemoryArgs(false);
       expect(result).toHaveLength(1);
       expect(result[0]).toMatch(/--max-old-space-size=\d+/);
-      const expectedMB = Math.floor((os.totalmem() / (1024 * 1024)) * 0.5);
+      const expectedMB = Math.min(
+        Math.floor((os.totalmem() / (1024 * 1024)) * 0.5),
+        MAX_HEAP_CAP_MB,
+      );
       expect(result[0]).toBe(`--max-old-space-size=${expectedMB}`);
     });
 
@@ -205,6 +209,22 @@ describe('bootstrap utilities', () => {
     it('should clamp to minimum 128 MB for very small container memory', () => {
       const result = computeSandboxMemoryArgs(false, 64);
       expect(result).toEqual(['--max-old-space-size=128']);
+    });
+
+    it('should cap at MAX_HEAP_CAP_MB for large container memory', () => {
+      const result = computeSandboxMemoryArgs(false, 131072);
+      expect(result).toEqual([`--max-old-space-size=${MAX_HEAP_CAP_MB}`]);
+    });
+
+    it('should not cap when 50% of container memory is below the cap', () => {
+      const result = computeSandboxMemoryArgs(false, 8192);
+      expect(result).toEqual(['--max-old-space-size=4096']);
+    });
+  });
+
+  describe('MAX_HEAP_CAP_MB', () => {
+    it('should be 8192 (8GB)', () => {
+      expect(MAX_HEAP_CAP_MB).toBe(8192);
     });
   });
 });

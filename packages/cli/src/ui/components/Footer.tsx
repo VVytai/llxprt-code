@@ -18,11 +18,16 @@ import {
 } from '@vybestack/llxprt-code-core';
 import { ConsoleSummaryDisplay } from './ConsoleSummaryDisplay.js';
 import process from 'node:process';
+import v8 from 'node:v8';
 import { useRuntimeApi } from '../contexts/RuntimeContext.js';
 import { DebugProfiler } from './DebugProfiler.js';
 import { useResponsive } from '../hooks/useResponsive.js';
 import { truncateMiddle } from '../utils/responsive.js';
 import { ThemedGradient } from './ThemedGradient.js';
+
+const DEFAULT_HEAP_LIMIT = 4.8 * 1024 * 1024 * 1024;
+const rawHeapLimit = v8.getHeapStatistics().heap_size_limit;
+const heapSizeLimit = rawHeapLimit > 0 ? rawHeapLimit : DEFAULT_HEAP_LIMIT;
 
 interface FooterProps {
   model: string;
@@ -54,16 +59,14 @@ const ResponsiveMemoryDisplay = React.memo<{
   compact: boolean;
   detailed: boolean;
 }>(({ compact, detailed }) => {
-  // Initialize with immediate value to avoid empty render in tests
   const initialUsage = process.memoryUsage().rss;
-  const initialPercentage = Math.round(
-    (initialUsage / (4.8 * 1024 * 1024 * 1024)) * 100,
-  );
+  const initialPercentage = Math.round((initialUsage / heapSizeLimit) * 100);
 
   let initialText: string;
   if (detailed) {
     const usageGB = (initialUsage / (1024 * 1024 * 1024)).toFixed(1);
-    initialText = `Memory: ${initialPercentage}% (${usageGB}GB/4.8GB)`;
+    const totalGB = (heapSizeLimit / (1024 * 1024 * 1024)).toFixed(1);
+    initialText = `Memory: ${initialPercentage}% (${usageGB}GB/${totalGB}GB)`;
   } else if (compact) {
     initialText = `Mem: ${initialPercentage}%`;
   } else {
@@ -80,12 +83,11 @@ const ResponsiveMemoryDisplay = React.memo<{
   useEffect(() => {
     const updateMemory = () => {
       const usage = process.memoryUsage().rss;
-      const totalMemory = 4.8 * 1024 * 1024 * 1024; // 4.8GB total
-      const percentage = Math.round((usage / totalMemory) * 100);
+      const percentage = Math.round((usage / heapSizeLimit) * 100);
 
       if (detailed) {
         const usageGB = (usage / (1024 * 1024 * 1024)).toFixed(1);
-        const totalGB = (totalMemory / (1024 * 1024 * 1024)).toFixed(1);
+        const totalGB = (heapSizeLimit / (1024 * 1024 * 1024)).toFixed(1);
         setMemoryUsage(`Memory: ${percentage}% (${usageGB}GB/${totalGB}GB)`);
       } else if (compact) {
         setMemoryUsage(`Mem: ${percentage}%`);
@@ -101,7 +103,6 @@ const ResponsiveMemoryDisplay = React.memo<{
     };
 
     const intervalId = setInterval(updateMemory, 2000);
-    // Don't call updateMemory immediately since we have initial value
     return () => clearInterval(intervalId);
   }, [compact, detailed]);
 

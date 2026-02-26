@@ -20,6 +20,8 @@ import os from 'node:os';
  */
 export const RELAUNCH_EXIT_CODE = 75;
 
+export const MAX_HEAP_CAP_MB = 8192;
+
 /**
  * Check if debug mode is enabled via environment variables.
  * This is a lightweight check that doesn't require loading any configuration.
@@ -45,8 +47,10 @@ export function shouldRelaunchForMemory(debugMode: boolean): string[] {
     heapStats.heap_size_limit / 1024 / 1024,
   );
 
-  // Set target to 50% of total memory
-  const targetMaxOldSpaceSizeInMB = Math.floor(totalMemoryMB * 0.5);
+  const targetMaxOldSpaceSizeInMB = Math.min(
+    Math.floor(totalMemoryMB * 0.5),
+    MAX_HEAP_CAP_MB,
+  );
 
   if (debugMode) {
     console.debug(
@@ -121,7 +125,7 @@ export function computeSandboxMemoryArgs(
   const totalMemoryMB = containerMemoryMB ?? os.totalmem() / (1024 * 1024);
   const targetMaxOldSpaceSizeInMB = Math.max(
     128,
-    Math.floor(totalMemoryMB * 0.5),
+    Math.min(Math.floor(totalMemoryMB * 0.5), MAX_HEAP_CAP_MB),
   );
 
   if (debugMode) {

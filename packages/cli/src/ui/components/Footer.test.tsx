@@ -25,14 +25,13 @@ vi.mock('../../providers/providerManagerInstance.js', () => ({
   })),
 }));
 
-// Mock process.memoryUsage and process.env
 vi.mock('node:process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:process')>();
   return {
     ...actual,
     default: {
       ...actual.default,
-      memoryUsage: vi.fn(() => ({ rss: 1024 * 1024 * 1024 })), // 1GB
+      memoryUsage: vi.fn(() => ({ rss: 1024 * 1024 * 1024 })),
       env: {
         ...actual.default.env,
         SANDBOX: 'test-sandbox',
@@ -40,6 +39,14 @@ vi.mock('node:process', async (importOriginal) => {
     },
   };
 });
+
+vi.mock('node:v8', () => ({
+  default: {
+    getHeapStatistics: vi.fn(() => ({
+      heap_size_limit: 8 * 1024 * 1024 * 1024,
+    })),
+  },
+}));
 
 import { useResponsive } from '../hooks/useResponsive.js';
 
@@ -365,6 +372,25 @@ describe('Footer', () => {
         <Footer {...defaultProps} hideModelInfo={true} />,
       );
       expect(container.textContent).not.toContain(defaultProps.model);
+    });
+  });
+
+  describe('memory display uses actual heap limit', () => {
+    it('should calculate percentage against actual heap limit and show correct denominator', () => {
+      mockUseResponsive.mockReturnValue({
+        width: 180,
+        breakpoint: 'WIDE',
+        isNarrow: false,
+        isStandard: false,
+        isWide: true,
+      });
+
+      const { container } = render(<Footer {...defaultProps} />);
+      const textContent = container.textContent || '';
+
+      expect(textContent).toContain('8.0GB');
+      expect(textContent).not.toContain('4.8GB');
+      expect(textContent).toContain('Memory: 13%');
     });
   });
 });
