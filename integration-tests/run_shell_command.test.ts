@@ -22,7 +22,6 @@ function getLineCountCommand(): { command: string; tool: string } {
   }
 }
 
-
 function getAllowedListCommand(): string {
   switch (shell) {
     case 'powershell':
