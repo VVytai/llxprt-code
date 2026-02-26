@@ -20,7 +20,6 @@ import {
   ReadLineRangeTool,
   ReadLineRangeToolParams,
 } from './read_line_range.js';
-import { type ToolResult as _ToolResult } from './tools.js';
 
 describe('ReadLineRangeTool', () => {
   let tempRootDir: string;

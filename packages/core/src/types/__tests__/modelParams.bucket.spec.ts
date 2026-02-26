@@ -210,9 +210,7 @@ describe('Profile with auth field', () => {
       ephemeralSettings: {},
     };
 
-    // Cast to StandardProfile to access auth
-    const standardProfile = profile;
-    expect(standardProfile.auth).toBeUndefined();
+    expect(profile.auth).toBeUndefined();
   });
 
   it('should handle profile with auth field but undefined buckets', () => {

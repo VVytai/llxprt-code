@@ -157,12 +157,21 @@ describe.skipIf(process.env.CI === 'true')(
   'mcp server with cyclic tool schema is detected',
   () => {
     let rig: TestRig;
+    let previousWelcomeConfigPath: string | undefined;
 
     beforeEach(() => {
       rig = new TestRig();
+      previousWelcomeConfigPath = process.env.LLXPRT_CODE_WELCOME_CONFIG_PATH;
     });
 
-    afterEach(async () => await rig.cleanup());
+    afterEach(async () => {
+      if (previousWelcomeConfigPath === undefined) {
+        delete process.env.LLXPRT_CODE_WELCOME_CONFIG_PATH;
+      } else {
+        process.env.LLXPRT_CODE_WELCOME_CONFIG_PATH = previousWelcomeConfigPath;
+      }
+      await rig.cleanup();
+    });
 
     it('mcp tool list should include tool with cyclic tool schema', async () => {
       // Setup test directory with MCP server configuration

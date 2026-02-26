@@ -153,13 +153,11 @@ describe('SimpleExtensionLoader', () => {
       // Load extension — triggers refresh
       await loader.loadExtension(extensionWithHooks);
 
-      // RED: This assertion will FAIL because hookSystem.initialize() not called
       expect(mockRefreshMemory).toHaveBeenCalledOnce();
       expect(mockHookSystemInit).toHaveBeenCalledOnce();
     });
 
-    it('should call hookSystem.initialize() after unload (RED → GREEN)', async () => {
-      // RED: Similar test for unload path
+    it('should call hookSystem.initialize() after unload', async () => {
       const mockHookSystemInit = vi.fn();
       const mockRefreshMemory = vi.fn();
 
@@ -194,7 +192,6 @@ describe('SimpleExtensionLoader', () => {
       // Unload extension — triggers refresh
       await loader.unloadExtension(extensionWithHooks);
 
-      // RED: This assertion will FAIL because hookSystem.initialize() not called
       expect(mockRefreshMemory).toHaveBeenCalledOnce();
       expect(mockHookSystemInit).toHaveBeenCalledOnce();
     });

@@ -200,6 +200,7 @@ export async function createApp() {
               result: event,
             };
             res.write(`data: ${JSON.stringify(jsonRpcResponse)}
+
 `);
           };
           eventBus.on('event', eventHandler);

@@ -22,6 +22,7 @@ describe('detectIde', () => {
     vi.stubEnv('CLOUD_SHELL', '');
     vi.stubEnv('TERM_PRODUCT', '');
     vi.stubEnv('MONOSPACE_ENV', '');
+    vi.stubEnv('FIREBASE_DEPLOY_AGENT', '');
     vi.stubEnv('REPLIT_USER', '');
     vi.stubEnv('__COG_BASHRC_SOURCED', '');
   });

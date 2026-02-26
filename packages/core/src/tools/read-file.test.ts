@@ -14,7 +14,6 @@ import { Config } from '../config/config.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { StandardFileSystemService } from '../services/fileSystemService.js';
 import { createMockWorkspaceContext } from '../test-utils/mockWorkspaceContext.js';
-import { type ToolResult as _ToolResult } from './tools.js';
 import { ToolErrorType } from './tool-error.js';
 
 interface ReadFileParameterSchema {

@@ -5,7 +5,6 @@
 import { describe, it, expect } from 'vitest';
 import { HistoryService } from '../services/history/HistoryService.js';
 import { ContentConverters } from '../services/history/ContentConverters.js';
-import {} from '../services/history/IContent.js';
 
 describe('Compression and duplicate tool call IDs', () => {
   it('should not create duplicate tool IDs when rebuilding history after compression', () => {

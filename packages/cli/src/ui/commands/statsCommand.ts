@@ -115,6 +115,9 @@ async function fetchApiKeyProviderQuota(
 function formatQuotaResetTime(resetTime: string): string {
   try {
     const reset = new Date(resetTime);
+    if (Number.isNaN(reset.getTime())) {
+      return resetTime;
+    }
     const now = new Date();
     const diffMs = reset.getTime() - now.getTime();
     if (diffMs <= 0) {

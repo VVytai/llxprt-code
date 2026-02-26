@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 import { DebugLogger } from '../../debug/index.js';
+import { fetchWithTimeout } from '../../utils/fetch.js';
 
 const logger = new DebugLogger('llxprt:gemini:usage');
 
@@ -41,7 +42,7 @@ async function fetchProjectId(accessToken: string): Promise<string | null> {
   const url = `${CODE_ASSIST_ENDPOINT}/${CODE_ASSIST_API_VERSION}:loadCodeAssist`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, 10_000, undefined, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -110,7 +111,7 @@ export async function fetchGeminiQuota(
 
     // Step 2: Fetch quota
     const url = `${CODE_ASSIST_ENDPOINT}/${CODE_ASSIST_API_VERSION}:retrieveUserQuota`;
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, 10_000, undefined, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,

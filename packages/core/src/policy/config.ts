@@ -447,9 +447,15 @@ export function createPolicyUpdater(
     MessageBusType.UPDATE_POLICY,
     async (message: UpdatePolicy) => {
       const toolName = message.toolName;
-      let argsPattern = message.argsPattern
-        ? new RegExp(message.argsPattern)
-        : undefined;
+      let argsPattern: RegExp | undefined;
+      
+      if (message.argsPattern) {
+        try {
+          argsPattern = new RegExp(message.argsPattern);
+        } catch {
+          return; // Invalid regex, skip this policy update
+        }
+      }
 
       // Convert commandPrefix to argsPattern for in-memory rule
       if (message.commandPrefix) {

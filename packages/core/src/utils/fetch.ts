@@ -41,6 +41,7 @@ export async function fetchWithTimeout(
   url: string,
   timeout: number,
   signal?: AbortSignal,
+  init?: RequestInit,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -61,7 +62,7 @@ export async function fetchWithTimeout(
   }
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { ...init, signal: controller.signal });
     return response;
   } catch (error: unknown) {
     if (

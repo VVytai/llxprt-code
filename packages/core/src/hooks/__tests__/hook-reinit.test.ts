@@ -175,7 +175,6 @@ describe('Hook Re-Initialization Disposal (126c32ac)', () => {
     // Should have 3 subscriptions, 2 should be unsubscribed
     expect(subscribeMock).toHaveBeenCalledTimes(3);
 
-    // RED: These assertions will FAIL because only last init ran (guard blocks others)
     expect(unsubscribes[0]).toHaveBeenCalledTimes(1); // First disposed before second init
     expect(unsubscribes[1]).toHaveBeenCalledTimes(1); // Second disposed before third init
     expect(unsubscribes[2]).not.toHaveBeenCalled(); // Third still active

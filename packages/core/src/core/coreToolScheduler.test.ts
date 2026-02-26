@@ -3677,7 +3677,6 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
     const onAllToolCallsComplete = vi.fn();
     const onToolCallsUpdate = vi.fn();
 
-    createMockMessageBus();
     const mockPolicyEngine = createMockPolicyEngine();
     mockPolicyEngine.evaluate = vi
       .fn()

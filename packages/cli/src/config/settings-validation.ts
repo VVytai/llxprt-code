@@ -20,6 +20,16 @@ import {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildZodSchemaFromJsonSchema(def: any): z.ZodTypeAny {
+  if (Array.isArray(def.type)) {
+    const members = def.type.map((memberType: string) =>
+      buildZodSchemaFromJsonSchema({ ...def, anyOf: undefined, type: memberType }),
+    );
+    if (members.length === 0) return z.unknown();
+    if (members.length === 1) return members[0];
+    const [first, second, ...rest] = members;
+    return z.union([first, second, ...rest]);
+  }
+
   if (def.anyOf) {
     return z.union(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
