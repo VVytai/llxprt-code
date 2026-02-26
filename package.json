@@ -74,7 +74,7 @@
     "jsonwebtoken": {
       "jws": "^3.2.3"
     },
-    "qs": ">=6.14.2"
+    "qs": "^6.14.2"
   },
   "bin": {
     "llxprt": "bundle/llxprt.js"
