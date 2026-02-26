@@ -38,6 +38,7 @@ import {
   adjustForToolCallBoundary,
   aggregateTextFromBlocks,
   buildContinuationDirective,
+  sanitizeHistoryForCompression,
 } from './utils.js';
 import { getCompressionPrompt } from '../prompts.js';
 
@@ -89,7 +90,7 @@ export class OneShotStrategy implements CompressionStrategy {
         speaker: 'human',
         blocks: [{ type: 'text', text: prompt }],
       },
-      ...toCompress,
+      ...sanitizeHistoryForCompression(toCompress),
       ...this.buildContextInjections(context),
       {
         speaker: 'human',

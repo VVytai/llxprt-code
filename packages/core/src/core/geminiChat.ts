@@ -2019,11 +2019,19 @@ export class GeminiChat {
     // Calculate fresh each time to respect runtime setting changes
     const threshold = this.runtimeContext.ephemerals.compressionThreshold();
     const contextLimit = this.runtimeContext.ephemerals.contextLimit();
-    const compressionThreshold = threshold * contextLimit;
+    // Subtract completion budget so compression triggers before the effective
+    // input limit, not before the raw context window.  Without this, a 200k
+    // window with 40k output budget would trigger compression at 170k instead
+    // of the effective 136k (85% of 160k).
+    const completionBudget = Math.max(0, this.getCompletionBudget());
+    const effectiveLimit = Math.max(0, contextLimit - completionBudget);
+    const compressionThreshold = threshold * effectiveLimit;
 
     this.logger.debug('Compression threshold:', {
       threshold,
       contextLimit,
+      completionBudget,
+      effectiveLimit,
       compressionThreshold,
     });
 
