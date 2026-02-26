@@ -1,0 +1,2 @@
+{"chunks":[{"speaker":"ai","blocks":[{"type":"tool_call","id":"call_cat1","name":"run_shell_command","parameters":{"command":"cat \"{{CWD}}/test.txt\"","description":"Read test file contents"}}]}]}
+{"chunks":[{"speaker":"ai","blocks":[{"type":"text","text":"FAIL"}],"metadata":{"usage":{"promptTokens":200,"completionTokens":5,"totalTokens":205}}}]}
