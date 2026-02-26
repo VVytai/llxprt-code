@@ -43,6 +43,7 @@ describe('InitCommand', () => {
   const mockWorkspacePath = path.resolve('/tmp');
 
   beforeEach(() => {
+    vi.clearAllMocks();
     process.env['CODER_AGENT_WORKSPACE_PATH'] = mockWorkspacePath;
     eventBus = {
       publish: vi.fn(),
@@ -60,7 +61,6 @@ describe('InitCommand', () => {
     publishSpy = vi.spyOn(eventBus, 'publish');
     mockExecute = vi.fn();
     vi.spyOn(mockExecutorInstance, 'execute').mockImplementation(mockExecute);
-    vi.clearAllMocks();
   });
 
   it('has requiresWorkspace set to true', () => {

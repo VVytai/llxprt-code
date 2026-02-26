@@ -47,7 +47,7 @@ const utf32BE = (s: string) => {
   return Buffer.concat([bom, payload]);
 };
 
-describe('BOM end-to-end integraion', () => {
+describe('BOM end-to-end integration', () => {
   let rig: TestRig;
 
   beforeEach(async () => {

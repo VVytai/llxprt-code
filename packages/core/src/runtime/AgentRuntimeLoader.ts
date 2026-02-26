@@ -28,6 +28,7 @@ import {
   type ContentGenerator,
   type ContentGeneratorConfig,
 } from '../core/contentGenerator.js';
+import { normalizeToolName } from '../tools/toolNameUtils.js';
 
 export interface AgentRuntimeProfileSnapshot {
   config: Config;
@@ -76,8 +77,6 @@ const defaultContentGeneratorFactory: ContentGeneratorFactory = (
   config,
   sessionId,
 ) => createContentGenerator(contentConfig, config, sessionId);
-
-import { normalizeToolName } from '../tools/toolNameUtils.js';
 
 type ToolGovernance = {
   allowed: Set<string>;

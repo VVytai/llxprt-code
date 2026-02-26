@@ -118,6 +118,7 @@ export class CoderAgentExecutor implements AgentExecutor {
       contextId,
       config,
       eventBus,
+      agentSettings.autoExecute,
     );
     runtimeTask.taskState = persistedState._taskState;
     const contentGeneratorConfig =

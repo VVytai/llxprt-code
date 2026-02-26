@@ -1155,7 +1155,7 @@ export class AnthropicProvider extends BaseProvider {
       contentIndex++
     ) {
       const c = processedContent[contentIndex];
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- filter() doesn't narrow return type
       const toolResponseBlocks = c.blocks.filter(
         (b) => b.type === 'tool_response',
       ) as ToolResponseBlock[];

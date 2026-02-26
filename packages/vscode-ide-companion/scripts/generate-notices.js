@@ -438,7 +438,9 @@ async function main() {
     );
     const packageLockJson = JSON.parse(packageLockJsonContent);
 
-    const workspaceRelativePath = path.relative(projectRoot, packagePath);
+    const workspaceRelativePath = path
+      .relative(projectRoot, packagePath)
+      .replace(/\\/g, '/');
     const allDependencies = new Map();
     const directDependencies = Object.keys(packageJson.dependencies);
 

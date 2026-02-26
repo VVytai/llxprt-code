@@ -33,8 +33,7 @@ describe('Hook Re-Initialization (126c32ac)', () => {
     } as unknown as Config;
   });
 
-  it('should reload hooks when extension with hooks is added (RED → GREEN)', async () => {
-    // RED: This test will FAIL because initialize() has guard that prevents re-init
+  it('should reload hooks when extension with hooks is added', async () => {
     const hookSystem = new HookSystem(mockConfig);
 
     // First init — no extensions
@@ -64,13 +63,11 @@ describe('Hook Re-Initialization (126c32ac)', () => {
     await hookSystem.initialize();
     const afterCount = hookSystem.getAllHooks().length;
 
-    // RED: This assertion will FAIL because guard prevents re-init
     expect(afterCount).toBeGreaterThan(beforeCount);
     expect(afterCount).toBe(1); // One hook from extension
   });
 
-  it('should reload hooks when extension with hooks is removed (RED → GREEN)', async () => {
-    // RED: This test will FAIL because initialize() has guard
+  it('should reload hooks when extension with hooks is removed', async () => {
     mockExtensions.push({
       name: 'test-ext',
       isActive: true,
@@ -99,15 +96,13 @@ describe('Hook Re-Initialization (126c32ac)', () => {
     await hookSystem.initialize();
     const afterCount = hookSystem.getAllHooks().length;
 
-    // RED: This assertion will FAIL because guard prevents re-init
     expect(afterCount).toBeLessThan(beforeCount);
     expect(afterCount).toBe(0);
   });
 });
 
 describe('Hook Re-Initialization Disposal (126c32ac)', () => {
-  it('should dispose old event handler before creating new one (RED → GREEN)', async () => {
-    // RED: This test will FAIL because initialize() doesn't dispose old handler
+  it('should dispose old event handler before creating new one', async () => {
     const unsubscribeMock = vi.fn();
     const subscribeMock = vi.fn(() => unsubscribeMock);
     const mockMessageBus = {
@@ -136,13 +131,11 @@ describe('Hook Re-Initialization Disposal (126c32ac)', () => {
     // Re-init — should dispose old handler first
     await hookSystem.initialize();
 
-    // RED: This assertion will FAIL because old subscription wasn't unsubscribed
     expect(unsubscribeMock).toHaveBeenCalledTimes(1); // Old handler disposed
     expect(subscribeMock).toHaveBeenCalledTimes(2); // New handler subscribed
   });
 
-  it('should not leak subscriptions after multiple re-inits (RED → GREEN)', async () => {
-    // RED: This test will FAIL because subscriptions leak
+  it('should not leak subscriptions after multiple re-inits', async () => {
     const unsubscribes: Array<ReturnType<typeof vi.fn>> = [];
     const subscribeMock = vi.fn(() => {
       const unsub = vi.fn();

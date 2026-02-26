@@ -140,9 +140,16 @@ Write the complete content to the \`LLXPRT.md\` file. The output must be well-fo
     }
     const agentExecutor = context.agentExecutor as CoderAgentExecutor;
 
+    const workspacePath = process.env['CODER_AGENT_WORKSPACE_PATH'];
+    if (!workspacePath) {
+      throw new Error(
+        'CODER_AGENT_WORKSPACE_PATH environment variable is required',
+      );
+    }
+
     const agentSettings: AgentSettings = {
       kind: CoderAgentEvent.StateAgentSettingsEvent,
-      workspacePath: process.env['CODER_AGENT_WORKSPACE_PATH']!,
+      workspacePath,
       autoExecute: true,
     };
 

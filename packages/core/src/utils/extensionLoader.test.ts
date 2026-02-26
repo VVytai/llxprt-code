@@ -118,8 +118,7 @@ describe('SimpleExtensionLoader', () => {
   });
 
   describe('Hook system integration (126c32ac)', () => {
-    it('should call hookSystem.initialize() after extension changes (RED → GREEN)', async () => {
-      // RED: This test will FAIL because extensionLoader doesn't call hookSystem.initialize()
+    it('should call hookSystem.initialize() after extension changes', async () => {
       const mockHookSystemInit = vi.fn();
       const mockRefreshMemory = vi.fn();
 

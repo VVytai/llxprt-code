@@ -449,9 +449,8 @@ describe('HighDensityStrategy.compress() @plan PLAN-20260211-HIGHDENSITY.P13', (
       for (const te of toolEntries) {
         for (const block of te.blocks) {
           if (block.type === 'tool_response') {
-            const rb = block;
             // If outside tail, result should be a short summary string
-            const resultStr = String(rb.result);
+            const resultStr = String(block.result);
             if (resultStr !== bigContent) {
               expect(resultStr.length).toBeLessThan(200);
             }
