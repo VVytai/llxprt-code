@@ -1,0 +1,2 @@
+{"chunks":[{"speaker":"ai","blocks":[{"type":"tool_call","id":"call_replace1","name":"replace","parameters":{"file_path":"{{CWD}}/non_existent.txt","old_string":"a","new_string":"b"}}]}]}
+{"chunks":[{"speaker":"ai","blocks":[{"type":"text","text":"The file non_existent.txt does not exist, so the replacement cannot be performed."}],"metadata":{"usage":{"promptTokens":200,"completionTokens":15,"totalTokens":215}}}]}

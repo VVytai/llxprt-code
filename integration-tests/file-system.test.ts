@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import * as path from 'node:path';
 import { TestRig, printDebugInfo, validateModelOutput } from './test-helper.js';
 
@@ -218,7 +219,13 @@ describe('file-system', () => {
   it('should fail safely when trying to edit a non-existent file', async () => {
     await rig.setup(
       'should fail safely when trying to edit a non-existent file',
-      { settings: { tools: { core: ['read_file', 'replace'] } } },
+      {
+        settings: { tools: { core: ['read_file', 'replace'] } },
+        fakeResponsesPath: join(
+          import.meta.dirname,
+          'file-system.edit-nonexistent.responses.jsonl',
+        ),
+      },
     );
     const fileName = 'non_existent.txt';
 
@@ -229,8 +236,8 @@ describe('file-system', () => {
     await rig.waitForTelemetryReady();
     const toolLogs = rig.readToolLogs();
 
-    const readAttempt = toolLogs.find(
-      (log) => log.toolRequest.name === 'read_file',
+    const replaceAttempt = toolLogs.find(
+      (log) => log.toolRequest.name === 'replace',
     );
     const writeAttempt = toolLogs.find(
       (log) => log.toolRequest.name === 'write_file',
@@ -239,23 +246,21 @@ describe('file-system', () => {
       (log) => log.toolRequest.name === 'replace' && log.toolRequest.success,
     );
 
-    // The model can either investigate (and fail) or do nothing.
-    // If it chose to investigate by reading, that read must have failed.
-    if (readAttempt && readAttempt.toolRequest.success) {
-      console.error(
-        'A read_file attempt succeeded for a non-existent file when it should have failed.',
-      );
-      printDebugInfo(rig, result);
-    }
-    if (readAttempt) {
+    // The replace tool must have been called
+    expect(
+      replaceAttempt,
+      'Expected replace to have been called',
+    ).toBeDefined();
+
+    // The replace must have failed (file doesn't exist)
+    if (replaceAttempt) {
       expect(
-        readAttempt.toolRequest.success,
-        'If model tries to read the file, that attempt must fail',
+        replaceAttempt.toolRequest.success,
+        'replace on a non-existent file must fail',
       ).toBe(false);
     }
 
-    // CRITICAL: Verify that no matter what the model did, it never successfully
-    // wrote or replaced anything.
+    // write_file should not have been called
     if (writeAttempt) {
       console.error(
         'A write_file attempt was made when no file should be written.',
@@ -267,10 +272,6 @@ describe('file-system', () => {
       'write_file should not have been called',
     ).toBeUndefined();
 
-    if (successfulReplace) {
-      console.error('A successful replace occurred when it should not have.');
-      printDebugInfo(rig, result);
-    }
     expect(
       successfulReplace,
       'A successful replace should not have occurred',
