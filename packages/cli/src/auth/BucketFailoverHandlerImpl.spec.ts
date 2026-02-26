@@ -1267,3 +1267,58 @@ describe('BucketFailoverHandlerImpl', () => {
     });
   });
 });
+
+describe('ensureBucketsAuthenticated', () => {
+  it('should authenticate unauthenticated buckets via OAuthManager', async () => {
+    // Arrange
+    const tokenStore = new MemoryTokenStore();
+    const oauthManager = {
+      getOAuthToken: vi.fn(async () => null),
+      getTokenStore: vi.fn(() => tokenStore),
+      setSessionBucket: vi.fn(),
+      getSessionBucket: vi.fn(() => undefined),
+      authenticate: vi.fn(async () => {}),
+      authenticateMultipleBuckets: vi.fn(async () => {}),
+    };
+
+    const handler = new BucketFailoverHandlerImpl(
+      ['bucket-a', 'bucket-b', 'bucket-c'],
+      'anthropic',
+      oauthManager as unknown as OAuthManager,
+    );
+
+    // Act
+    await handler.ensureBucketsAuthenticated();
+
+    // Assert
+    expect(oauthManager.authenticateMultipleBuckets).toHaveBeenCalledWith(
+      'anthropic',
+      ['bucket-a', 'bucket-b', 'bucket-c'],
+    );
+  });
+
+  it('should be a no-op when handler has only one bucket', async () => {
+    // Arrange
+    const tokenStore = new MemoryTokenStore();
+    const oauthManager = {
+      getOAuthToken: vi.fn(async () => null),
+      getTokenStore: vi.fn(() => tokenStore),
+      setSessionBucket: vi.fn(),
+      getSessionBucket: vi.fn(() => undefined),
+      authenticate: vi.fn(async () => {}),
+      authenticateMultipleBuckets: vi.fn(async () => {}),
+    };
+
+    const handler = new BucketFailoverHandlerImpl(
+      ['bucket-a'],
+      'anthropic',
+      oauthManager as unknown as OAuthManager,
+    );
+
+    // Act
+    await handler.ensureBucketsAuthenticated();
+
+    // Assert
+    expect(oauthManager.authenticateMultipleBuckets).not.toHaveBeenCalled();
+  });
+});
