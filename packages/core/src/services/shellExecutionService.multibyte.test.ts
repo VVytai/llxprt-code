@@ -7,7 +7,7 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from 'vitest';
 const mockSpawn = vi.hoisted(() => vi.fn());
 vi.mock('child_process', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof import('child_process');
+  const actual = await importOriginal();
   return {
     ...actual,
     spawn: mockSpawn,

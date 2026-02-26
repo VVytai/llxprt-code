@@ -449,7 +449,7 @@ export async function getCoreSystemPromptAsync(
 
   if (typeof userMemoryOrOptions === 'object' && userMemoryOrOptions !== null) {
     // Options object mode
-    const opts = userMemoryOrOptions as CoreSystemPromptOptions;
+    const opts = userMemoryOrOptions;
     userMemory = opts.userMemory;
     coreMemory = opts.coreMemory;
     mcpInstructions = opts.mcpInstructions;
@@ -462,7 +462,7 @@ export async function getCoreSystemPromptAsync(
     interactionModeArg = opts.interactionMode;
   } else {
     // Legacy positional args mode
-    userMemory = userMemoryOrOptions as string | undefined;
+    userMemory = userMemoryOrOptions;
     modelArg = model;
     toolsArg = tools;
   }

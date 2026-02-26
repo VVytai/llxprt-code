@@ -890,7 +890,7 @@ export class GeminiChat {
           { toolCount: tools?.length ?? 0 },
         );
 
-        const streamResponse = provider.generateChatCompletion!({
+        const streamResponse = provider.generateChatCompletion({
           contents: iContents,
           tools: tools as ProviderToolset | undefined,
           config: runtimeContext.config,
@@ -1398,7 +1398,7 @@ export class GeminiChat {
           }
 
           const directOverrides = this.extractDirectGeminiOverrides(
-            params.config as GenerateContentConfig | undefined,
+            params.config,
           );
 
           const baseUrlForCall = this.resolveProviderBaseUrl(provider);
@@ -1697,7 +1697,7 @@ export class GeminiChat {
           }
         : baseRuntimeContext;
 
-      const streamResponse = provider.generateChatCompletion!({
+      const streamResponse = provider.generateChatCompletion({
         contents: requestContents,
         tools: tools as ProviderToolset | undefined,
         config: runtimeContext.config,
@@ -2218,9 +2218,8 @@ export class GeminiChat {
     );
 
     const providerParams = provider?.getModelParams?.();
-    const providerBudget = this.extractCompletionBudgetFromParams(
-      providerParams as Record<string, unknown> | undefined,
-    );
+    const providerBudget =
+      this.extractCompletionBudgetFromParams(providerParams);
 
     return (
       generationBudget ?? providerBudget ?? GeminiChat.DEFAULT_COMPLETION_BUDGET
@@ -3070,7 +3069,7 @@ export class GeminiChat {
           parts.push({ text: block.text });
           break;
         case 'tool_call': {
-          const toolCall = block as ToolCallBlock;
+          const toolCall = block;
           parts.push({
             functionCall: {
               id: toolCall.id,
@@ -3081,7 +3080,7 @@ export class GeminiChat {
           break;
         }
         case 'tool_response': {
-          const toolResponse = block as ToolResponseBlock;
+          const toolResponse = block;
           parts.push({
             functionResponse: {
               id: toolResponse.callId,
@@ -3092,7 +3091,7 @@ export class GeminiChat {
           break;
         }
         case 'thinking': {
-          const thinkingBlock = block as ThinkingBlock;
+          const thinkingBlock = block;
           // Include thinking blocks as thought parts
           const thoughtPart: ThoughtPart = {
             thought: true,

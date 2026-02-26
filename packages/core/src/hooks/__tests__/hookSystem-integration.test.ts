@@ -54,8 +54,8 @@ class FakeMessageBus {
     type: MessageBusType | string,
     handler: (msg: T) => void,
   ): () => void {
-    this.emitter.on(type as string, handler);
-    return () => this.emitter.off(type as string, handler);
+    this.emitter.on(type, handler);
+    return () => this.emitter.off(type, handler);
   }
 
   responses(): HookExecutionResponse[] {
@@ -103,6 +103,7 @@ function makeConfig(hooksOverride?: Record<string, unknown>): Config {
     getSessionId: vi.fn().mockReturnValue('integration-test-session'),
     getTargetDir: vi.fn().mockReturnValue('/test/project'),
     getEnableHooks: vi.fn().mockReturnValue(true),
+    getSessionRecordingService: vi.fn().mockReturnValue(undefined),
   } as unknown as Config;
 }
 

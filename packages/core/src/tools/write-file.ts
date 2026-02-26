@@ -247,7 +247,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
       'Current',
       'Proposed',
       DEFAULT_CREATE_PATCH_OPTIONS,
-    ) as string;
+    );
 
     const ideClient = this.config.getIdeClient();
     const ideConfirmation =
@@ -269,6 +269,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
+        await this.publishPolicyUpdate(outcome);
 
         if (ideConfirmation) {
           const result = await ideConfirmation;
@@ -393,7 +394,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         'Original',
         'Written',
         DEFAULT_CREATE_PATCH_OPTIONS,
-      ) as string;
+      );
 
       const originallyProposedContent =
         filteredParams.ai_proposed_content || filteredParams.content;

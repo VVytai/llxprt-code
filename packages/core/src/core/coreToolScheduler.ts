@@ -43,7 +43,6 @@ import {
   type PartListUnion,
   type FunctionCall,
 } from '@google/genai';
-import { getResponseTextFromParts } from '../utils/generateContentResponseUtilities.js';
 import {
   isModifiableDeclarativeTool,
   type ModifyContext,
@@ -245,84 +244,78 @@ export function convertToFunctionResponse(
   llmContent: PartListUnion,
   config?: ToolOutputSettingsProvider,
 ): Part[] {
-  const contentToProcess =
-    Array.isArray(llmContent) && llmContent.length === 1
-      ? llmContent[0]
-      : llmContent;
-
-  if (typeof contentToProcess === 'string') {
-    const limitedOutput = limitStringOutput(contentToProcess, toolName, config);
+  // Handle simple string case
+  if (typeof llmContent === 'string') {
+    const limitedOutput = limitStringOutput(llmContent, toolName, config);
     return [createFunctionResponsePart(callId, toolName, limitedOutput)];
   }
 
-  if (Array.isArray(contentToProcess)) {
-    // Check if any part already has a function response to avoid duplicates
-    const hasFunctionResponse = contentToProcess.some(
-      (part) => typeof part === 'object' && part.functionResponse,
-    );
+  const parts = toParts(llmContent);
 
-    if (hasFunctionResponse) {
-      // Already has function response(s), return as-is without creating duplicates
-      return toParts(contentToProcess).map((part) =>
-        typeof part === 'object' && part.functionResponse
-          ? limitFunctionResponsePart(part, toolName, config)
-          : part,
-      );
+  // Separate text from binary types
+  const textParts: string[] = [];
+  const inlineDataParts: Part[] = [];
+  const fileDataParts: Part[] = [];
+
+  for (const part of parts) {
+    if (part.text !== undefined) {
+      textParts.push(part.text);
+    } else if (part.inlineData) {
+      inlineDataParts.push(part);
+    } else if (part.fileData) {
+      fileDataParts.push(part);
+    } else if (part.functionResponse) {
+      // Passthrough case - preserve existing response
+      if (parts.length > 1) {
+        toolSchedulerLogger.warn(
+          'convertToFunctionResponse received multiple parts with a functionResponse. ' +
+            'Only the functionResponse will be used, other parts will be ignored',
+        );
+      }
+      const passthroughPart = {
+        functionResponse: {
+          id: callId,
+          name: toolName,
+          response: part.functionResponse.response,
+        },
+      };
+      // Apply output limits to the passthrough case as well
+      return [limitFunctionResponsePart(passthroughPart, toolName, config)];
     }
-
-    // No existing function response, create one
-    const functionResponse = createFunctionResponsePart(
-      callId,
-      toolName,
-      'Tool execution succeeded.',
-    );
-    return [functionResponse, ...toParts(contentToProcess)];
+    // Ignore other part types (e.g., functionCall)
   }
 
-  // After this point, contentToProcess is a single Part object.
-  if (contentToProcess.functionResponse) {
-    if (contentToProcess.functionResponse.response?.['content']) {
-      const stringifiedOutput =
-        getResponseTextFromParts(
-          contentToProcess.functionResponse.response['content'] as Part[],
-        ) || '';
-      const limitedOutput = limitStringOutput(
-        stringifiedOutput,
-        toolName,
-        config,
-      );
-      return [createFunctionResponsePart(callId, toolName, limitedOutput)];
-    }
-    // It's a functionResponse that we should pass through after enforcing limits.
-    return [limitFunctionResponsePart(contentToProcess, toolName, config)];
+  // Build the primary response part
+  const part: Part = {
+    functionResponse: {
+      id: callId,
+      name: toolName,
+      response: textParts.length > 0 ? { output: textParts.join('\n') } : {},
+    },
+  };
+
+  // Handle binary content - use sibling format for all providers
+  const siblingParts: Part[] = [...fileDataParts, ...inlineDataParts];
+
+  // Add descriptive text if response object is empty but we have binary content
+  if (
+    textParts.length === 0 &&
+    (inlineDataParts.length > 0 || fileDataParts.length > 0)
+  ) {
+    const totalBinaryItems = inlineDataParts.length + fileDataParts.length;
+    part.functionResponse!.response = {
+      output: `Binary content provided (${totalBinaryItems} item(s)).`,
+    };
   }
 
-  if (contentToProcess.inlineData || contentToProcess.fileData) {
-    const mimeType =
-      contentToProcess.inlineData?.mimeType ||
-      contentToProcess.fileData?.mimeType ||
-      'unknown';
-    const functionResponse = createFunctionResponsePart(
-      callId,
-      toolName,
-      `Binary content of type ${mimeType} was processed.`,
-    );
-    return [functionResponse, contentToProcess];
+  // Apply output limits to the functionResponse
+  const limitedPart = limitFunctionResponsePart(part, toolName, config);
+
+  if (siblingParts.length > 0) {
+    return [limitedPart, ...siblingParts];
   }
 
-  if (contentToProcess.text !== undefined) {
-    const limitedOutput = limitStringOutput(
-      contentToProcess.text,
-      toolName,
-      config,
-    );
-    return [createFunctionResponsePart(callId, toolName, limitedOutput)];
-  }
-
-  // Default case for other kinds of parts.
-  return [
-    createFunctionResponsePart(callId, toolName, 'Tool execution succeeded.'),
-  ];
+  return [limitedPart];
 }
 
 function extractAgentIdFromMetadata(
@@ -665,7 +658,7 @@ export class CoreToolScheduler {
           // Preserve diff for cancelled edit operations
           let resultDisplay: ToolResultDisplay | undefined = undefined;
           if (currentCall.status === 'awaiting_approval') {
-            const waitingCall = currentCall as WaitingToolCall;
+            const waitingCall = currentCall;
             if (waitingCall.confirmationDetails.type === 'edit') {
               resultDisplay = {
                 fileDiff: waitingCall.confirmationDetails.fileDiff,
@@ -1034,6 +1027,15 @@ export class CoreToolScheduler {
           ) {
             this.approveToolCall(reqInfo.callId);
           } else {
+            // Check if non-interactive mode
+            if (!this.config.isInteractive()) {
+              throw new Error(
+                `Tool execution for "${
+                  toolCall.tool.displayName || toolCall.tool.name
+                }" requires user confirmation, which is not supported in non-interactive mode.`,
+              );
+            }
+
             // Allow IDE to resolve confirmation
             if (
               confirmationDetails.type === 'edit' &&
@@ -1152,7 +1154,7 @@ export class CoreToolScheduler {
 
     let waitingToolCall: WaitingToolCall | undefined;
     if (toolCall && toolCall.status === 'awaiting_approval') {
-      waitingToolCall = toolCall as WaitingToolCall;
+      waitingToolCall = toolCall;
     }
     const previousCorrelationId =
       waitingToolCall?.confirmationDetails?.correlationId;
@@ -1641,9 +1643,7 @@ export class CoreToolScheduler {
         result.llmContent,
         outputConfig,
       );
-      const metadataAgentId = extractAgentIdFromMetadata(
-        result.metadata as Record<string, unknown> | undefined,
-      );
+      const metadataAgentId = extractAgentIdFromMetadata(result.metadata);
 
       // Only include functionResponse parts - the functionCall is already in
       // history from the original assistant message. Including it again would
@@ -2092,7 +2092,7 @@ ${appendText}`,
 
       // For awaiting_approval, we need to clean up pending confirmations
       if (call.status === 'awaiting_approval') {
-        const waitingCall = call as WaitingToolCall;
+        const waitingCall = call;
         if (waitingCall.confirmationDetails.correlationId) {
           this.pendingConfirmations.delete(
             waitingCall.confirmationDetails.correlationId,

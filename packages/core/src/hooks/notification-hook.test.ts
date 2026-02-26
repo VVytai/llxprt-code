@@ -50,9 +50,10 @@ function createTestConfigWithNotificationHook(command: string): Config {
     getExtensions: () => [],
     getDisabledHooks: () => [],
     getModel: () => 'test-model',
+    getSessionRecordingService: () => undefined,
     getHookSystem: () => {
       if (!hookSystem) {
-        hookSystem = new HookSystem(config as Config);
+        hookSystem = new HookSystem(config);
       }
       return hookSystem;
     },
@@ -121,6 +122,7 @@ describe('Notification Hook (ToolPermission)', () => {
         getTargetDir: () => '/tmp/test',
         getExtensions: () => [],
         getModel: () => 'test-model',
+        getSessionRecordingService: () => undefined,
         getHookSystem: () => undefined,
       } as unknown as Config;
 

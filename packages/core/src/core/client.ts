@@ -275,7 +275,7 @@ export class GeminiClient {
 
     const proxyUrl = runtimeState.proxyUrl;
     if (proxyUrl) {
-      setGlobalDispatcher(new ProxyAgent(proxyUrl as string));
+      setGlobalDispatcher(new ProxyAgent(proxyUrl));
     }
 
     const embeddingModel = config.getEmbeddingModel();
@@ -1728,9 +1728,9 @@ ${jitMemory}`
             : [];
           if (requestedTodos.length > 0) {
             this.lastTodoSnapshot = requestedTodos.map((todo) => ({
-              id: `${(todo as Todo).id ?? ''}`,
-              content: (todo as Todo).content ?? '',
-              status: (todo as Todo).status ?? 'pending',
+              id: `${todo.id ?? ''}`,
+              content: todo.content ?? '',
+              status: todo.status ?? 'pending',
             }));
           }
         }

@@ -30,6 +30,7 @@ const baseExcludePatterns = [
   '**/ui/App.e2e.test.tsx',
   '**/ui/App.test.tsx',
   // '**/ui/commands/directoryCommand.test.tsx', // Temporarily enabled for trust gating implementation (9786c4dcf)
+  // React 19 / ink-stub incompatible — ALL ui/components/*.test.tsx render empty in jsdom
   '**/ui/components/*.test.tsx',
   '**/ui/components/__tests__/*.test.tsx',
   // SessionBrowserDialog - ink-testing-library/ink-stub reconciler conflict (issue #1385)
@@ -121,6 +122,8 @@ export default defineConfig({
       'src/ui/hooks/useTodoContinuation.spec.ts',
       // Include HooksList test for audit issue #8
       'src/ui/components/views/HooksList.test.tsx',
+      // NOTE: ui/components/*.test.tsx are all excluded due to React 19/ink-stub incompatibility.
+      // StatsDisplay, ModelStatsDisplay, etc. must be run individually outside the suite.
     ],
     exclude: baseExcludePatterns,
     environment: 'jsdom',

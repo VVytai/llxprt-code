@@ -12,16 +12,6 @@ import { DebugLogger } from '../debug/index.js';
 const debugLogger = DebugLogger.getLogger('llxprt:core:hooks:registry');
 
 /**
- * Error thrown when attempting to use HookRegistry before initialization
- */
-export class HookRegistryNotInitializedError extends Error {
-  constructor(message = 'Hook registry not initialized') {
-    super(message);
-    this.name = 'HookRegistryNotInitializedError';
-  }
-}
-
-/**
  * Configuration source levels in precedence order (highest to lowest)
  */
 export enum ConfigSource {
@@ -49,7 +39,6 @@ export interface HookRegistryEntry {
 export class HookRegistry {
   private readonly config: Config;
   private entries: HookRegistryEntry[] = [];
-  private initialized = false;
 
   constructor(config: Config) {
     this.config = config;
@@ -59,13 +48,8 @@ export class HookRegistry {
    * Initialize the registry by processing hooks from config
    */
   async initialize(): Promise<void> {
-    if (this.initialized) {
-      return;
-    }
-
     this.entries = [];
     this.processHooksFromConfig();
-    this.initialized = true;
 
     debugLogger.log(
       `Hook registry initialized with ${this.entries.length} hook entries`,
@@ -76,10 +60,6 @@ export class HookRegistry {
    * Get all hook entries for a specific event
    */
   getHooksForEvent(eventName: HookEventName): HookRegistryEntry[] {
-    if (!this.initialized) {
-      throw new HookRegistryNotInitializedError();
-    }
-
     return this.entries
       .filter((entry) => entry.eventName === eventName && entry.enabled)
       .sort(
@@ -92,10 +72,6 @@ export class HookRegistry {
    * Get all registered hooks
    */
   getAllHooks(): HookRegistryEntry[] {
-    if (!this.initialized) {
-      throw new HookRegistryNotInitializedError();
-    }
-
     return [...this.entries];
   }
 
@@ -170,7 +146,7 @@ export class HookRegistry {
         continue;
       }
 
-      const typedEventName = eventName as HookEventName;
+      const typedEventName = eventName;
 
       if (!Array.isArray(definitions)) {
         debugLogger.warn(

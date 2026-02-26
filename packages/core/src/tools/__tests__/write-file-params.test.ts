@@ -62,7 +62,7 @@ describe('write_file parameter consistency', () => {
     expect(validation).toBeNull(); // Should pass validation
     expect(invocation).toBeDefined();
     // CRITICAL: The invocation should use absolute_path internally
-    expect((invocation as any).params.absolute_path).toBe(testFilePath);
+    expect(invocation.params.absolute_path).toBe(testFilePath);
   });
 
   it('should accept file_path as legacy alias', async () => {
@@ -82,7 +82,7 @@ describe('write_file parameter consistency', () => {
     expect(validation).toBeNull(); // Should pass validation for backward compat
     expect(invocation).toBeDefined();
     // After normalization, absolute_path should be set internally
-    expect((invocation as any).params.absolute_path).toBe(testFilePath);
+    expect(invocation.params.absolute_path).toBe(testFilePath);
   });
 
   it('should prefer absolute_path over file_path when both provided', async () => {
@@ -103,7 +103,7 @@ describe('write_file parameter consistency', () => {
     expect(validation).toBeNull();
     expect(invocation).toBeDefined();
     // CRITICAL: When both are provided, absolute_path should take precedence
-    expect((invocation as any).params.absolute_path).toBe(testFilePath);
+    expect(invocation.params.absolute_path).toBe(testFilePath);
     // Validation should have used absolute_path, not file_path
   });
 
@@ -121,9 +121,9 @@ describe('write_file parameter consistency', () => {
     // Assert
     expect(invocation).toBeDefined();
     // CRITICAL: After normalization, absolute_path should be populated
-    expect((invocation as any).params.absolute_path).toBe(testFilePath);
+    expect(invocation.params.absolute_path).toBe(testFilePath);
     // Original file_path should still be present
-    expect((invocation as any).params.file_path).toBe(testFilePath);
+    expect(invocation.params.file_path).toBe(testFilePath);
   });
 
   it('should reject when neither absolute_path nor file_path provided', async () => {

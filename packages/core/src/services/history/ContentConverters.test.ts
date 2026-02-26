@@ -93,12 +93,10 @@ describe('ContentConverters - Tool ID Normalization', () => {
         undefined,
         'turn-test',
       );
-      const toolCall = iContent.blocks.find((b) => b.type === 'tool_call') as
-        | ToolCallBlock
-        | undefined;
+      const toolCall = iContent.blocks.find((b) => b.type === 'tool_call');
       const toolResponse = iContent.blocks.find(
         (b) => b.type === 'tool_response',
-      ) as ToolResponseBlock | undefined;
+      );
 
       expect(toolCall).toBeDefined();
       expect(toolResponse).toBeDefined();
@@ -205,7 +203,7 @@ describe('ContentConverters - Tool ID Normalization', () => {
 
       const thinkingBlock = iContent.blocks.find(
         (block) => block.type === 'thinking',
-      ) as ThinkingBlock | undefined;
+      );
 
       expect(thinkingBlock).toBeDefined();
       expect(thinkingBlock?.thought).toBe('Thought text');
@@ -235,7 +233,7 @@ describe('ContentConverters - Tool ID Normalization', () => {
 
       const thinkingBlock = iContent.blocks.find(
         (block) => block.type === 'thinking',
-      ) as ThinkingBlock | undefined;
+      );
 
       expect(thinkingBlock).toBeDefined();
       expect(thinkingBlock?.signature).toBe('anthropic-sig');

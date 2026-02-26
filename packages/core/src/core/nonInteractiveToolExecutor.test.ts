@@ -379,7 +379,7 @@ describe('executeToolCall', () => {
             name: 'testTool',
             id: 'call6',
             response: {
-              output: 'Binary content of type image/png was processed.',
+              output: 'Binary content provided (1 item(s)).',
             },
           },
         },
@@ -428,8 +428,7 @@ describe('executeToolCall response structure (Phase 3b.1)', () => {
       getTelemetryLogPromptsEnabled: () => false,
       getExcludeTools: () => [],
       getEphemeralSettings: () => ephemerals,
-      getEphemeralSetting: (key: string) =>
-        ephemerals[key as keyof typeof ephemerals],
+      getEphemeralSetting: (key: string) => ephemerals[key],
       getPolicyEngine: includePolicyEngine
         ? policyEngineReturnsUndefined
           ? () => undefined as unknown as PolicyEngine

@@ -994,7 +994,7 @@ export class OpenAIVercelProvider extends BaseProvider implements IProvider {
                 break;
               }
               case 'finish': {
-                totalUsage = part.totalUsage as LanguageModelUsage | undefined;
+                totalUsage = part.totalUsage;
                 finishReason = part.finishReason;
 
                 // Flush any remaining buffer on finish

@@ -376,7 +376,34 @@ export class IdeClient {
       return {};
     }
 
-    // For backwards compatibility
+    // Try new port file location (in subdirectory with port in filename)
+    try {
+      const portDir = path.join(os.tmpdir(), 'llxprt', 'ide');
+      const files = await fs.promises.readdir(portDir);
+      const prefix = `llxprt-ide-server-${this.ideProcessInfo.pid}-`;
+      const portFile = files.find(
+        (file) => file.startsWith(prefix) && file.endsWith('.json'),
+      );
+
+      if (portFile) {
+        const portFilePath = path.join(portDir, portFile);
+        const portFileContents = await fs.promises.readFile(
+          portFilePath,
+          'utf8',
+        );
+        const configData = JSON.parse(portFileContents);
+        return {
+          port: configData?.port?.toString(),
+          workspacePath: configData?.workspacePath,
+          authToken: configData?.authToken,
+          ideInfo: configData?.ideInfo,
+        };
+      }
+    } catch (_) {
+      // Fall through to try old location
+    }
+
+    // For backwards compatibility, try old port file location
     try {
       const portFile = path.join(
         os.tmpdir(),

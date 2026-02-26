@@ -1346,10 +1346,7 @@ export function validateSetting(key: string, value: unknown): ValidationResult {
   // Auto-validate enum types if no custom validator
   if (spec.type === 'enum' && spec.enumValues) {
     const strValue = typeof value === 'string' ? value.toLowerCase() : value;
-    if (
-      typeof strValue !== 'string' ||
-      !spec.enumValues.includes(strValue as string)
-    ) {
+    if (typeof strValue !== 'string' || !spec.enumValues.includes(strValue)) {
       return {
         success: false,
         message: `${spec.key} must be one of: ${spec.enumValues.join(', ')}`,

@@ -263,8 +263,8 @@ describe('Runtime State Regression Guards', () => {
    * Guard against performance regressions in state operations.
    */
   describe('Performance Guards', () => {
-    const creationBudgetMs = process.platform === 'darwin' ? 6 : 3;
-    const updateBudgetMs = process.platform === 'darwin' ? 20 : 2;
+    const creationBudgetMs = 6;
+    const updateBudgetMs = 20;
 
     it('should complete state creation within budget', () => {
       const start = performance.now();

@@ -12,13 +12,13 @@ import {
   DEFAULT_CONTEXT_FILENAME,
   resetSettingsService,
   setLlxprtMdFilename,
+  type SettingsService,
 } from '@vybestack/llxprt-code-core';
 import { loadCliConfig, type CliArgs } from './config.js';
 import type { Settings } from './settings.js';
 
 vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
-  const actual =
-    (await importOriginal()) as typeof import('@vybestack/llxprt-code-core');
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     Config: vi.fn().mockImplementation((params) => {
@@ -27,7 +27,8 @@ vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
       let userMemory = params.userMemory;
       let llxprtMdFileCount = params.llxprtMdFileCount ?? 0;
       const ephemerals: Record<string, unknown> = {};
-      const settingsServiceInstance = new actual.SettingsService();
+      const settingsServiceInstance =
+        new (actual.SettingsService as new () => SettingsService)();
 
       return {
         getProvider: vi.fn(() => provider),

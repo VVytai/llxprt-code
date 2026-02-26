@@ -85,7 +85,7 @@ export const ToolResultDisplay: React.FC<ToolResultDisplayProps> = ({
       {typeof displayContent === 'string' && shouldRenderMarkdown && (
         <Box flexDirection="column">
           <MarkdownDisplay
-            text={displayContent as string}
+            text={displayContent}
             isPending={false}
             terminalWidth={childWidth}
             renderMarkdown={renderMarkdown}
@@ -96,7 +96,7 @@ export const ToolResultDisplay: React.FC<ToolResultDisplayProps> = ({
         <MaxSizedBox maxHeight={availableHeight} maxWidth={childWidth}>
           <Box>
             <Text color={Colors.Foreground} wrap="wrap">
-              {displayContent as string}
+              {displayContent}
             </Text>
           </Box>
         </MaxSizedBox>

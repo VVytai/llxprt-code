@@ -443,7 +443,7 @@ describe('Multi-Provider Conversation Logging', () => {
     expect(results).toHaveLength(3);
     expect(
       results
-        .map((r) => (r as IContent).blocks[0])
+        .map((r) => r.blocks[0])
         .map((block) => (block as { text: string }).text),
     ).toEqual(['Chunk 1', 'Chunk 2', 'Chunk 3']);
   });

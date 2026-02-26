@@ -140,7 +140,7 @@ describe('GeminiChat Context Limit Enforcement', () => {
       provider: createProviderAdapterFromManager(
         mockConfig.getProviderManager?.(),
       ),
-      telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+      telemetry: createTelemetryAdapterFromConfig(mockConfig),
       tools: createToolRegistryViewFromRegistry(mockConfig.getToolRegistry?.()),
       providerRuntime: providerRuntimeSnapshot,
     });
@@ -197,7 +197,7 @@ describe('GeminiChat Context Limit Enforcement', () => {
       provider: createProviderAdapterFromManager(
         mockConfig.getProviderManager?.(),
       ),
-      telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+      telemetry: createTelemetryAdapterFromConfig(mockConfig),
       tools: createToolRegistryViewFromRegistry(mockConfig.getToolRegistry?.()),
       providerRuntime: providerRuntimeSnapshot,
     });

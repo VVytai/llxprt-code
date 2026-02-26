@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-import type {
-  IContent,
-  TextBlock,
-  ToolCallBlock,
-  ToolResponseBlock,
-} from '../../services/history/IContent.js';
+import type { IContent, TextBlock } from '../../services/history/IContent.js';
 import type { Config } from '../../config/config.js';
 import { limitOutputTokens } from '../../utils/toolOutputLimiter.js';
 import { normalizeToOpenAIToolId } from '../utils/toolIdNormalization.js';
@@ -58,12 +53,8 @@ export function buildResponsesInputFromContent(
         input.push({ role: 'user', content: text });
       }
     } else if (c.speaker === 'ai') {
-      const textBlocks = c.blocks.filter(
-        (b) => b.type === 'text',
-      ) as TextBlock[];
-      const toolCallBlocks = c.blocks.filter(
-        (b) => b.type === 'tool_call',
-      ) as ToolCallBlock[];
+      const textBlocks = c.blocks.filter((b) => b.type === 'text');
+      const toolCallBlocks = c.blocks.filter((b) => b.type === 'tool_call');
 
       const contentText = textBlocks.map((b) => b.text).join('');
 
@@ -85,7 +76,7 @@ export function buildResponsesInputFromContent(
     } else if (c.speaker === 'tool') {
       const toolResponseBlocks = c.blocks.filter(
         (b) => b.type === 'tool_response',
-      ) as ToolResponseBlock[];
+      );
 
       for (const toolResponseBlock of toolResponseBlocks) {
         const rawResult =

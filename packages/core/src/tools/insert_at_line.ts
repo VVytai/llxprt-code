@@ -132,7 +132,7 @@ class InsertAtLineToolInvocation extends BaseToolInvocation<
       'Current',
       'Proposed',
       DEFAULT_CREATE_PATCH_OPTIONS,
-    ) as string;
+    );
 
     const ideClient = this.config.getIdeClient();
     const ideConfirmation =

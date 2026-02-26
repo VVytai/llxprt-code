@@ -39,7 +39,7 @@ function createAutoReplyServer(_socketPath: string): net.Server {
     socket.on('data', (chunk) => {
       const frames = decoder.feed(chunk);
       for (const frame of frames) {
-        const msg = frame as Record<string, unknown>;
+        const msg = frame;
         if (msg.op === 'handshake') {
           // Reply with handshake success
           const response = { ok: true, v: PROTOCOL_VERSION };
@@ -111,7 +111,7 @@ describe('ProxySocketClient', () => {
           socket.on('data', (chunk) => {
             const frames = decoder.feed(chunk);
             for (const frame of frames) {
-              const msg = frame as Record<string, unknown>;
+              const msg = frame;
               if (msg.op === 'handshake') {
                 resolve(msg);
                 // Reply so the handshake completes
@@ -172,7 +172,7 @@ describe('ProxySocketClient', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
           } else {
@@ -212,7 +212,7 @@ describe('ProxySocketClient', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
           }
@@ -271,7 +271,7 @@ describe('ProxySocketClient', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
           } else {
@@ -304,7 +304,7 @@ describe('ProxySocketClient', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
           } else {
@@ -361,7 +361,7 @@ describe('ProxySocketClient', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             handshakeCount++;
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
@@ -398,7 +398,7 @@ describe('ProxySocketClient', () => {
       socket.on('data', (chunk) => {
         const frames = decoder.feed(chunk);
         for (const frame of frames) {
-          const msg = frame as Record<string, unknown>;
+          const msg = frame;
           if (msg.op === 'handshake') {
             socket.write(encodeFrame({ ok: true, v: PROTOCOL_VERSION }));
           }

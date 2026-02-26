@@ -58,6 +58,7 @@ import { HookSystem } from '../hooks/hookSystem.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
 import { HistoryService } from '../services/history/HistoryService.js';
+import type { SessionRecordingService } from '../recording/SessionRecordingService.js';
 // @plan PLAN-20260130-ASYNCTASK.P09
 import { AsyncTaskManager } from '../services/asyncTaskManager.js';
 // @plan PLAN-20260130-ASYNCTASK.P22
@@ -555,6 +556,8 @@ export class Config {
   private alwaysAllowedCommands: Set<string> = new Set();
   private fileDiscoveryService: FileDiscoveryService | null = null;
   private gitService: GitService | undefined = undefined;
+  private sessionRecordingService: SessionRecordingService | undefined =
+    undefined;
   // @plan PLAN-20260130-ASYNCTASK.P09
   private asyncTaskManager: AsyncTaskManager | undefined = undefined;
   // @plan PLAN-20260130-ASYNCTASK.P22
@@ -634,6 +637,26 @@ export class Config {
    */
   getBucketFailoverHandler(): BucketFailoverHandler | undefined {
     return this.bucketFailoverHandler;
+  }
+
+  /**
+   * Set the session recording service for hooks to access transcript path
+   * @plan PLAN-20250219-GMERGE022.B2
+   * @requirement R1
+   */
+  setSessionRecordingService(
+    service: SessionRecordingService | undefined,
+  ): void {
+    this.sessionRecordingService = service;
+  }
+
+  /**
+   * Get the session recording service
+   * @plan PLAN-20250219-GMERGE022.B2
+   * @requirement R1
+   */
+  getSessionRecordingService(): SessionRecordingService | undefined {
+    return this.sessionRecordingService;
   }
 
   setInteractiveSubagentSchedulerFactory(
@@ -2709,7 +2732,7 @@ ${trimmed}
           const result = await this.mcpClient.callTool(
             {
               name: call.name ?? this.toolDef.name,
-              arguments: (call.args ?? {}) as Record<string, unknown>,
+              arguments: call.args ?? {},
             },
             undefined,
             { timeout: requestTimeoutMs },

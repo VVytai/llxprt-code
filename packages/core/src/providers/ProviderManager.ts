@@ -173,7 +173,7 @@ export class ProviderManager implements IProviderManager {
       'settingsService' in init &&
       ('runtimeId' in init || 'metadata' in init)
     ) {
-      const context = init as ProviderRuntimeContext;
+      const context = init;
       return {
         settingsService: context.settingsService,
         config: context.config,
@@ -875,7 +875,7 @@ export class ProviderManager implements IProviderManager {
       // Registry init failed - return unhydrated
       logger.debug(
         () =>
-          `[getAvailableModels] Registry init failed for provider: ${provider!.name}`,
+          `[getAvailableModels] Registry init failed for provider: ${provider.name}`,
       );
       return baseModels.map((m) => ({ ...m, hydrated: false }));
     }
@@ -887,7 +887,7 @@ export class ProviderManager implements IProviderManager {
     if (baseModels.length === 0 && modelsDevProviderIds.length > 0) {
       logger.debug(
         () =>
-          `[getAvailableModels] Provider ${provider!.name} returned 0 models, falling back to registry`,
+          `[getAvailableModels] Provider ${provider.name} returned 0 models, falling back to registry`,
       );
       const registry = getModelRegistry();
       if (registry.isInitialized()) {
@@ -902,7 +902,7 @@ export class ProviderManager implements IProviderManager {
             registryModels.push({
               id: rm.modelId,
               name: rm.name,
-              provider: provider!.name,
+              provider: provider.name,
               supportedToolFormats: [],
               contextWindow: rm.contextWindow,
               maxOutputTokens: rm.maxOutputTokens,
@@ -925,7 +925,7 @@ export class ProviderManager implements IProviderManager {
 
     logger.debug(
       () =>
-        `[getAvailableModels] Hydrating ${baseModels.length} models for provider: ${provider!.name} with modelsDevIds: ${JSON.stringify(modelsDevProviderIds)}`,
+        `[getAvailableModels] Hydrating ${baseModels.length} models for provider: ${provider.name} with modelsDevIds: ${JSON.stringify(modelsDevProviderIds)}`,
     );
 
     // Step 5: Hydrate with models.dev data
@@ -1432,7 +1432,7 @@ export class ProviderManager implements IProviderManager {
 
     if (statelessAware.wrappedProvider) {
       this.attachStatelessRuntimeMetadata(
-        statelessAware.wrappedProvider as IProvider,
+        statelessAware.wrappedProvider,
         metadata,
       );
     }

@@ -520,9 +520,7 @@ describe('HistoryService - Behavioral Tests', () => {
       expect(toolMessage).toBeDefined();
       expect(
         toolMessage?.blocks.some(
-          (b) =>
-            b.type === 'tool_response' &&
-            (b as ToolResponseBlock).callId === 'hist_tool_orphan1',
+          (b) => b.type === 'tool_response' && b.callId === 'hist_tool_orphan1',
         ),
       ).toBe(true);
     });
@@ -550,18 +548,14 @@ describe('HistoryService - Behavioral Tests', () => {
         (c) =>
           c.speaker === 'ai' &&
           c.blocks.some(
-            (b) =>
-              b.type === 'tool_call' &&
-              (b as ToolCallBlock).id === 'hist_tool_orphan1',
+            (b) => b.type === 'tool_call' && b.id === 'hist_tool_orphan1',
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
       expect(curated[toolCallIndex + 1]?.speaker).toBe('tool');
       expect(
         curated[toolCallIndex + 1]?.blocks.some(
-          (b) =>
-            b.type === 'tool_response' &&
-            (b as ToolResponseBlock).callId === 'hist_tool_orphan1',
+          (b) => b.type === 'tool_response' && b.callId === 'hist_tool_orphan1',
         ),
       ).toBe(true);
 
@@ -593,9 +587,7 @@ describe('HistoryService - Behavioral Tests', () => {
         (c) =>
           c.speaker === 'ai' &&
           c.blocks.some(
-            (b) =>
-              b.type === 'tool_call' &&
-              (b as ToolCallBlock).id === 'hist_tool_orphan_tail',
+            (b) => b.type === 'tool_call' && b.id === 'hist_tool_orphan_tail',
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -603,8 +595,7 @@ describe('HistoryService - Behavioral Tests', () => {
       expect(
         curated[toolCallIndex + 1]?.blocks.some(
           (b) =>
-            b.type === 'tool_response' &&
-            (b as ToolResponseBlock).callId === 'hist_tool_orphan_tail',
+            b.type === 'tool_response' && b.callId === 'hist_tool_orphan_tail',
         ),
       ).toBe(true);
 
@@ -885,8 +876,7 @@ describe('HistoryService - Behavioral Tests', () => {
         .flatMap((content) =>
           content.blocks.filter(
             (block) =>
-              block.type === 'tool_response' &&
-              (block as ToolResponseBlock).callId === callId,
+              block.type === 'tool_response' && block.callId === callId,
           ),
         );
 
@@ -939,8 +929,7 @@ describe('HistoryService - Behavioral Tests', () => {
         .flatMap((content) => content.blocks)
         .filter(
           (block): block is ToolResponseBlock =>
-            block.type === 'tool_response' &&
-            (block as ToolResponseBlock).callId === callId,
+            block.type === 'tool_response' && block.callId === callId,
         );
       expect(toolResponsesForCallId).toHaveLength(1);
 
@@ -948,9 +937,7 @@ describe('HistoryService - Behavioral Tests', () => {
         (content) =>
           content.speaker === 'ai' &&
           content.blocks.some(
-            (block) =>
-              block.type === 'tool_call' &&
-              (block as ToolCallBlock).id === callId,
+            (block) => block.type === 'tool_call' && block.id === callId,
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -959,9 +946,7 @@ describe('HistoryService - Behavioral Tests', () => {
       expect(toolResultMessage?.speaker).toBe('tool');
       expect(
         toolResultMessage?.blocks.some(
-          (block) =>
-            block.type === 'tool_response' &&
-            (block as ToolResponseBlock).callId === callId,
+          (block) => block.type === 'tool_response' && block.callId === callId,
         ),
       ).toBe(true);
     });
@@ -999,9 +984,7 @@ describe('HistoryService - Behavioral Tests', () => {
         (content) =>
           content.speaker === 'ai' &&
           content.blocks.some(
-            (block) =>
-              block.type === 'tool_call' &&
-              (block as ToolCallBlock).id === callId,
+            (block) => block.type === 'tool_call' && block.id === callId,
           ),
       );
       expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -1010,9 +993,7 @@ describe('HistoryService - Behavioral Tests', () => {
       expect(toolResultMessage?.speaker).toBe('tool');
       expect(
         toolResultMessage?.blocks.some(
-          (block) =>
-            block.type === 'tool_response' &&
-            (block as ToolResponseBlock).callId === callId,
+          (block) => block.type === 'tool_response' && block.callId === callId,
         ),
       ).toBe(true);
 
@@ -1269,9 +1250,7 @@ describe('HistoryService - Behavioral Tests', () => {
           (c) =>
             c.speaker === 'ai' &&
             c.blocks.some(
-              (b) =>
-                b.type === 'tool_call' &&
-                (b as ToolCallBlock).id === 'hist_tool_orphan1',
+              (b) => b.type === 'tool_call' && b.id === 'hist_tool_orphan1',
             ),
         );
         expect(toolCallIndex).toBeGreaterThanOrEqual(0);
@@ -1279,8 +1258,7 @@ describe('HistoryService - Behavioral Tests', () => {
         expect(
           curated[toolCallIndex + 1]?.blocks.some(
             (b) =>
-              b.type === 'tool_response' &&
-              (b as ToolResponseBlock).callId === 'hist_tool_orphan1',
+              b.type === 'tool_response' && b.callId === 'hist_tool_orphan1',
           ),
         ).toBe(true);
       });
@@ -1348,8 +1326,7 @@ describe('HistoryService - Behavioral Tests', () => {
         const toolResponses = curated.flatMap((c) =>
           c.blocks.filter(
             (b) =>
-              b.type === 'tool_response' &&
-              (b as ToolResponseBlock).callId === 'hist_tool_responded',
+              b.type === 'tool_response' && b.callId === 'hist_tool_responded',
           ),
         );
         expect(toolResponses).toHaveLength(1);

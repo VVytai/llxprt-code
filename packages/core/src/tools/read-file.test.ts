@@ -14,7 +14,6 @@ import { Config } from '../config/config.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { StandardFileSystemService } from '../services/fileSystemService.js';
 import { createMockWorkspaceContext } from '../test-utils/mockWorkspaceContext.js';
-import { ToolInvocation, ToolResult } from './tools.js';
 import { ToolErrorType } from './tool-error.js';
 
 interface ReadFileParameterSchema {
@@ -61,9 +60,7 @@ describe('ReadFileTool', () => {
       const result = tool.build(params);
       expect(result).not.toBeTypeOf('string');
       expect(typeof result).toBe('object');
-      expect(
-        (result as ToolInvocation<ReadFileToolParams, ToolResult>).params,
-      ).toEqual(params);
+      expect(result.params).toEqual(params);
     });
 
     it('should return an invocation for valid params with offset and limit', () => {
@@ -177,22 +174,16 @@ describe('ReadFileTool', () => {
         const params: ReadFileToolParams = { absolute_path: filePath };
         const invocation = tool.build(params);
         expect(typeof invocation).not.toBe('string');
-        expect(
-          (
-            invocation as ToolInvocation<ReadFileToolParams, ToolResult>
-          ).getDescription(),
-        ).toBe(path.join('sub', 'dir', 'file.txt'));
+        expect(invocation.getDescription()).toBe(
+          path.join('sub', 'dir', 'file.txt'),
+        );
       });
 
       it('should return . if path is the root directory', () => {
         const params: ReadFileToolParams = { absolute_path: tempRootDir };
         const invocation = tool.build(params);
         expect(typeof invocation).not.toBe('string');
-        expect(
-          (
-            invocation as ToolInvocation<ReadFileToolParams, ToolResult>
-          ).getDescription(),
-        ).toBe('.');
+        expect(invocation.getDescription()).toBe('.');
       });
     });
 
@@ -200,10 +191,7 @@ describe('ReadFileTool', () => {
       it('should return error if file does not exist', async () => {
         const filePath = path.join(tempRootDir, 'nonexistent.txt');
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
         const result = await invocation.execute(abortSignal);
         expect(result).toEqual({
           error: {
@@ -221,10 +209,7 @@ describe('ReadFileTool', () => {
         const fileContent = 'This is a test file.';
         await fsp.writeFile(filePath, fileContent, 'utf-8');
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         expect(await invocation.execute(abortSignal)).toEqual({
           llmContent: fileContent,
@@ -243,10 +228,7 @@ describe('ReadFileTool', () => {
         const filePath = path.join(tempRootDir, 'image.png');
         await fsp.writeFile(filePath, pngContent);
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         expect(await invocation.execute(abortSignal)).toEqual({
           llmContent: {
@@ -264,10 +246,7 @@ describe('ReadFileTool', () => {
         const fileContent = 'This is not a real png.';
         await fsp.writeFile(filePath, fileContent, 'utf-8');
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         expect(await invocation.execute(abortSignal)).toEqual({
           llmContent: {
@@ -293,10 +272,7 @@ describe('ReadFileTool', () => {
           offset: 5, // Start from line 6
           limit: 3,
         };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         const result = await invocation.execute(abortSignal);
 
@@ -330,10 +306,7 @@ Line 8`;
           limit: 3,
           showLineNumbers: true,
         };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         const result = await invocation.execute(abortSignal);
 
@@ -359,10 +332,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
           absolute_path: filePath,
           showLineNumbers: true,
         };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         const result = await invocation.execute(abortSignal);
 
@@ -384,10 +354,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
           absolute_path: filePath,
           showGitChanges: true,
         };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         const result = await invocation.execute(abortSignal);
         expect(typeof result.llmContent).toBe('string');
@@ -442,10 +409,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
           showGitChanges: true,
         };
 
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
         const result = await invocation.execute(abortSignal);
 
         expect(typeof result.llmContent).toBe('string');
@@ -498,10 +462,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
           showGitChanges: true,
         };
 
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
         const result = await invocation.execute(abortSignal);
 
         expect(typeof result.llmContent).toBe('string');
@@ -558,10 +519,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
           showGitChanges: true,
         };
 
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
         const result = await invocation.execute(abortSignal);
 
         expect(typeof result.llmContent).toBe('string');
@@ -597,10 +555,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
         const fileContent = 'This is a test file.';
         await fsp.writeFile(filePath, fileContent, 'utf-8');
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         expect(await invocation.execute(abortSignal)).toEqual({
           llmContent: fileContent,
@@ -619,10 +574,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
         const filePath = path.join(tempRootDir, 'image.png');
         await fsp.writeFile(filePath, pngContent);
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         expect(await invocation.execute(abortSignal)).toEqual({
           llmContent: {
@@ -640,10 +592,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
         const fileContent = 'This is not a real png.';
         await fsp.writeFile(filePath, fileContent, 'utf-8');
         const params: ReadFileToolParams = { absolute_path: filePath };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         expect(await invocation.execute(abortSignal)).toEqual({
           llmContent: {
@@ -669,10 +618,7 @@ Action: To read more of the file, you can use the 'offset' and 'limit' parameter
           offset: 5, // Start from line 6
           limit: 3,
         };
-        const invocation = tool.build(params) as ToolInvocation<
-          ReadFileToolParams,
-          ToolResult
-        >;
+        const invocation = tool.build(params);
 
         const result = await invocation.execute(abortSignal);
 
@@ -697,10 +643,7 @@ Line 8`;
       const dirPath = path.join(tempRootDir, 'directory');
       await fsp.mkdir(dirPath);
       const params: ReadFileToolParams = { absolute_path: dirPath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result).toEqual({
@@ -720,10 +663,7 @@ Line 8`;
       const largeContent = 'x'.repeat(21 * 1024 * 1024);
       await fsp.writeFile(filePath, largeContent, 'utf-8');
       const params: ReadFileToolParams = { absolute_path: filePath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result).toHaveProperty('error');
@@ -739,10 +679,7 @@ Line 8`;
       const fileContent = `Short line\n${longLine}\nAnother short line`;
       await fsp.writeFile(filePath, fileContent, 'utf-8');
       const params: ReadFileToolParams = { absolute_path: filePath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(
@@ -760,10 +697,7 @@ Line 8`;
       ]);
       await fsp.writeFile(imagePath, pngHeader);
       const params: ReadFileToolParams = { absolute_path: imagePath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toEqual({
@@ -781,10 +715,7 @@ Line 8`;
       const pdfHeader = Buffer.from('%PDF-1.4');
       await fsp.writeFile(pdfPath, pdfHeader);
       const params: ReadFileToolParams = { absolute_path: pdfPath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toEqual({
@@ -802,10 +733,7 @@ Line 8`;
       const binaryData = Buffer.from([0x00, 0xff, 0x00, 0xff]);
       await fsp.writeFile(binPath, binaryData);
       const params: ReadFileToolParams = { absolute_path: binPath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toBe(
@@ -819,10 +747,7 @@ Line 8`;
       const svgContent = '<svg><circle cx="50" cy="50" r="40"/></svg>';
       await fsp.writeFile(svgPath, svgContent, 'utf-8');
       const params: ReadFileToolParams = { absolute_path: svgPath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toBe(svgContent);
@@ -835,10 +760,7 @@ Line 8`;
       const largeContent = '<svg>' + 'x'.repeat(1024 * 1024 + 1) + '</svg>';
       await fsp.writeFile(svgPath, largeContent, 'utf-8');
       const params: ReadFileToolParams = { absolute_path: svgPath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toBe(
@@ -853,10 +775,7 @@ Line 8`;
       const emptyPath = path.join(tempRootDir, 'empty.txt');
       await fsp.writeFile(emptyPath, '', 'utf-8');
       const params: ReadFileToolParams = { absolute_path: emptyPath };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toBe('');
@@ -874,10 +793,7 @@ Line 8`;
         offset: 5, // Start from line 6
         limit: 3,
       };
-      const invocation = tool.build(params) as ToolInvocation<
-        ReadFileToolParams,
-        ToolResult
-      >;
+      const invocation = tool.build(params);
 
       const result = await invocation.execute(abortSignal);
       expect(result.llmContent).toContain(

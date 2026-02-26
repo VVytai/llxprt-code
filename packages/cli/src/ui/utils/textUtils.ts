@@ -108,9 +108,7 @@ function touchCacheKey(key: string, value: number): void {
 
 function ensureCacheCapacity(): void {
   while (stringWidthCache.size > MAX_STRING_WIDTH_CACHE_ENTRIES) {
-    const oldestKey = stringWidthCache.keys().next().value as
-      | string
-      | undefined;
+    const oldestKey = stringWidthCache.keys().next().value;
     if (oldestKey === undefined) {
       return;
     }

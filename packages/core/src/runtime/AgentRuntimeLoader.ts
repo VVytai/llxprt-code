@@ -28,6 +28,7 @@ import {
   type ContentGenerator,
   type ContentGeneratorConfig,
 } from '../core/contentGenerator.js';
+import { normalizeToolName } from '../tools/toolNameUtils.js';
 
 export interface AgentRuntimeProfileSnapshot {
   config: Config;
@@ -76,8 +77,6 @@ const defaultContentGeneratorFactory: ContentGeneratorFactory = (
   config,
   sessionId,
 ) => createContentGenerator(contentConfig, config, sessionId);
-
-import { normalizeToolName } from '../tools/toolNameUtils.js';
 
 type ToolGovernance = {
   allowed: Set<string>;
@@ -157,9 +156,9 @@ function createFilteredToolRegistryView(
         .schema;
       const description =
         typeof schema?.description === 'string'
-          ? (schema.description as string)
+          ? schema.description
           : typeof (tool as { description?: string }).description === 'string'
-            ? ((tool as { description: string }).description as string)
+            ? (tool as { description: string }).description
             : '';
       const parameterSchema =
         (schema as { parameters?: Record<string, unknown> })?.parameters ??

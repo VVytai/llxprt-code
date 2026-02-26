@@ -959,9 +959,7 @@ export class OpenAIProvider extends BaseProvider implements IProvider {
         );
         const text = textBlocks.map((b) => b.text).join('\n');
         const thinkingBlocks = extractThinkingBlocks(content);
-        const toolCalls = content.blocks.filter(
-          (b) => b.type === 'tool_call',
-        ) as ToolCallBlock[];
+        const toolCalls = content.blocks.filter((b) => b.type === 'tool_call');
 
         if (toolCalls.length > 0) {
           // Assistant message with tool calls
@@ -1029,7 +1027,7 @@ export class OpenAIProvider extends BaseProvider implements IProvider {
         // Convert tool responses
         const toolResponses = content.blocks.filter(
           (b) => b.type === 'tool_response',
-        ) as ToolResponseBlock[];
+        );
         for (const tr of toolResponses) {
           const toolMessage: Record<string, unknown> = {
             role: 'tool',

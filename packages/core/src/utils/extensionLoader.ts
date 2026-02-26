@@ -139,6 +139,7 @@ export abstract class ExtensionLoader {
       // reload memory, this is somewhat expensive and also busts the context
       // cache, we want to only do it once.
       await this.config.refreshMemory();
+      await this.config.getHookSystem()?.initialize();
     }
   }
 

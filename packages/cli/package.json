@@ -2,6 +2,7 @@
   "name": "@vybestack/llxprt-code",
   "version": "0.9.0",
   "description": "LLxprt Code",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vybestack/llxprt-code.git"

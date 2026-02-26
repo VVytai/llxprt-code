@@ -81,7 +81,7 @@ describe('ProviderManager runtime guard plumbing', () => {
   it('injects runtime settings into BaseProvider before invocation', async () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P04 @requirement:REQ-SP4-004
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const runtimeContext = {
       settingsService,
       config,
@@ -127,7 +127,7 @@ describe('ProviderManager runtime guard plumbing', () => {
   it('injects runtime config into BaseProvider before invocation', async () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P04 @requirement:REQ-SP4-004
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const runtimeContext = {
       settingsService,
       config,
@@ -175,7 +175,7 @@ describe('ProviderManager runtime guard plumbing', () => {
     settingsService.set('streaming', 'enabled');
     settingsService.setProviderSetting('openai', 'temperature', 0.5);
     settingsService.setProviderSetting('openai', 'apiKey', 'test-key');
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     const normalized = manager.normalizeRuntimeInputs(
@@ -203,7 +203,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
   it('throws ProviderRuntimeNormalizationError when settings is missing @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-002', () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-002
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     expect(() =>
@@ -226,7 +226,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
   it('throws ProviderRuntimeNormalizationError when config is missing @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-002', () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-002
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     expect(() =>
@@ -249,7 +249,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
   it('throws ProviderRuntimeNormalizationError when resolved fields are incomplete @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-003', () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-003
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     // Set up a provider with no model configured
@@ -280,7 +280,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
   it('successfully normalizes options with complete runtime context @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-003', () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-003
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     settingsService.set('activeProvider', 'stub-provider');
@@ -320,7 +320,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
     const config = createRuntimeConfigStub(settingsService, {
       getEphemeralSetting: (key: string) =>
         key === 'base-url' ? 'https://config-fallback.example.com' : undefined,
-    }) as Config;
+    });
     const manager = new ProviderManager({ settingsService, config });
 
     settingsService.set('activeProvider', 'stub-provider');
@@ -358,7 +358,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
         key === 'base-url'
           ? 'https://leaked-foreground.example.com/openai/v1'
           : undefined,
-    }) as Config;
+    });
 
     const manager = new ProviderManager({
       settingsService: subagentSettings,
@@ -396,7 +396,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
       getSettingsService: () => foregroundSettings,
       getEphemeralSetting: (key: string) =>
         key === 'auth-key' ? 'leaked-foreground-key' : undefined,
-    }) as Config;
+    });
 
     const manager = new ProviderManager({
       settingsService: subagentSettings,
@@ -432,7 +432,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
     const config = createRuntimeConfigStub(settingsService, {
       getEphemeralSetting: (key: string) =>
         key === 'base-url' ? 'https://openai.example.com/openai/v1' : undefined,
-    }) as Config;
+    });
 
     const manager = new ProviderManager({ settingsService, config });
     manager.registerProvider(
@@ -464,7 +464,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
     const config = createRuntimeConfigStub(settingsService, {
       getEphemeralSetting: (key: string) =>
         key === 'auth-key' ? 'leaked-foreground-key' : undefined,
-    }) as Config;
+    });
 
     const manager = new ProviderManager({ settingsService, config });
     manager.registerProvider(
@@ -495,7 +495,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
 
     const config = createRuntimeConfigStub(settingsService, {
       getModel: () => 'foreground-model',
-    }) as Config;
+    });
 
     const manager = new ProviderManager({ settingsService, config });
     manager.registerProvider(
@@ -521,7 +521,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
 
   it('derives base-url from provider configuration when settings and config lack it', () => {
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     const provider = new HarnessProvider(config, settingsService);
@@ -560,7 +560,7 @@ describe('ProviderManager.normalizeRuntimeInputs', () => {
   it('merges metadata from runtime context @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-005', () => {
     // @plan:PLAN-20251023-STATELESS-HARDENING.P08 @requirement:REQ-SP4-005
     const settingsService = new SettingsService();
-    const config = createRuntimeConfigStub(settingsService) as Config;
+    const config = createRuntimeConfigStub(settingsService);
     const manager = new ProviderManager({ settingsService, config });
 
     settingsService.set('activeProvider', 'stub-provider');

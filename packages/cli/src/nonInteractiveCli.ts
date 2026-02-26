@@ -24,7 +24,6 @@ import {
   setActiveProviderRuntimeContext,
   type UserFeedbackPayload,
   type EmojiFilterMode,
-  type ServerGeminiThoughtEvent,
 } from '@vybestack/llxprt-code-core';
 import { Part } from '@google/genai';
 import readline from 'node:readline';
@@ -214,7 +213,7 @@ export async function runNonInteractive({
         settings,
       );
       // If a slash command is found and returns a prompt, use it.
-      // Otherwise, slashCommandResult fall through to the default prompt
+      // Otherwise, slashCommandResult falls through to the default prompt
       // handling.
       if (slashCommandResult) {
         query = slashCommandResult as Part[];
@@ -222,7 +221,7 @@ export async function runNonInteractive({
     }
 
     if (!query) {
-      const { processedQuery, shouldProceed } = await handleAtCommand({
+      const { processedQuery, error } = await handleAtCommand({
         query: input,
         config,
         addItem: (_item, _timestamp) => 0,
@@ -231,11 +230,11 @@ export async function runNonInteractive({
         signal: abortController.signal,
       });
 
-      if (!shouldProceed || !processedQuery) {
+      if (error || !processedQuery) {
         // An error occurred during @include processing (e.g., file not found).
         // The error message is already logged by handleAtCommand.
         throw new FatalInputError(
-          'Exiting due to an error processing the @ command.',
+          error || 'Exiting due to an error processing the @ command.',
         );
       }
       query = processedQuery as Part[];
@@ -319,7 +318,7 @@ export async function runNonInteractive({
         if (event.type === GeminiEventType.Thought) {
           if (includeThinking) {
             maybeEmitProfileName();
-            const thoughtEvent = event as ServerGeminiThoughtEvent;
+            const thoughtEvent = event;
             const thought = thoughtEvent.value;
             // Format thought with subject and description
             let thoughtText =
@@ -363,7 +362,7 @@ export async function runNonInteractive({
 
             outputValue =
               typeof filterResult.filtered === 'string'
-                ? (filterResult.filtered as string)
+                ? filterResult.filtered
                 : '';
 
             if (filterResult.systemFeedback) {
@@ -468,7 +467,7 @@ export async function runNonInteractive({
             );
             normalizedArgs = {};
           } else if (rawArgs && typeof rawArgs === 'object') {
-            normalizedArgs = rawArgs as Record<string, unknown>;
+            normalizedArgs = rawArgs;
           } else {
             normalizedArgs = {};
           }

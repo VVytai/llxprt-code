@@ -249,7 +249,7 @@ function convertMetadataToFunctionDeclaration(
 ): FunctionDeclaration {
   const rawSchema =
     metadata.parameterSchema && typeof metadata.parameterSchema === 'object'
-      ? { ...(metadata.parameterSchema as Record<string, unknown>) }
+      ? { ...metadata.parameterSchema }
       : {};
   const properties =
     (rawSchema.properties as Record<string, unknown> | undefined) ?? {};
@@ -1355,7 +1355,7 @@ export class SubAgentScope {
       const requestInfo: ToolCallRequestInfo = {
         callId,
         name: functionCall.name as string,
-        args: (functionCall.args ?? {}) as Record<string, unknown>,
+        args: functionCall.args ?? {},
         isClientInitiated: true,
         prompt_id: promptId,
         agentId: this.subagentId,
@@ -1469,7 +1469,7 @@ export class SubAgentScope {
     const getEphemeralSettings =
       typeof this.toolExecutorContext.getEphemeralSettings === 'function'
         ? () => ({
-            ...this.toolExecutorContext.getEphemeralSettings!(),
+            ...this.toolExecutorContext.getEphemeralSettings(),
           })
         : () => this.config.getEphemeralSettings();
 

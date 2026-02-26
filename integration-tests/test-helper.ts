@@ -1,35 +1,29 @@
 /**
  * @license
- * Copyright 2024 Google LLC
+ * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { expect } from 'vitest';
 import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from 'node:process';
-import { EOL } from 'node:os';
 import fs from 'node:fs';
 import * as pty from '@lydell/node-pty';
-import * as os from 'node:os';
 import stripAnsi from 'strip-ansi';
-import { expect } from 'vitest';
+import * as os from 'node:os';
+import { LLXPRT_DIR } from '../packages/core/src/utils/paths.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function sanitizeTestName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-');
-}
+const BUNDLE_PATH = join(__dirname, '..', 'bundle/llxprt.js');
 
 // Get timeout based on environment
 function getDefaultTimeout() {
   if (env['CI']) return 60000; // 1 minute in CI
   if (env['LLXPRT_SANDBOX']) return 30000; // 30s in containers
-  return 60000; // 60s locally
+  return 15000; // 15s locally
 }
 
 export async function poll(
@@ -56,6 +50,13 @@ export async function poll(
     console.log(`Poll timed out after ${attempts} attempts`);
   }
   return false;
+}
+
+function sanitizeTestName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-');
 }
 
 // Helper to create detailed error messages
@@ -150,6 +151,32 @@ export function validateModelOutput(
   return true;
 }
 
+interface ParsedLog {
+  attributes?: {
+    'event.name'?: string;
+    function_name?: string;
+    function_args?: string;
+    success?: boolean;
+    duration_ms?: number;
+    request_text?: string;
+    hook_event_name?: string;
+    hook_name?: string;
+    hook_input?: Record<string, unknown>;
+    hook_output?: Record<string, unknown>;
+    exit_code?: number;
+    stdout?: string;
+    stderr?: string;
+    error?: string;
+  };
+  scopeMetrics?: {
+    metrics: {
+      descriptor: {
+        name: string;
+      };
+    }[];
+  }[];
+}
+
 export class InteractiveRun {
   ptyProcess: pty.IPty;
   public output = '';
@@ -164,49 +191,40 @@ export class InteractiveRun {
     });
   }
 
-  // Note: Named expectText (not waitForText) to match upstream final state
-  // This incorporates commit a73b8145 which renames waitFor* → expect*
   async expectText(text: string, timeout?: number) {
     if (!timeout) {
       timeout = getDefaultTimeout();
     }
-    const found = await poll(
+    await poll(
       () => stripAnsi(this.output).toLowerCase().includes(text.toLowerCase()),
       timeout,
       200,
     );
-    expect(found, `Did not find expected text: "${text}"`).toBe(true);
+    expect(stripAnsi(this.output).toLowerCase()).toContain(text.toLowerCase());
   }
 
-  async expectAnyText(texts: string[], timeout?: number) {
-    if (!timeout) {
-      timeout = getDefaultTimeout();
-    }
-    const lowered = texts.map((text) => text.toLowerCase());
-    const found = await poll(
-      () => {
-        const output = stripAnsi(this.output).toLowerCase();
-        return lowered.some((text) => output.includes(text));
-      },
-      timeout,
-      200,
-    );
-    if (!found) {
-      console.error('Interactive output snapshot (last 2000 chars):');
-      console.error(stripAnsi(this.output).slice(-2000));
-    }
-    expect(
-      found,
-      `Did not find expected text: ${texts.map((text) => `"${text}"`).join(' or ')}`,
-    ).toBe(true);
-  }
-
-  // Simulates typing a string one character at a time to avoid paste detection.
+  // This types slowly to make sure command is correct, but only work for short
+  // commands that are not multi-line, use sendKeys to type long prompts
   async type(text: string) {
-    const delay = 5;
+    let typedSoFar = '';
     for (const char of text) {
       this.ptyProcess.write(char);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      typedSoFar += char;
+
+      // Wait for the typed sequence so far to be echoed back.
+      const found = await poll(
+        () => stripAnsi(this.output).includes(typedSoFar),
+        5000, // 5s timeout per character (generous for CI)
+        10, // check frequently
+      );
+
+      if (!found) {
+        throw new Error(
+          `Timed out waiting for typed text to appear in output: "${typedSoFar}".\nStripped output:\n${stripAnsi(
+            this.output,
+          )}`,
+        );
+      }
     }
   }
 
@@ -217,12 +235,19 @@ export class InteractiveRun {
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
 
+  // Simulates typing a string one character at a time to avoid paste detection.
+  async sendKeys(text: string) {
+    const delay = 5;
+    for (const char of text) {
+      this.ptyProcess.write(char);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
   async kill() {
     this.ptyProcess.kill();
   }
 
-  // Note: Named expectExit (not waitForExit) to match upstream final state
-  // This incorporates commit a73b8145 which renames waitFor* → expect*
   expectExit(): Promise<number> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(
@@ -241,19 +266,14 @@ export class InteractiveRun {
 }
 
 export class TestRig {
-  bundlePath: string;
-  testDir: string | null;
+  testDir: string | null = null;
   testName?: string;
   _lastRunStdout?: string;
-  _interactiveOutput: string = '';
+  // Path to the copied fake responses file for this test.
   fakeResponsesPath?: string;
-
-  constructor() {
-    this.bundlePath = join(__dirname, '..', 'bundle/llxprt.js');
-    this.testDir = null;
-
-    // Bundle path is set
-  }
+  // Original fake responses file path for rewriting goldens in record mode.
+  originalFakeResponsesPath?: string;
+  private _interactiveRuns: InteractiveRun[] = [];
 
   setup(
     testName: string,
@@ -262,19 +282,20 @@ export class TestRig {
       fakeResponsesPath?: string;
     } = {},
   ) {
-    this.fakeResponsesPath = undefined;
     this.testName = testName;
     const sanitizedName = sanitizeTestName(testName);
     this.testDir = join(env['INTEGRATION_TEST_FILE_DIR']!, sanitizedName);
     mkdirSync(this.testDir, { recursive: true });
-
     if (options.fakeResponsesPath) {
-      this.fakeResponsesPath = join(this.testDir, 'fake-responses.jsonl');
-      fs.copyFileSync(options.fakeResponsesPath, this.fakeResponsesPath);
+      this.fakeResponsesPath = join(this.testDir, 'fake-responses.json');
+      this.originalFakeResponsesPath = options.fakeResponsesPath;
+      if (process.env['REGENERATE_MODEL_GOLDENS'] !== 'true') {
+        fs.copyFileSync(options.fakeResponsesPath, this.fakeResponsesPath);
+      }
     }
 
     // Create a settings file to point the CLI to the local collector
-    const llxprtDir = join(this.testDir, '.llxprt');
+    const llxprtDir = join(this.testDir, LLXPRT_DIR);
     mkdirSync(llxprtDir, { recursive: true });
     // In sandbox mode, use an absolute path for telemetry inside the container
     // The container mounts the test directory at the same path as the host
@@ -405,17 +426,30 @@ export class TestRig {
     }
   }
 
-  run(
-    promptOrOptions:
-      | string
-      | {
-          prompt?: string;
-          stdin?: string;
-          stdinDoesNotEnd?: boolean;
-          yolo?: boolean;
-        },
-    ...args: string[]
-  ): Promise<string> {
+  /**
+   * The command and args to use to invoke LLxprt CLI. Allows us to switch
+   * between using the bundled llxprt.js (the default) and using the installed
+   * 'llxprt' (used to verify npm bundles).
+   */
+  private _getCommandAndArgs(extraInitialArgs: string[] = []): {
+    command: string;
+    initialArgs: string[];
+  } {
+    const isNpmReleaseTest =
+      env['INTEGRATION_TEST_USE_INSTALLED_LLXPRT'] === 'true';
+    const command = isNpmReleaseTest ? 'llxprt' : 'node';
+    const initialArgs = isNpmReleaseTest
+      ? extraInitialArgs
+      : [BUNDLE_PATH, ...extraInitialArgs];
+    return { command, initialArgs };
+  }
+
+  run(options: {
+    args?: string | string[];
+    stdin?: string;
+    stdinDoesNotEnd?: boolean;
+    yolo?: boolean;
+  }): Promise<string> {
     // Add provider and model flags from environment - FAIL FAST if not configured
     const provider = env['LLXPRT_DEFAULT_PROVIDER'];
     const model = env['LLXPRT_DEFAULT_MODEL'];
@@ -423,16 +457,6 @@ export class TestRig {
     const apiKey = env['OPENAI_API_KEY'];
     const keyFile =
       env['OPENAI_API_KEYFILE'] ?? env['LLXPRT_TEST_PROFILE_KEYFILE'];
-
-    // Debug: Log environment variables in CI
-    if (env['CI'] === 'true' || env['VERBOSE'] === 'true') {
-      console.log('[TestRig] Environment variables:', {
-        provider,
-        model,
-        baseUrl: baseUrl ? `${baseUrl.substring(0, 30)}...` : 'UNDEFINED',
-        hasApiKey: !!apiKey,
-      });
-    }
 
     // Fail fast if required configuration is missing (unless using fake responses)
     if (!this.fakeResponsesPath) {
@@ -453,44 +477,38 @@ export class TestRig {
       }
     }
 
-    // Determine yolo mode: default true unless explicitly set to false
-    const yolo =
-      typeof promptOrOptions === 'string' || promptOrOptions.yolo !== false;
-
-    // Build command args array directly instead of parsing a string
-    // This avoids Windows-specific command line parsing issues
-    const commandArgs = [
-      'node',
-      this.bundlePath,
+    const yolo = options.yolo !== false;
+    const extraArgs: string[] = [
       ...(yolo ? ['--yolo'] : []),
       '--ide-mode',
       'disable',
     ];
 
     // When using fake responses, FakeProvider is activated via LLXPRT_FAKE_RESPONSES
-    // env var in the child process.  Pass --provider fake so the bootstrap's
+    // env var in the child process. Pass --provider fake so the bootstrap's
     // switchActiveProvider('fake') is a no-op (provider already active).
     // No --key is needed since FakeProvider doesn't require authentication.
     if (this.fakeResponsesPath) {
-      commandArgs.push('--provider', 'fake', '--model', 'fake-model');
+      extraArgs.push('--provider', 'fake', '--model', 'fake-model');
     } else {
-      commandArgs.push('--provider', provider!);
-      commandArgs.push('--model', model!);
+      extraArgs.push('--provider', provider!);
+      extraArgs.push('--model', model!);
 
       // Add baseurl if using openai provider
       if (provider === 'openai' && baseUrl) {
-        commandArgs.push('--baseurl', baseUrl);
+        extraArgs.push('--baseurl', baseUrl);
       }
 
       // Add API key if available
       if (apiKey) {
-        commandArgs.push('--key', apiKey);
+        extraArgs.push('--key', apiKey);
       } else if (keyFile) {
-        commandArgs.push('--keyfile', keyFile);
+        extraArgs.push('--keyfile', keyFile);
       }
     }
 
-    const prompts: string[] = [];
+    const { command, initialArgs } = this._getCommandAndArgs(extraArgs);
+    const commandArgs = [...initialArgs];
 
     // Filter out TERM_PROGRAM to prevent IDE detection
     const filteredEnv = Object.entries(process.env).reduce(
@@ -525,67 +543,25 @@ export class TestRig {
       },
     };
 
-    const promptIsStdin =
-      typeof promptOrOptions === 'object' &&
-      promptOrOptions !== null &&
-      promptOrOptions.stdin;
-
-    const promptUsesStdinFlag =
-      typeof promptOrOptions === 'object' &&
-      promptOrOptions !== null &&
-      promptOrOptions.stdin &&
-      promptOrOptions.prompt;
-
-    if (typeof promptOrOptions === 'string') {
-      prompts.push(promptOrOptions);
-    } else if (
-      typeof promptOrOptions === 'object' &&
-      promptOrOptions !== null
-    ) {
-      if (promptOrOptions.prompt) {
-        prompts.push(promptOrOptions.prompt);
-      }
-      if (promptOrOptions.stdin) {
-        execOptions.input = promptOrOptions.stdin;
+    if (options.args) {
+      if (Array.isArray(options.args)) {
+        commandArgs.push(...options.args);
+      } else {
+        commandArgs.push('--prompt', options.args);
       }
     }
 
-    const promptValue = prompts.join(' ');
-
-    if (promptValue) {
-      if (promptUsesStdinFlag) {
-        commandArgs.push('--prompt', promptValue);
-      } else if (!promptIsStdin) {
-        commandArgs.push('--prompt', promptValue);
-      }
+    if (options.stdin) {
+      execOptions.input = options.stdin;
     }
-
-    // Add any additional args
-    commandArgs.push(...args);
 
     if (env['LLXPRT_TEST_PROFILE']?.trim()) {
       const profileName = env['LLXPRT_TEST_PROFILE'].trim();
-      // Keep 'node' and bundlePath at the front; insert flags after them.
+      // Insert profile-load flags after the initial args (node, bundle path)
       commandArgs.splice(2, 0, '--profile-load', profileName);
     }
 
-    const node = commandArgs.shift() as string;
-    const isJsonOutput =
-      (commandArgs.includes('--output-format') &&
-        commandArgs[commandArgs.indexOf('--output-format') + 1] === 'json') ||
-      commandArgs.some((arg) => arg.startsWith('--output-format=json'));
-
-    // Debug: Log command being executed in CI
-    if (env['CI'] === 'true' || env['VERBOSE'] === 'true') {
-      console.log('[TestRig] Spawning command:', {
-        node,
-        args: commandArgs,
-        hasBaseUrl: commandArgs.includes('--baseurl'),
-        baseUrlIndex: commandArgs.indexOf('--baseurl'),
-      });
-    }
-
-    const child = spawn(node, commandArgs as string[], {
+    const child = spawn(command, commandArgs, {
       cwd: this.testDir!,
       stdio: 'pipe',
       env: execOptions.env,
@@ -599,10 +575,7 @@ export class TestRig {
       child.stdin!.write(execOptions.input);
     }
 
-    if (
-      typeof promptOrOptions === 'object' &&
-      !promptOrOptions.stdinDoesNotEnd
-    ) {
+    if (!options.stdinDoesNotEnd) {
       child.stdin!.end();
     }
 
@@ -621,36 +594,7 @@ export class TestRig {
     });
 
     const promise = new Promise<string>((resolve, reject) => {
-      // Add timeout for Windows when stdin doesn't end
-      let timeoutId: NodeJS.Timeout | null = null;
-      if (
-        typeof promptOrOptions === 'object' &&
-        promptOrOptions.stdinDoesNotEnd &&
-        process.platform === 'win32'
-      ) {
-        // On Windows, force terminate after 2 seconds if process doesn't exit
-        timeoutId = setTimeout(() => {
-          child.kill('SIGTERM');
-          // If SIGTERM doesn't work on Windows, try SIGKILL
-          setTimeout(() => {
-            if (!child.killed) {
-              child.kill('SIGKILL');
-            }
-          }, 500);
-        }, 2000);
-      }
-
-      child.on('close', (code: number | null) => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-
-        // On Windows, when we forcefully kill a process, code might be null
-        // Treat this as exit code 1 for consistency with Unix behavior
-        if (process.platform === 'win32' && code === null) {
-          code = 1;
-        }
-
+      child.on('close', (code: number) => {
         if (code === 0) {
           // Store the raw stdout for Podman telemetry parsing
           this._lastRunStdout = stdout;
@@ -661,7 +605,7 @@ export class TestRig {
           if (env['LLXPRT_SANDBOX'] === 'podman') {
             // Remove telemetry JSON objects from output
             // They are multi-line JSON objects that start with { and contain telemetry fields
-            const lines = result.split(EOL);
+            const lines = result.split(os.EOL);
             const filteredLines = [];
             let inTelemetryObject = false;
             let braceDepth = 0;
@@ -692,23 +636,21 @@ export class TestRig {
 
             result = filteredLines.join('\n');
           }
-          // If we have stderr output, include that also
+
+          // Check if this is a JSON output test - if so, don't include stderr
+          // as it would corrupt the JSON
+          const isJsonOutput =
+            commandArgs.includes('--output-format') &&
+            commandArgs.includes('json');
+
+          // If we have stderr output and it's not a JSON test, include that also
           if (stderr && !isJsonOutput) {
             result += `\n\nStdErr:\n${stderr}`;
           }
 
           resolve(result);
         } else {
-          const trimmedStdout = stdout.trimEnd();
-          const trimmedStderr = stderr.trimEnd();
-          let message = `Process exited with code ${code}.`;
-          if (trimmedStdout) {
-            message += `\n\nStdOut:\n${trimmedStdout}`;
-          }
-          if (trimmedStderr) {
-            message += `\n\nStdErr:\n${trimmedStderr}`;
-          }
-          reject(new Error(message));
+          reject(new Error(`Process exited with code ${code}:\n${stderr}`));
         }
       });
     });
@@ -716,10 +658,6 @@ export class TestRig {
     return promise;
   }
 
-  /**
-   * Runs a CLI command (non-interactive) and returns the output.
-   * Used for extension commands like install, list, update, uninstall.
-   */
   runCommand(
     args: string[],
     options: { stdin?: string } = {},
@@ -760,17 +698,11 @@ export class TestRig {
           this._lastRunStdout = stdout;
           let result = stdout;
           if (stderr) {
-            result += `
-
-StdErr:
-${stderr}`;
+            result += `\n\nStdErr:\n${stderr}`;
           }
           resolve(result);
         } else {
-          reject(
-            new Error(`Process exited with code ${code}:
-${stderr}`),
-          );
+          reject(new Error(`Process exited with code ${code}:\n${stderr}`));
         }
       });
     });
@@ -790,6 +722,24 @@ ${stderr}`),
   }
 
   async cleanup() {
+    // Kill any interactive runs that are still active
+    for (const run of this._interactiveRuns) {
+      try {
+        await run.kill();
+      } catch (error) {
+        if (env['VERBOSE'] === 'true') {
+          console.warn('Failed to kill interactive run during cleanup:', error);
+        }
+      }
+    }
+    this._interactiveRuns = [];
+
+    if (
+      process.env['REGENERATE_MODEL_GOLDENS'] === 'true' &&
+      this.fakeResponsesPath
+    ) {
+      fs.copyFileSync(this.fakeResponsesPath, this.originalFakeResponsesPath!);
+    }
     // Clean up test directory
     if (this.testDir && !env['KEEP_OUTPUT']) {
       try {
@@ -816,7 +766,7 @@ ${stderr}`),
         try {
           const content = readFileSync(logFilePath, 'utf-8');
           // Check if file has meaningful content (at least one complete JSON object)
-          return content.includes('"event.name"');
+          return content.includes('"scopeMetrics"');
         } catch {
           return false;
         }
@@ -835,37 +785,12 @@ ${stderr}`),
 
     return poll(
       () => {
-        const logFilePath = join(this.testDir!, 'telemetry.log');
-
-        if (!logFilePath || !fs.existsSync(logFilePath)) {
-          return false;
-        }
-
-        const content = readFileSync(logFilePath, 'utf-8');
-        const jsonObjects = content
-          .split(/}\n{/)
-          .map((obj, index, array) => {
-            // Add back the braces we removed during split
-            if (index > 0) obj = '{' + obj;
-            if (index < array.length - 1) obj = obj + '}';
-            return obj.trim();
-          })
-          .filter((obj) => obj);
-
-        for (const jsonStr of jsonObjects) {
-          try {
-            const logData = JSON.parse(jsonStr);
-            if (
-              logData.attributes &&
-              logData.attributes['event.name'] === `llxprt_code.${eventName}`
-            ) {
-              return true;
-            }
-          } catch {
-            // ignore
-          }
-        }
-        return false;
+        const logs = this._readAndParseTelemetryLog();
+        return logs.some(
+          (logData) =>
+            logData.attributes &&
+            logData.attributes['event.name'] === `llxprt_code.${eventName}`,
+        );
       },
       timeout,
       100,
@@ -899,6 +824,41 @@ ${stderr}`),
     );
   }
 
+  async expectToolCallSuccess(
+    toolNames: string[],
+    timeout?: number,
+    matchArgs?: (args: string) => boolean,
+  ) {
+    // Use environment-specific timeout
+    if (!timeout) {
+      timeout = getDefaultTimeout();
+    }
+
+    // Wait for telemetry to be ready before polling for tool calls
+    await this.waitForTelemetryReady();
+
+    const success = await poll(
+      () => {
+        const toolLogs = this.readToolLogs();
+        return toolNames.some((name) =>
+          toolLogs.some(
+            (log) =>
+              log.toolRequest.name === name &&
+              log.toolRequest.success &&
+              (matchArgs?.call(this, log.toolRequest.args) ?? true),
+          ),
+        );
+      },
+      timeout,
+      100,
+    );
+
+    expect(
+      success,
+      `Expected to find successful toolCalls for ${JSON.stringify(toolNames)}`,
+    ).toBe(true);
+  }
+
   async waitForAnyToolCall(toolNames: string[], timeout?: number) {
     // Use environment-specific timeout
     if (!timeout) {
@@ -920,37 +880,6 @@ ${stderr}`),
     );
   }
 
-  async expectToolCallSuccess(
-    toolNames: string | string[],
-    timeout?: number,
-  ): Promise<void> {
-    if (!timeout) {
-      timeout = getDefaultTimeout();
-    }
-
-    const names = Array.isArray(toolNames) ? toolNames : [toolNames];
-
-    await this.waitForTelemetryReady();
-
-    const found = await poll(
-      () => {
-        const toolLogs = this.readToolLogs();
-        return toolLogs.some(
-          (log) =>
-            names.includes(log.toolRequest.name) &&
-            log.toolRequest.success === true,
-        );
-      },
-      timeout,
-      100,
-    );
-
-    expect(
-      found,
-      `Expected successful tool call for: ${names.join(', ')}`,
-    ).toBe(true);
-  }
-
   _parseToolLogsFromStdout(stdout: string) {
     const logs: {
       timestamp: number;
@@ -961,42 +890,6 @@ ${stderr}`),
         duration_ms: number;
       };
     }[] = [];
-
-    // First, try to parse the simple VERBOSE format: [TELEMETRY] logToolCall: <name>
-    // This is emitted when telemetry SDK is not initialized (common in E2E tests)
-    const simplePattern = /\[TELEMETRY\] logToolCall: ([\w_-]+)/g;
-    const simpleMatches = [...stdout.matchAll(simplePattern)];
-
-    for (const match of simpleMatches) {
-      const toolName = match[1];
-      const matchIndex = match.index || 0;
-
-      // Look for error message immediately following this tool call
-      // Pattern: "Error executing tool <name>: Error: <message>"
-      const afterMatch = stdout.substring(
-        matchIndex,
-        Math.min(stdout.length, matchIndex + 500),
-      );
-      const errorPattern = new RegExp(
-        `Error executing tool ${toolName}:.*Error:`,
-      );
-      const hasError = errorPattern.test(afterMatch);
-
-      logs.push({
-        timestamp: Date.now(),
-        toolRequest: {
-          name: toolName,
-          args: '{}',
-          success: !hasError,
-          duration_ms: 0,
-        },
-      });
-    }
-
-    // If we found logs with the simple pattern, return them
-    if (logs.length > 0) {
-      return logs;
-    }
 
     // The console output from Podman is JavaScript object notation, not JSON
     // Look for tool call events in the output
@@ -1042,7 +935,7 @@ ${stderr}`),
     // If no matches found with the simple pattern, try the JSON parsing approach
     // in case the format changes
     if (logs.length === 0) {
-      const lines = stdout.split(EOL);
+      const lines = stdout.split(os.EOL);
       let currentObject = '';
       let inObject = false;
       let braceDepth = 0;
@@ -1111,6 +1004,45 @@ ${stderr}`),
     return logs;
   }
 
+  private _readAndParseTelemetryLog(): ParsedLog[] {
+    // Telemetry is always written to the test directory
+    const logFilePath = join(this.testDir!, 'telemetry.log');
+
+    if (!logFilePath || !fs.existsSync(logFilePath)) {
+      return [];
+    }
+
+    const content = readFileSync(logFilePath, 'utf-8');
+
+    // Split the content into individual JSON objects
+    // They are separated by "}\n{"
+    const jsonObjects = content
+      .split(/}\n{/)
+      .map((obj, index, array) => {
+        // Add back the braces we removed during split
+        if (index > 0) obj = '{' + obj;
+        if (index < array.length - 1) obj = obj + '}';
+        return obj.trim();
+      })
+      .filter((obj) => obj);
+
+    const logs: ParsedLog[] = [];
+
+    for (const jsonStr of jsonObjects) {
+      try {
+        const logData = JSON.parse(jsonStr);
+        logs.push(logData);
+      } catch (e) {
+        // Skip objects that aren't valid JSON
+        if (env['VERBOSE'] === 'true') {
+          console.error('Failed to parse telemetry object:', e);
+        }
+      }
+    }
+
+    return logs;
+  }
+
   readToolLogs() {
     // For Podman, first check if telemetry file exists and has content
     // If not, fall back to parsing from stdout
@@ -1140,36 +1072,7 @@ ${stderr}`),
       }
     }
 
-    // Telemetry is always written to the test directory
-    const logFilePath = join(this.testDir!, 'telemetry.log');
-
-    if (!logFilePath) {
-      // Don't warn in CI/test environments, it's expected
-      if (process.env['VERBOSE'] === 'true') {
-        console.warn(`TELEMETRY_LOG_FILE environment variable not set`);
-      }
-      return [];
-    }
-
-    // Check if file exists, if not return empty array (file might not be created yet)
-    if (!fs.existsSync(logFilePath)) {
-      return [];
-    }
-
-    const content = readFileSync(logFilePath, 'utf-8');
-
-    // Split the content into individual JSON objects
-    // They are separated by "}\n{"
-    const jsonObjects = content
-      .split(/}\n{/)
-      .map((obj, index, array) => {
-        // Add back the braces we removed during split
-        if (index > 0) obj = '{' + obj;
-        if (index < array.length - 1) obj = obj + '}';
-        return obj.trim();
-      })
-      .filter((obj) => obj);
-
+    const parsedLogs = this._readAndParseTelemetryLog();
     const logs: {
       toolRequest: {
         name: string;
@@ -1179,139 +1082,110 @@ ${stderr}`),
       };
     }[] = [];
 
-    for (const jsonStr of jsonObjects) {
-      try {
-        const logData = JSON.parse(jsonStr);
-        // Look for tool call logs
-        if (
-          logData.attributes &&
-          logData.attributes['event.name'] === 'llxprt_code.tool_call'
-        ) {
-          const toolName = logData.attributes.function_name;
-          logs.push({
-            toolRequest: {
-              name: toolName,
-              args: logData.attributes.function_args,
-              success: logData.attributes.success,
-              duration_ms: logData.attributes.duration_ms,
-            },
-          });
-        }
-      } catch (e) {
-        // Skip objects that aren't valid JSON
-        if (env['VERBOSE'] === 'true') {
-          console.error('Failed to parse telemetry object:', e);
-        }
+    for (const logData of parsedLogs) {
+      // Look for tool call logs
+      if (
+        logData.attributes &&
+        logData.attributes['event.name'] === 'llxprt_code.tool_call'
+      ) {
+        const toolName = logData.attributes.function_name!;
+        logs.push({
+          toolRequest: {
+            name: toolName,
+            args: logData.attributes.function_args ?? '{}',
+            success: logData.attributes.success ?? false,
+            duration_ms: logData.attributes.duration_ms ?? 0,
+          },
+        });
       }
-    }
-
-    // If no logs found in telemetry file, try parsing from stdout/stderr
-    // This happens when the telemetry SDK is not initialized (common in E2E tests)
-    if (logs.length === 0 && this._lastRunStdout) {
-      return this._parseToolLogsFromStdout(this._lastRunStdout);
     }
 
     return logs;
   }
 
-  readLastApiRequest(): Record<string, unknown> | null {
-    // Telemetry is always written to the test directory
-    const logFilePath = join(this.testDir!, 'telemetry.log');
-
-    if (!logFilePath || !fs.existsSync(logFilePath)) {
-      return null;
-    }
-
-    const content = readFileSync(logFilePath, 'utf-8');
-    const jsonObjects = content
-      .split(/}\n{/)
-      .map((obj, index, array) => {
-        if (index > 0) obj = '{' + obj;
-        if (index < array.length - 1) obj = obj + '}';
-        return obj.trim();
-      })
-      .filter((obj) => obj);
-
-    let lastApiRequest = null;
-
-    for (const jsonStr of jsonObjects) {
-      try {
-        const logData = JSON.parse(jsonStr);
-        if (
-          logData.attributes &&
-          logData.attributes['event.name'] === 'llxprt_code.api_request'
-        ) {
-          lastApiRequest = logData;
-        }
-      } catch {
-        // ignore
-      }
-    }
-    return lastApiRequest;
-  }
-
-  private _getCommandAndArgs(extraInitialArgs: string[] = []): {
-    command: string;
-    initialArgs: string[];
-  } {
-    const command = 'node';
-    const initialArgs = [this.bundlePath, ...extraInitialArgs];
-    return { command, initialArgs };
-  }
-
-  async waitForText(text: string, timeout?: number) {
-    if (!timeout) {
-      timeout = getDefaultTimeout();
-    }
-    const found = await poll(
-      () =>
-        stripAnsi(this._interactiveOutput)
-          .toLowerCase()
-          .includes(text.toLowerCase()),
-      timeout,
-      200,
+  readAllApiRequest(): ParsedLog[] {
+    const logs = this._readAndParseTelemetryLog();
+    const apiRequests = logs.filter(
+      (logData) =>
+        logData.attributes &&
+        logData.attributes['event.name'] === 'llxprt_code.api_request',
     );
-    expect(found, `Did not find expected text: "${text}"`).toBe(true);
+    return apiRequests;
   }
 
-  async runInteractive(...args: string[]): Promise<InteractiveRun> {
-    const provider = env['LLXPRT_DEFAULT_PROVIDER'];
-    const model = env['LLXPRT_DEFAULT_MODEL'];
-    const baseUrl = env['OPENAI_BASE_URL'];
-    const apiKey = env['OPENAI_API_KEY'];
-    const keyFile =
-      env['OPENAI_API_KEYFILE'] ?? env['LLXPRT_TEST_PROFILE_KEYFILE'];
+  readLastApiRequest(): ParsedLog | null {
+    const logs = this._readAndParseTelemetryLog();
+    const apiRequests = logs.filter(
+      (logData) =>
+        logData.attributes &&
+        logData.attributes['event.name'] === 'llxprt_code.api_request',
+    );
+    return apiRequests.pop() || null;
+  }
 
-    const commandArgs = ['--yolo'];
+  async waitForMetric(metricName: string, timeout?: number) {
+    await this.waitForTelemetryReady();
 
-    // Keep parity with non-interactive runs when provider env is available.
-    // If env is missing (e.g., local Ctrl+C tests), preserve legacy behavior
-    // and rely on the CLI defaults instead of failing early.
-    if (provider && model) {
-      commandArgs.push('--provider', provider);
-      commandArgs.push('--model', model);
+    const fullName = metricName.startsWith('llxprt_code.')
+      ? metricName
+      : `llxprt_code.${metricName}`;
 
-      if (provider === 'openai' && baseUrl) {
-        commandArgs.push('--baseurl', baseUrl);
+    return poll(
+      () => {
+        const logs = this._readAndParseTelemetryLog();
+        for (const logData of logs) {
+          if (logData.scopeMetrics) {
+            for (const scopeMetric of logData.scopeMetrics) {
+              for (const metric of scopeMetric.metrics) {
+                if (metric.descriptor.name === fullName) {
+                  return true;
+                }
+              }
+            }
+          }
+        }
+        return false;
+      },
+      timeout ?? getDefaultTimeout(),
+      100,
+    );
+  }
+
+  readMetric(metricName: string): Record<string, unknown> | null {
+    const logs = this._readAndParseTelemetryLog();
+    for (const logData of logs) {
+      if (logData.scopeMetrics) {
+        for (const scopeMetric of logData.scopeMetrics) {
+          for (const metric of scopeMetric.metrics) {
+            if (metric.descriptor.name === `llxprt_code.${metricName}`) {
+              return metric;
+            }
+          }
+        }
       }
+    }
+    return null;
+  }
 
-      if (apiKey) {
-        commandArgs.push('--key', apiKey);
-      } else if (keyFile) {
-        commandArgs.push('--keyfile', keyFile);
+  async runInteractive(options?: {
+    args?: string | string[];
+    yolo?: boolean;
+  }): Promise<InteractiveRun> {
+    const yolo = options?.yolo !== false;
+    const { command, initialArgs } = this._getCommandAndArgs(
+      yolo ? ['--yolo'] : [],
+    );
+    const commandArgs = [...initialArgs];
+
+    if (options?.args) {
+      if (Array.isArray(options.args)) {
+        commandArgs.push(...options.args);
+      } else {
+        commandArgs.push(options.args);
       }
     }
 
-    if (env['LLXPRT_TEST_PROFILE']?.trim()) {
-      const profileName = env['LLXPRT_TEST_PROFILE'].trim();
-      commandArgs.push('--profile-load', profileName);
-    }
-
-    commandArgs.push(...args);
-
-    const { command, initialArgs } = this._getCommandAndArgs(commandArgs);
-    const isWindows = os.platform() === 'win32';
-
+    // Filter out TERM_PROGRAM to prevent IDE detection
     const filteredEnv = Object.entries(process.env).reduce(
       (acc, [key, value]) => {
         if (
@@ -1326,48 +1200,83 @@ ${stderr}`),
       {} as Record<string, string>,
     );
 
-    const options: pty.IPtyForkOptions = {
+    const ptyOptions: pty.IPtyForkOptions = {
       name: 'xterm-color',
       cols: 80,
-      rows: 30,
+      rows: 80,
       cwd: this.testDir!,
-      env: {
-        ...filteredEnv,
-        // Keep interactive tests deterministic:
-        // - Avoid auto-opening theme selection dialog
-        // - Avoid launching browsers during auth flows
-        NO_COLOR: 'true',
-        NO_BROWSER: 'true',
-        LLXPRT_NO_BROWSER_AUTH: 'true',
-        CI: 'true',
-        LLXPRT_DEFAULT_PROVIDER: provider,
-        LLXPRT_DEFAULT_MODEL: model,
-        OPENAI_API_KEY: apiKey,
-        OPENAI_API_KEYFILE: env['OPENAI_API_KEYFILE'],
-        LLXPRT_TEST_PROFILE_KEYFILE: env['LLXPRT_TEST_PROFILE_KEYFILE'],
-        OPENAI_BASE_URL: baseUrl,
-        LLXPRT_SANDBOX: 'false',
-      },
+      env: filteredEnv,
     };
 
-    if (isWindows) {
-      // node-pty on Windows requires a shell to be specified when using winpty.
-      options.shell = process.env.COMSPEC || 'cmd.exe';
-    }
-
-    const ptyProcess = pty.spawn(command, initialArgs, options);
+    const executable = command === 'node' ? process.execPath : command;
+    const ptyProcess = pty.spawn(executable, commandArgs, ptyOptions);
 
     const run = new InteractiveRun(ptyProcess);
-    // Wait for the app to be ready (input prompt rendered).
-    await run.expectAnyText(
-      [
-        'Type your message or @path/to/file',
-        'Type your message, @path/to/file or +path/to/file',
-        'Create LLXPRT.md files to customize your interactions',
-        'Create GEMINI.md files to customize your interactions',
-      ],
-      60000,
-    );
+    this._interactiveRuns.push(run);
+    // Wait for the app to be ready
+    await run.expectText('  Type your message or @path/to/file', 30000);
     return run;
+  }
+
+  readHookLogs() {
+    const parsedLogs = this._readAndParseTelemetryLog();
+    const logs: {
+      hookCall: {
+        hook_event_name: string;
+        hook_name: string;
+        hook_input: Record<string, unknown>;
+        hook_output: Record<string, unknown>;
+        exit_code: number;
+        stdout: string;
+        stderr: string;
+        duration_ms: number;
+        success: boolean;
+        error: string;
+      };
+    }[] = [];
+
+    for (const logData of parsedLogs) {
+      // Look for tool call logs
+      if (
+        logData.attributes &&
+        logData.attributes['event.name'] === 'llxprt_code.hook_call'
+      ) {
+        logs.push({
+          hookCall: {
+            hook_event_name: logData.attributes.hook_event_name ?? '',
+            hook_name: logData.attributes.hook_name ?? '',
+            hook_input: logData.attributes.hook_input ?? {},
+            hook_output: logData.attributes.hook_output ?? {},
+            exit_code: logData.attributes.exit_code ?? 0,
+            stdout: logData.attributes.stdout ?? '',
+            stderr: logData.attributes.stderr ?? '',
+            duration_ms: logData.attributes.duration_ms ?? 0,
+            success: logData.attributes.success ?? false,
+            error: logData.attributes.error ?? '',
+          },
+        });
+      }
+    }
+
+    return logs;
+  }
+
+  async pollCommand(
+    commandFn: () => Promise<void>,
+    predicateFn: () => boolean,
+    timeout: number = 30000,
+    interval: number = 1000,
+  ) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      await commandFn();
+      // Give it a moment to process
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (predicateFn()) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+    throw new Error(`pollCommand timed out after ${timeout}ms`);
   }
 }

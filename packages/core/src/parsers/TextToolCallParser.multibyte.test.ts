@@ -42,7 +42,7 @@ And after.`;
 
     expect(toolCalls.length).toBe(1);
     expect(toolCalls[0].name).toBe('run_shell_command');
-    const args = toolCalls[0].arguments as Record<string, unknown>;
+    const args = toolCalls[0].arguments;
     expect(args.command).toBe('printf "ありがとう 世界"');
 
     // Ensure original content around tool call remains and spacing preserved

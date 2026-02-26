@@ -22,7 +22,7 @@ export function resolveEnvVarsInString(value: string): string {
   return value.replace(envVarRegex, (match, varName1, varName2) => {
     const varName = varName1 || varName2;
     if (process && process.env && typeof process.env[varName] === 'string') {
-      return process.env[varName]!;
+      return process.env[varName];
     }
     return match;
   });

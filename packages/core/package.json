@@ -2,9 +2,10 @@
   "name": "@vybestack/llxprt-code-core",
   "version": "0.9.0",
   "description": "LLxprt Code Core",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/acoliver/llxprt-code.git"
+    "url": "git+https://github.com/vybestack/llxprt-code.git"
   },
   "type": "module",
   "main": "dist/index.js",

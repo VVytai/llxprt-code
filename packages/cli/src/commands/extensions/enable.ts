@@ -47,7 +47,7 @@ export const enableCommand: CommandModule = {
       })
       .option('scope', {
         describe:
-          'The scope to enable the extenison in. If not set, will be enabled in all scopes.',
+          'The scope to enable the extension in. If not set, will be enabled in all scopes.',
         type: 'string',
       })
       .check((argv) => {
@@ -55,7 +55,7 @@ export const enableCommand: CommandModule = {
           argv.scope &&
           !Object.values(SettingScope)
             .map((s) => s.toLowerCase())
-            .includes((argv.scope as string).toLowerCase())
+            .includes(argv.scope.toLowerCase())
         ) {
           throw new Error(
             `Invalid scope: ${argv.scope}. Please use one of ${Object.values(

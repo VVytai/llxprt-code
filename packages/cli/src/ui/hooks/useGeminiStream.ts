@@ -14,7 +14,6 @@ import {
   ServerGeminiErrorEvent as ErrorEvent,
   ServerGeminiChatCompressedEvent,
   ServerGeminiFinishedEvent,
-  ServerGeminiContextWindowWillOverflowEvent,
   getErrorMessage,
   isNodeError,
   MessageSenderType,
@@ -29,7 +28,6 @@ import {
   parseAndFormatApiError,
   getCodeAssistServer,
   UserTierId,
-  ServerGeminiCitationEvent,
   EmojiFilter,
   type EmojiFilterMode,
   DEFAULT_AGENT_ID,
@@ -664,7 +662,8 @@ export const useGeminiStream = (
 
           // User message already displayed in submitQuery before this function was called
 
-          if (!atCommandResult.shouldProceed) {
+          if (atCommandResult.error) {
+            onDebugMessage(atCommandResult.error);
             return { queryToSend: null, shouldProceed: false };
           }
           localQueryToSendToGemini = atCommandResult.processedQuery;
@@ -1148,17 +1147,12 @@ export const useGeminiStream = (
             break;
           case ServerGeminiEventType.ContextWindowWillOverflow:
             handleContextWindowWillOverflowEvent(
-              (event as ServerGeminiContextWindowWillOverflowEvent).value
-                .estimatedRequestTokenCount,
-              (event as ServerGeminiContextWindowWillOverflowEvent).value
-                .remainingTokenCount,
+              event.value.estimatedRequestTokenCount,
+              event.value.remainingTokenCount,
             );
             break;
           case ServerGeminiEventType.Finished:
-            handleFinishedEvent(
-              event as ServerGeminiFinishedEvent,
-              userMessageTimestamp,
-            );
+            handleFinishedEvent(event, userMessageTimestamp);
             break;
           case ServerGeminiEventType.LoopDetected:
             // handle later because we want to move pending history to history
@@ -1173,10 +1167,7 @@ export const useGeminiStream = (
             }
             break;
           case ServerGeminiEventType.Citation:
-            handleCitationEvent(
-              (event as ServerGeminiCitationEvent).value,
-              userMessageTimestamp,
-            );
+            handleCitationEvent(event.value, userMessageTimestamp);
             break;
           case ServerGeminiEventType.Retry:
           case ServerGeminiEventType.InvalidStream:
@@ -1295,7 +1286,7 @@ export const useGeminiStream = (
         query,
         userMessageTimestamp,
         abortSignal,
-        prompt_id!,
+        prompt_id,
       );
 
       if (!shouldProceed || queryToSend === null) {
@@ -1337,7 +1328,7 @@ export const useGeminiStream = (
         const stream = geminiClient.sendMessageStream(
           queryToSend,
           abortSignal,
-          prompt_id!,
+          prompt_id,
         );
         const processingStatus = await processGeminiStreamEvents(
           stream,

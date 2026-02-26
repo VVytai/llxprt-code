@@ -77,6 +77,7 @@ describe('<ModelStatsDisplay />', () => {
         'gemini-2.5-pro': {
           api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
           tokens: {
+            input: 10,
             prompt: 10,
             candidates: 20,
             total: 30,
@@ -97,7 +98,7 @@ describe('<ModelStatsDisplay />', () => {
     });
 
     const output = lastFrame();
-    expect(output).not.toContain('Cached');
+    expect(output).not.toContain('Cache Reads');
     expect(output).not.toContain('Thoughts');
     expect(output).not.toContain('Tool');
     expect(output).toMatchSnapshot();
@@ -109,6 +110,7 @@ describe('<ModelStatsDisplay />', () => {
         'gemini-2.5-pro': {
           api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
           tokens: {
+            input: 5,
             prompt: 10,
             candidates: 20,
             total: 30,
@@ -120,6 +122,7 @@ describe('<ModelStatsDisplay />', () => {
         'gemini-2.5-flash': {
           api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 50 },
           tokens: {
+            input: 5,
             prompt: 5,
             candidates: 10,
             total: 15,
@@ -152,6 +155,7 @@ describe('<ModelStatsDisplay />', () => {
         'gemini-2.5-pro': {
           api: { totalRequests: 10, totalErrors: 1, totalLatencyMs: 1000 },
           tokens: {
+            input: 50,
             prompt: 100,
             candidates: 200,
             total: 300,
@@ -163,6 +167,7 @@ describe('<ModelStatsDisplay />', () => {
         'gemini-2.5-flash': {
           api: { totalRequests: 20, totalErrors: 2, totalLatencyMs: 500 },
           tokens: {
+            input: 100,
             prompt: 200,
             candidates: 400,
             total: 600,
@@ -198,6 +203,7 @@ describe('<ModelStatsDisplay />', () => {
             totalLatencyMs: 9876,
           },
           tokens: {
+            input: 987654321 - 123456789,
             prompt: 987654321,
             candidates: 123456789,
             total: 999999999,
@@ -226,6 +232,7 @@ describe('<ModelStatsDisplay />', () => {
         'gemini-2.5-pro': {
           api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
           tokens: {
+            input: 5,
             prompt: 10,
             candidates: 20,
             total: 30,
@@ -342,6 +349,105 @@ describe('<ModelStatsDisplay />', () => {
       expect(output).toContain('5'); // Requests count
       expect(output).toContain('100'); // Prompt tokens
       expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('token calculation and labels', () => {
+    it('should display uncached tokens only in Input row', () => {
+      const { lastFrame } = renderWithMockedStats({
+        models: {
+          'gemini-2.5-pro': {
+            api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
+            tokens: {
+              prompt: 1000,
+              candidates: 500,
+              total: 1500,
+              cached: 300,
+              thoughts: 0,
+              tool: 0,
+            },
+          },
+        },
+        tools: {
+          totalCalls: 0,
+          totalSuccess: 0,
+          totalFail: 0,
+          totalDurationMs: 0,
+          totalDecisions: { accept: 0, reject: 0, modify: 0 },
+          byName: {},
+        },
+      });
+
+      const output = lastFrame();
+      // Input should show prompt - cached = 1000 - 300 = 700
+      expect(output).toContain('Input');
+      expect(output).toContain('700');
+      expect(output).toContain('Cache Reads');
+      expect(output).toContain('300');
+    });
+
+    it('should not show negative input tokens when cached exceeds prompt', () => {
+      const { lastFrame } = renderWithMockedStats({
+        models: {
+          'gemini-2.5-pro': {
+            api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
+            tokens: {
+              prompt: 100,
+              candidates: 200,
+              total: 300,
+              cached: 150, // More cached than prompt (edge case)
+              thoughts: 0,
+              tool: 0,
+            },
+          },
+        },
+        tools: {
+          totalCalls: 0,
+          totalSuccess: 0,
+          totalFail: 0,
+          totalDurationMs: 0,
+          totalDecisions: { accept: 0, reject: 0, modify: 0 },
+          byName: {},
+        },
+      });
+
+      const output = lastFrame();
+      // Should display Math.max(0, 100-150) = 0
+      expect(output).toContain('Input');
+      // The output should contain "0" somewhere in the Input row context
+      expect(output).toMatchSnapshot();
+    });
+
+    it('should use "Input" and "Cache Reads" labels instead of "Prompt" and "Cached"', () => {
+      const { lastFrame } = renderWithMockedStats({
+        models: {
+          'gemini-2.5-pro': {
+            api: { totalRequests: 1, totalErrors: 0, totalLatencyMs: 100 },
+            tokens: {
+              prompt: 100,
+              candidates: 200,
+              total: 350,
+              cached: 50,
+              thoughts: 0,
+              tool: 0,
+            },
+          },
+        },
+        tools: {
+          totalCalls: 0,
+          totalSuccess: 0,
+          totalFail: 0,
+          totalDurationMs: 0,
+          totalDecisions: { accept: 0, reject: 0, modify: 0 },
+          byName: {},
+        },
+      });
+
+      const output = lastFrame();
+      expect(output).toContain('Input');
+      expect(output).toContain('Cache Reads');
+      expect(output).not.toContain('Prompt');
+      expect(output).not.toContain('Cached');
     });
   });
 });

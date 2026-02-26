@@ -82,10 +82,7 @@ export async function checkForUpdates(
       );
       const fetchResult = notifier.fetchInfo();
       const fetchPromise = Promise.resolve(fetchResult);
-      return Promise.race([
-        fetchPromise,
-        timeout,
-      ]) as Promise<UpdateInfo | null>;
+      return Promise.race([fetchPromise, timeout]);
     };
 
     if (isNightly) {

@@ -141,8 +141,7 @@ const buildMockScheduler = (
           const shouldConfirm =
             await call.invocation.shouldConfirmExecute(_signal);
           if (shouldConfirm) {
-            const confirmationDetails =
-              shouldConfirm as ToolCallConfirmationDetails;
+            const confirmationDetails = shouldConfirm;
             const waitingCall: WaitingToolCall = {
               status: 'awaiting_approval',
               request: call.request,
@@ -294,6 +293,7 @@ const mockConfig = {
   getSessionId: () => 'test-session-id',
   getUsageStatisticsEnabled: () => true,
   getDebugMode: () => false,
+  isInteractive: () => true,
   getAllowedTools: vi.fn(() => []),
   getContentGeneratorConfig: () => ({
     model: 'test-model',
@@ -308,12 +308,12 @@ const mockConfig = {
       if (existing) {
         existing.setCallbacks({
           ...callbacks,
-          config: mockConfig as Config,
+          config: mockConfig,
         });
         return Promise.resolve(existing);
       }
 
-      const scheduler = buildMockScheduler(mockConfig as Config, callbacks);
+      const scheduler = buildMockScheduler(mockConfig, callbacks);
       createdSchedulers.set(sessionId, scheduler);
       return Promise.resolve(scheduler);
     },

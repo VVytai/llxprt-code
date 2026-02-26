@@ -8,6 +8,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { escapePath, unescapePath } from '@vybestack/llxprt-code-core';
 
 const execAsync = promisify(exec);
 
@@ -153,4 +154,84 @@ export async function cleanupOldClipboardImages(
   } catch {
     // Ignore errors in cleanup
   }
+}
+
+/**
+ * Splits text into individual path segments, respecting escaped spaces.
+ * Unescaped spaces act as separators between paths, while "\ " is preserved
+ * as part of a filename.
+ *
+ * Example: "/img1.png /path/my\ image.png" → ["/img1.png", "/path/my\ image.png"]
+ *
+ * @param text The text to split
+ * @returns Array of path segments (still escaped)
+ */
+export function splitEscapedPaths(text: string): string[] {
+  const paths: string[] = [];
+  let current = '';
+  let i = 0;
+
+  while (i < text.length) {
+    const char = text[i];
+
+    if (char === '\\' && i + 1 < text.length && text[i + 1] === ' ') {
+      current += '\\ ';
+      i += 2;
+    } else if (char === ' ') {
+      if (current.trim()) {
+        paths.push(current.trim());
+      }
+      current = '';
+      i++;
+    } else {
+      current += char;
+      i++;
+    }
+  }
+
+  if (current.trim()) {
+    paths.push(current.trim());
+  }
+
+  return paths;
+}
+
+/** Matches strings that start with a path prefix (/, ~, ., Windows drive letter, or UNC path) */
+const PATH_PREFIX_PATTERN = /^([/~.]|[a-zA-Z]:|\\)/;
+
+/**
+ * Processes pasted text containing file paths, adding @ prefix to valid paths.
+ * Handles both single and multiple space-separated paths.
+ *
+ * @param text The pasted text (potentially space-separated paths)
+ * @param isValidPath Function to validate if a path exists/is valid
+ * @returns Processed string with @ prefixes on valid paths, or null if no valid paths
+ */
+export function parsePastedPaths(
+  text: string,
+  isValidPath: (path: string) => boolean,
+): string | null {
+  if (PATH_PREFIX_PATTERN.test(text) && isValidPath(text)) {
+    return `@${escapePath(text)} `;
+  }
+
+  const segments = splitEscapedPaths(text);
+  if (segments.length === 0) {
+    return null;
+  }
+
+  let anyValidPath = false;
+  const processedPaths = segments.map((segment) => {
+    if (!PATH_PREFIX_PATTERN.test(segment)) {
+      return segment;
+    }
+    const unescaped = unescapePath(segment);
+    if (isValidPath(unescaped)) {
+      anyValidPath = true;
+      return `@${segment}`;
+    }
+    return segment;
+  });
+
+  return anyValidPath ? processedPaths.join(' ') + ' ' : null;
 }

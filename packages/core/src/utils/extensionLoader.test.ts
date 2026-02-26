@@ -40,6 +40,7 @@ describe('SimpleExtensionLoader', () => {
       getMcpClientManager: () => mockMcpClientManager,
       getEnableExtensionReloading: () => extensionReloadingEnabled,
       refreshMemory: vi.fn(),
+      getHookSystem: () => undefined,
     } as unknown as Config;
   });
 
@@ -114,5 +115,84 @@ describe('SimpleExtensionLoader', () => {
         expect(actualStopCalls).toEqual(expectedStopCallArguments);
       },
     );
+  });
+
+  describe('Hook system integration (126c32ac)', () => {
+    it('should call hookSystem.initialize() after extension changes', async () => {
+      const mockHookSystemInit = vi.fn();
+      const mockRefreshMemory = vi.fn();
+
+      const mockConfigWithHooks = {
+        getMcpClientManager: () => ({
+          startExtension: vi.fn(),
+        }),
+        getEnableExtensionReloading: () => true,
+        refreshMemory: mockRefreshMemory,
+        getHookSystem: () => ({
+          initialize: mockHookSystemInit,
+        }),
+      } as unknown as Config;
+
+      const extensionWithHooks = {
+        name: 'test-ext',
+        isActive: true,
+        version: '1.0.0',
+        path: '/ext',
+        contextFiles: [],
+        id: 'ext-123',
+      };
+
+      extensionReloadingEnabled = true;
+      const loader = new SimpleExtensionLoader([]);
+      await loader.start(mockConfigWithHooks);
+
+      mockRefreshMemory.mockClear();
+      mockHookSystemInit.mockClear();
+
+      // Load extension — triggers refresh
+      await loader.loadExtension(extensionWithHooks);
+
+      expect(mockRefreshMemory).toHaveBeenCalledOnce();
+      expect(mockHookSystemInit).toHaveBeenCalledOnce();
+    });
+
+    it('should call hookSystem.initialize() after unload', async () => {
+      const mockHookSystemInit = vi.fn();
+      const mockRefreshMemory = vi.fn();
+
+      const mockConfigWithHooks = {
+        getMcpClientManager: () => ({
+          startExtension: vi.fn(),
+          stopExtension: vi.fn(),
+        }),
+        getEnableExtensionReloading: () => true,
+        refreshMemory: mockRefreshMemory,
+        getHookSystem: () => ({
+          initialize: mockHookSystemInit,
+        }),
+      } as unknown as Config;
+
+      const extensionWithHooks = {
+        name: 'test-ext',
+        isActive: true,
+        version: '1.0.0',
+        path: '/ext',
+        contextFiles: [],
+        id: 'ext-123',
+      };
+
+      extensionReloadingEnabled = true;
+      const loader = new SimpleExtensionLoader([extensionWithHooks]);
+      await loader.start(mockConfigWithHooks);
+
+      mockRefreshMemory.mockClear();
+      mockHookSystemInit.mockClear();
+
+      // Unload extension — triggers refresh
+      await loader.unloadExtension(extensionWithHooks);
+
+      expect(mockRefreshMemory).toHaveBeenCalledOnce();
+      expect(mockHookSystemInit).toHaveBeenCalledOnce();
+    });
   });
 });

@@ -183,7 +183,7 @@ export function useReactToolScheduler(
             return call;
           }
           updated = true;
-          const executingCall = call as TrackedExecutingToolCall;
+          const executingCall = call;
           return { ...executingCall, liveOutput: outputChunk };
         });
         return updated ? nextCalls : prevCalls;
@@ -383,7 +383,7 @@ export function useReactToolScheduler(
     }
 
     configWithFactory.setInteractiveSubagentSchedulerFactory(
-      createExternalScheduler as ExternalSchedulerFactory,
+      createExternalScheduler,
     );
 
     return () => {
@@ -576,7 +576,7 @@ export function mapToDisplay(
             confirmationDetails: trackedCall.confirmationDetails,
           };
         case 'executing': {
-          const executingCall = trackedCall as TrackedExecutingToolCall;
+          const executingCall = trackedCall;
           return {
             ...baseDisplayProperties,
             status: mapCoreStatusToDisplayStatus(trackedCall.status),

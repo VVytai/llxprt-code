@@ -13,15 +13,12 @@
 export * from './types.js';
 
 // Export core components
-export {
-  HookRegistry,
-  HookRegistryNotInitializedError,
-} from './hookRegistry.js';
+export { HookRegistry } from './hookRegistry.js';
 export { HookPlanner } from './hookPlanner.js';
 
 // Export HookSystem and HookEventHandler
 // @requirement:HOOK-175 - Export HookSystem and HookEventHandler from index.ts
-export { HookSystem, type HookSystemStatus } from './hookSystem.js';
+export { HookSystem } from './hookSystem.js';
 export { HookEventHandler } from './hookEventHandler.js';
 export { HookSystemNotInitializedError } from './errors.js';
 

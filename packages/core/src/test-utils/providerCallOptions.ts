@@ -123,7 +123,7 @@ function ensureConfig(
   return createRuntimeConfigStub(settings, {
     ...defaultOverrides,
     ...(overrides ?? {}),
-  }) as Config;
+  });
 }
 
 function ensureRuntime(

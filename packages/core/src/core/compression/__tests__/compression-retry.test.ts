@@ -36,7 +36,6 @@ import {
 import { HistoryService } from '../../../services/history/HistoryService.js';
 import * as providerRuntime from '../../../runtime/providerRuntimeContext.js';
 import type { ProviderRuntimeContext } from '../../../runtime/providerRuntimeContext.js';
-import type { Config } from '../../../config/config.js';
 
 // Mock the delay utility so retryWithBackoff doesn't actually wait in tests
 vi.mock('../../../utils/delay.js', () => ({
@@ -393,7 +392,7 @@ function makeGeminiChat(
     provider: createProviderAdapterFromManager(
       runtimeSetup.config.getProviderManager?.(),
     ),
-    telemetry: createTelemetryAdapterFromConfig(runtimeSetup.config as Config),
+    telemetry: createTelemetryAdapterFromConfig(runtimeSetup.config),
     tools: createToolRegistryViewFromRegistry(
       runtimeSetup.config.getToolRegistry?.(),
     ),

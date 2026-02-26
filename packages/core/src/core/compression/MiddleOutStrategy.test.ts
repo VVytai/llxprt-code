@@ -306,7 +306,7 @@ describe('MiddleOutStrategy', () => {
       // no tool response should appear as the first message after the summary
       const topMessages = result.newHistory.slice(
         0,
-        result.metadata.topPreserved!,
+        result.metadata.topPreserved,
       );
       const bottomMessages = result.newHistory.slice(
         result.newHistory.length - result.metadata.bottomPreserved!,

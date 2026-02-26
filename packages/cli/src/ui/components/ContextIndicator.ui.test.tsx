@@ -5,7 +5,7 @@
  */
 
 import { render } from 'ink-testing-library';
-import { describe, it, expect, vi, beforeEach, MockedFunction } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Footer } from './Footer.js';
 import { getProviderManager } from '../../providers/providerManagerInstance.js';
 import { ProviderManager, IProvider } from '@vybestack/llxprt-code-core';
@@ -33,9 +33,7 @@ describe('ContextIndicator UI', () => {
       name: 'openai',
     } as unknown as IProvider);
 
-    (
-      vi.mocked(getProviderManager) as MockedFunction<typeof getProviderManager>
-    ).mockReturnValue(mockProviderManager);
+    vi.mocked(getProviderManager).mockReturnValue(mockProviderManager);
   });
 
   it('should display context percentage without remote tokens', () => {

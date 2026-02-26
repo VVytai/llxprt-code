@@ -9,6 +9,7 @@ import type {
   ToolCall,
   WaitingToolCall,
   CompletedToolCall,
+  ErroredToolCall,
 } from './coreToolScheduler.js';
 import {
   CoreToolScheduler,
@@ -29,6 +30,7 @@ import {
   ApprovalMode,
   ToolRegistry,
 } from '../index.js';
+import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { MockTool } from '../test-utils/mock-tool.js';
 import { MockModifiableTool } from '../test-utils/tools.js';
 import { Part, PartListUnion, type Content } from '@google/genai';
@@ -178,6 +180,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -188,6 +191,7 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -246,6 +250,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -255,6 +260,7 @@ describe('CoreToolScheduler', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -320,6 +326,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -329,6 +336,7 @@ describe('CoreToolScheduler', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -394,7 +402,7 @@ describe('CoreToolScheduler', () => {
       .fn()
       .mockReturnValue(PolicyDecision.ASK_USER);
     let busHandler: ((message: ToolConfirmationResponse) => void) | undefined;
-    (mockMessageBus.subscribe as Mock).mockImplementation(
+    mockMessageBus.subscribe.mockImplementation(
       (type: MessageBusType, handler: unknown) => {
         if (type === MessageBusType.TOOL_CONFIRMATION_RESPONSE) {
           busHandler = handler as (message: ToolConfirmationResponse) => void;
@@ -406,6 +414,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => true,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -415,6 +424,7 @@ describe('CoreToolScheduler', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -512,7 +522,7 @@ describe('CoreToolScheduler', () => {
       .mockReturnValue(PolicyDecision.ASK_USER);
 
     let busHandler: ((message: ToolConfirmationResponse) => void) | undefined;
-    (mockMessageBus.subscribe as Mock).mockImplementation(
+    mockMessageBus.subscribe.mockImplementation(
       (type: MessageBusType, handler: unknown) => {
         if (type === MessageBusType.TOOL_CONFIRMATION_RESPONSE) {
           busHandler = handler as (message: ToolConfirmationResponse) => void;
@@ -525,6 +535,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -549,6 +560,7 @@ describe('CoreToolScheduler', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -600,7 +612,7 @@ describe('CoreToolScheduler', () => {
 
     expect(executeFn).toHaveBeenCalledWith({ command: 'npm install' });
 
-    const messageBusResponses = (mockMessageBus.publish as Mock).mock.calls
+    const messageBusResponses = mockMessageBus.publish.mock.calls
       .map((call) => call[0])
       .filter(
         (message) => message.type === MessageBusType.TOOL_CONFIRMATION_RESPONSE,
@@ -643,6 +655,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -665,6 +678,7 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -694,6 +708,328 @@ describe('CoreToolScheduler', () => {
       (call[0] as ToolCall[]).map((toolCall) => toolCall.status),
     );
     expect(statuses).not.toContain('error');
+  });
+
+  it('should error when tool requires confirmation in non-interactive mode', async () => {
+    // ARRANGE
+    const mockTool = new MockTool({ name: 'confirmTool' });
+    mockTool.shouldConfirm = true; // Tool requires confirmation
+
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // NON-INTERACTIVE MODE
+      getApprovalMode: () => ApprovalMode.DEFAULT,
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => [],
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    const request = {
+      callId: 'non-interactive-confirm',
+      name: 'confirmTool',
+      args: {},
+      isClientInitiated: false,
+      prompt_id: 'prompt-1',
+    };
+
+    // ACT
+    await scheduler.schedule([request], new AbortController().signal);
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
+    expect(completedCalls).toHaveLength(1);
+    expect(completedCalls[0].status).toBe('error');
+
+    const erroredCall = completedCalls[0] as ErroredToolCall;
+    const errorResponse = erroredCall.response;
+    const errorParts = errorResponse.responseParts;
+    const errorMessage = errorParts[0].functionResponse.response.error;
+    expect(errorMessage).toContain(
+      'Tool execution for "confirmTool" requires user confirmation, which is not supported in non-interactive mode.',
+    );
+  });
+
+  it('should not error in non-interactive mode with YOLO approval', async () => {
+    // ARRANGE
+    const mockTool = new MockTool({ name: 'yoloTool' });
+    mockTool.shouldConfirm = true;
+
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // Non-interactive
+      getApprovalMode: () => ApprovalMode.YOLO, // But YOLO mode
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => [],
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // ACT
+    await scheduler.schedule(
+      [
+        {
+          callId: 'yolo-1',
+          name: 'yoloTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+      ],
+      new AbortController().signal,
+    );
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
+    expect(completedCalls[0].status).toBe('success'); // Not error
+  });
+
+  it('should not error in non-interactive mode for allowed tools', async () => {
+    // ARRANGE
+    const mockTool = new MockTool({ name: 'allowedTool' });
+    mockTool.shouldConfirm = true;
+
+    const mockToolRegistry = {
+      getTool: () => mockTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map(),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: () => mockTool,
+      getToolByDisplayName: () => mockTool,
+      getTools: () => [],
+      discoverTools: async () => {},
+      getAllTools: () => [],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // Non-interactive
+      getApprovalMode: () => ApprovalMode.DEFAULT,
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => ['allowedTool'], // Tool is in allowed list
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // ACT
+    await scheduler.schedule(
+      [
+        {
+          callId: 'allowed-1',
+          name: 'allowedTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+      ],
+      new AbortController().signal,
+    );
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
+    expect(completedCalls[0].status).toBe('success'); // Not error
+  });
+
+  it('should handle mixed batch: safe tool executes, dangerous tool errors in non-interactive', async () => {
+    // ARRANGE
+    const safeTool = new MockTool({ name: 'safeTool' });
+    safeTool.shouldConfirm = false; // No confirmation needed
+
+    const dangerousTool = new MockTool({ name: 'dangerousTool' });
+    dangerousTool.shouldConfirm = true; // Requires confirmation
+
+    const mockToolRegistry = {
+      getTool: (name: string) =>
+        name === 'safeTool' ? safeTool : dangerousTool,
+      getFunctionDeclarations: () => [],
+      tools: new Map([
+        ['safeTool', safeTool],
+        ['dangerousTool', dangerousTool],
+      ]),
+      discovery: {},
+      registerTool: () => {},
+      getToolByName: (name: string) =>
+        name === 'safeTool' ? safeTool : dangerousTool,
+      getToolByDisplayName: (name: string) =>
+        name === 'safeTool' ? safeTool : dangerousTool,
+      getTools: () => [safeTool, dangerousTool],
+      discoverTools: async () => {},
+      getAllTools: () => [safeTool, dangerousTool],
+      getToolsByServer: () => [],
+    } as unknown as ToolRegistry;
+
+    const onAllToolCallsComplete = vi.fn();
+    const onToolCallsUpdate = vi.fn();
+
+    const mockPolicyEngine = createMockPolicyEngine();
+    mockPolicyEngine.evaluate = vi
+      .fn()
+      .mockReturnValue(PolicyDecision.ASK_USER);
+
+    const mockConfig = {
+      getSessionId: () => 'test-session-id',
+      getUsageStatisticsEnabled: () => true,
+      getDebugMode: () => false,
+      isInteractive: () => false, // Non-interactive
+      getApprovalMode: () => ApprovalMode.DEFAULT,
+      getEphemeralSettings: () => ({}),
+      getAllowedTools: () => [],
+      getContentGeneratorConfig: () => ({ model: 'test-model' }),
+      getToolRegistry: () => mockToolRegistry,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
+      getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
+    } as unknown as Config;
+
+    const scheduler = new CoreToolScheduler({
+      config: mockConfig,
+      onAllToolCallsComplete,
+      onToolCallsUpdate,
+      getPreferredEditor: () => 'vscode',
+    });
+
+    // ACT - Schedule both tools in a batch
+    await scheduler.schedule(
+      [
+        {
+          callId: 'safe-call',
+          name: 'safeTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+        {
+          callId: 'dangerous-call',
+          name: 'dangerousTool',
+          args: {},
+          isClientInitiated: false,
+          prompt_id: 'prompt-1',
+        },
+      ],
+      new AbortController().signal,
+    );
+
+    // ASSERT
+    expect(onAllToolCallsComplete).toHaveBeenCalled();
+    const completedCalls = onAllToolCallsComplete.mock
+      .calls[0][0] as ToolCall[];
+    expect(completedCalls).toHaveLength(2);
+
+    const safeCall = completedCalls.find(
+      (c) => c.request.callId === 'safe-call',
+    );
+    const dangerousCall = completedCalls.find(
+      (c) => c.request.callId === 'dangerous-call',
+    );
+
+    expect(safeCall?.status).toBe('success');
+    expect(dangerousCall?.status).toBe('error');
+
+    const erroredCall = dangerousCall as ErroredToolCall;
+    const errorParts = erroredCall.response.responseParts;
+    const errorMessage = errorParts[0].functionResponse.response.error;
+    expect(errorMessage).toContain('requires user confirmation');
+    expect(errorMessage).toContain('non-interactive mode');
   });
 
   it('propagates agentId from request to completed call payloads', async () => {
@@ -728,6 +1064,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => [],
       getToolRegistry: () => toolRegistry,
@@ -737,6 +1074,7 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -797,6 +1135,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => [],
       getToolRegistry: () => toolRegistry,
@@ -806,6 +1145,7 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(createMockPolicyEngine()),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -871,6 +1211,7 @@ describe('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => [],
       getToolRegistry: () => toolRegistry,
@@ -880,6 +1221,7 @@ describe('CoreToolScheduler', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -923,6 +1265,7 @@ describe('CoreToolScheduler', () => {
         getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
         getEnableHooks: () => false,
         getPolicyEngine: vi.fn().mockReturnValue(createMockPolicyEngine()),
+        getModel: () => DEFAULT_GEMINI_MODEL,
       } as unknown as Config;
 
       // Create scheduler
@@ -982,6 +1325,7 @@ describe('CoreToolScheduler with payload', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -992,6 +1336,7 @@ describe('CoreToolScheduler with payload', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1022,7 +1367,7 @@ describe('CoreToolScheduler with payload', () => {
 
     expect(confirmationDetails).toBeDefined();
     const payload: ToolConfirmationPayload = { newContent: 'final version' };
-    await confirmationDetails!.onConfirm(
+    await confirmationDetails.onConfirm(
       ToolConfirmationOutcome.ProceedOnce,
       payload,
     );
@@ -1091,6 +1436,7 @@ describe('CoreToolScheduler with payload', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -1100,6 +1446,7 @@ describe('CoreToolScheduler with payload', () => {
       getToolRegistry: () => toolRegistry,
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
       getShellExecutionConfig: () => ({
         terminalWidth: 80,
         terminalHeight: 24,
@@ -1115,6 +1462,7 @@ describe('CoreToolScheduler with payload', () => {
       getUseSmartEdit: () => false,
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1223,7 +1571,7 @@ describe('convertToFunctionResponse', () => {
           name: toolName,
           id: callId,
           response: {
-            output: 'Binary content of type image/png was processed.',
+            output: 'Binary content provided (1 item(s)).',
           },
         },
       },
@@ -1242,7 +1590,7 @@ describe('convertToFunctionResponse', () => {
           name: toolName,
           id: callId,
           response: {
-            output: 'Binary content of type application/pdf was processed.',
+            output: 'Binary content provided (1 item(s)).',
           },
         },
       },
@@ -1257,18 +1605,15 @@ describe('convertToFunctionResponse', () => {
       { text: 'Another text part' },
     ];
     const result = convertToFunctionResponse(toolName, callId, llmContent);
-    // When array contains mixed parts, it creates a generic function response and includes all parts
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: { output: 'Some textual description\nAnother text part' },
         },
       },
-      { text: 'Some textual description' },
       { inlineData: { mimeType: 'image/jpeg', data: 'base64data...' } },
-      { text: 'Another text part' },
     ]);
   });
 
@@ -1283,7 +1628,7 @@ describe('convertToFunctionResponse', () => {
           name: toolName,
           id: callId,
           response: {
-            output: 'Binary content of type image/gif was processed.',
+            output: 'Binary content provided (1 item(s)).',
           },
         },
       },
@@ -1299,7 +1644,7 @@ describe('convertToFunctionResponse', () => {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: {},
         },
       },
     ]);
@@ -1322,13 +1667,12 @@ describe('convertToFunctionResponse', () => {
   it('should handle llmContent as an empty array', () => {
     const llmContent: PartListUnion = [];
     const result = convertToFunctionResponse(toolName, callId, llmContent);
-    // Empty array is treated as array, so returns generic function response
     expect(result).toEqual([
       {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: {},
         },
       },
     ]);
@@ -1342,7 +1686,7 @@ describe('convertToFunctionResponse', () => {
         functionResponse: {
           name: toolName,
           id: callId,
-          response: { output: 'Tool execution succeeded.' },
+          response: {},
         },
       },
     ]);
@@ -1356,7 +1700,15 @@ describe('convertToFunctionResponse', () => {
       },
     };
     const result = convertToFunctionResponse(toolName, callId, llmContent);
-    expect(result).toEqual([llmContent]);
+    expect(result).toEqual([
+      {
+        functionResponse: {
+          id: callId,
+          name: toolName,
+          response: { output: 'Tool completed successfully' },
+        },
+      },
+    ]);
   });
 
   it('should override id when llmContent contains functionResponse with different id', () => {
@@ -1368,7 +1720,15 @@ describe('convertToFunctionResponse', () => {
       },
     };
     const result = convertToFunctionResponse(toolName, callId, llmContent);
-    expect(result).toEqual([llmContent]);
+    expect(result).toEqual([
+      {
+        functionResponse: {
+          id: callId,
+          name: toolName,
+          response: { output: 'Tool completed successfully' },
+        },
+      },
+    ]);
   });
 
   it('should trim string outputs using tool-output limits when config is provided', () => {
@@ -1378,6 +1738,7 @@ describe('convertToFunctionResponse', () => {
         'tool-output-max-tokens': 50,
         'tool-output-truncate-mode': 'truncate',
       }),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const result = convertToFunctionResponse(
@@ -1473,6 +1834,7 @@ describe('CoreToolScheduler edit cancellation', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -1483,6 +1845,7 @@ describe('CoreToolScheduler edit cancellation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1801,6 +2164,7 @@ describe('CoreToolScheduler YOLO mode', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1896,6 +2260,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
         model: 'test-model',
       }),
       getToolRegistry: () => mockToolRegistry,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2012,12 +2377,14 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT, // Not YOLO mode
       getAllowedTools: () => ['mockTool'], // Auto-approve this tool
       getToolRegistry: () => toolRegistry,
       getContentGeneratorConfig: () => ({
         model: 'test-model',
       }),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2122,6 +2489,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getAllowedTools: () => ['run_shell_command(git)'],
       getContentGeneratorConfig: () => ({
@@ -2145,6 +2513,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       getGeminiClient: () => null,
       getMessageBus: () => null,
       getPolicyEngine: () => null,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2204,6 +2573,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
         model: 'test-model',
       }),
       getToolRegistry: () => mockToolRegistry,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2268,6 +2638,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
       setApprovalMode: (mode: ApprovalMode) => {
         approvalMode = mode;
       },
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const testTool = new TestApprovalTool(mockConfig);
@@ -2307,7 +2678,7 @@ describe.skip('CoreToolScheduler request queueing', () => {
         // Capture confirmation handlers for awaiting_approval tools
         toolCalls.forEach((call) => {
           if (call.status === 'awaiting_approval') {
-            const waitingCall = call as WaitingToolCall;
+            const waitingCall = call;
             if (waitingCall.confirmationDetails?.onConfirm) {
               const originalHandler = pendingConfirmations.find(
                 (h) => h === waitingCall.confirmationDetails.onConfirm,
@@ -2446,6 +2817,7 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2566,6 +2938,7 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2689,6 +3062,7 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2822,6 +3196,7 @@ describe('CoreToolScheduler Buffered Parallel Execution', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -2907,6 +3282,7 @@ it('injects agentId into ContextAwareTool context', async () => {
     getSessionId: () => 'session-123',
     getUsageStatisticsEnabled: () => true,
     getDebugMode: () => false,
+    isInteractive: () => true,
     getApprovalMode: () => ApprovalMode.DEFAULT,
     getAllowedTools: () => [],
     getToolRegistry: () => toolRegistry,
@@ -2916,6 +3292,7 @@ it('injects agentId into ContextAwareTool context', async () => {
     getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
     getEnableHooks: () => false,
     getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+    getModel: () => DEFAULT_GEMINI_MODEL,
   } as unknown as Config;
 
   const scheduler = new CoreToolScheduler({
@@ -2986,6 +3363,7 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3094,6 +3472,7 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
       getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3187,6 +3566,7 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
@@ -3196,6 +3576,7 @@ describe('CoreToolScheduler cancellation prevents continuation', () => {
       getToolRegistry: () => mockToolRegistry,
       getMessageBus: () => mockMessageBus,
       getPolicyEngine: () => mockPolicyEngine,
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -3296,7 +3677,6 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
     const onAllToolCallsComplete = vi.fn();
     const onToolCallsUpdate = vi.fn();
 
-    const mockMessageBus = createMockMessageBus();
     const mockPolicyEngine = createMockPolicyEngine();
     mockPolicyEngine.evaluate = vi
       .fn()
@@ -3306,16 +3686,18 @@ describe('CoreToolScheduler cancelled tool responseParts', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      isInteractive: () => true,
       getApprovalMode: () => ApprovalMode.DEFAULT,
       getEphemeralSettings: () => ({}),
       getAllowedTools: () => [],
       getContentGeneratorConfig: () => ({
         model: 'test-model',
-        authType: 'oauth-personal',
       }),
       getToolRegistry: () => mockToolRegistry,
-      getMessageBus: () => mockMessageBus,
+      getMessageBus: vi.fn().mockReturnValue(createMockMessageBus()),
+      getEnableHooks: () => false,
       getPolicyEngine: vi.fn().mockReturnValue(mockPolicyEngine),
+      getModel: () => DEFAULT_GEMINI_MODEL,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({

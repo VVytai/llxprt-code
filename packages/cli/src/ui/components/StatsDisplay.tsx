@@ -2,31 +2,25 @@
  * @license
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
- * @plan PLAN-20250909-TOKTRACK.P06
- * @plan PLAN-20250909-TOKTRACK.P16
- * @requirement REQ-INT-001.2
  */
 
-import React from 'react';
+import type React from 'react';
 import { Box, Text } from 'ink';
+import { ThemedGradient } from './ThemedGradient.js';
 import { theme } from '../semantic-colors.js';
-import { Colors } from '../colors.js';
 import { formatDuration } from '../utils/formatters.js';
-import {
-  formatTokensPerMinute,
-  formatThrottleTime,
-} from '../utils/tokenFormatters.js';
-import { useSessionStats, ModelMetrics } from '../contexts/SessionContext.js';
+import type { ModelMetrics } from '../contexts/SessionContext.js';
+import { useSessionStats } from '../contexts/SessionContext.js';
 import {
   getStatusColor,
   TOOL_SUCCESS_RATE_HIGH,
   TOOL_SUCCESS_RATE_MEDIUM,
   USER_AGREEMENT_RATE_HIGH,
   USER_AGREEMENT_RATE_MEDIUM,
+  CACHE_EFFICIENCY_HIGH,
+  CACHE_EFFICIENCY_MEDIUM,
 } from '../utils/displayUtils.js';
 import { computeSessionStats } from '../utils/computeStats.js';
-import { useRuntimeApi } from '../contexts/RuntimeContext.js';
-import { ThemedGradient } from './ThemedGradient.js';
 
 // A more flexible and powerful StatRow component
 interface StatRowProps {
@@ -40,8 +34,7 @@ const StatRow: React.FC<StatRowProps> = ({ title, children }) => (
     <Box width={28}>
       <Text color={theme.text.link}>{title}</Text>
     </Box>
-    {/* FIX: Wrap children in a Box that can grow to fill remaining space */}
-    <Box flexGrow={1}>{children}</Box>
+    {children}
   </Box>
 );
 
@@ -57,8 +50,7 @@ const SubStatRow: React.FC<SubStatRowProps> = ({ title, children }) => (
     <Box width={26}>
       <Text color={theme.text.secondary}>» {title}</Text>
     </Box>
-    {/* FIX: Apply the same flexGrow fix here */}
-    <Box flexGrow={1}>{children}</Box>
+    {children}
   </Box>
 );
 
@@ -69,89 +61,178 @@ interface SectionProps {
 }
 
 const Section: React.FC<SectionProps> = ({ title, children }) => (
-  <Box flexDirection="column" width="100%" marginBottom={1}>
-    <Text bold color={theme.text.accent}>
+  <Box flexDirection="column" marginBottom={1}>
+    <Text bold color={theme.text.primary}>
       {title}
     </Text>
     {children}
   </Box>
 );
 
+// Logic for building the unified list of table rows
+const buildModelRows = (models: Record<string, ModelMetrics>) => {
+  const getBaseModelName = (name: string) => name.replace('-001', '');
+
+  // Models with active usage
+  const activeRows = Object.entries(models).map(
+    ([name, metrics]: [string, ModelMetrics]) => {
+      const modelName = getBaseModelName(name);
+      const cachedTokens = metrics.tokens.cached;
+      const promptTokens = metrics.tokens.prompt;
+      // Use input if available, otherwise compute from prompt - cached
+      const inputTokens = metrics.tokens.input ?? promptTokens - cachedTokens;
+      return {
+        key: name,
+        modelName,
+        requests: metrics.api.totalRequests,
+        cachedTokens: cachedTokens.toLocaleString(),
+        inputTokens: inputTokens.toLocaleString(),
+        outputTokens: metrics.tokens.candidates.toLocaleString(),
+      };
+    },
+  );
+
+  return activeRows;
+};
+
 const ModelUsageTable: React.FC<{
   models: Record<string, ModelMetrics>;
-  totalCachedTokens: number;
   cacheEfficiency: number;
-}> = ({ models, totalCachedTokens, cacheEfficiency }) => {
+  totalCachedTokens: number;
+}> = ({ models, cacheEfficiency, totalCachedTokens }) => {
+  const rows = buildModelRows(models);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
   const nameWidth = 25;
-  const requestsWidth = 8;
-  const inputTokensWidth = 15;
+  const requestsWidth = 7;
+  const uncachedWidth = 15;
+  const cachedWidth = 14;
   const outputTokensWidth = 15;
-  const tableWidth =
-    nameWidth + requestsWidth + inputTokensWidth + outputTokensWidth;
+
+  const cacheEfficiencyColor = getStatusColor(cacheEfficiency, {
+    green: CACHE_EFFICIENCY_HIGH,
+    yellow: CACHE_EFFICIENCY_MEDIUM,
+  });
+
+  const totalWidth =
+    nameWidth + requestsWidth + uncachedWidth + cachedWidth + outputTokensWidth;
 
   return (
     <Box flexDirection="column" marginTop={1}>
       {/* Header */}
-      <Box>
+      <Box alignItems="flex-end">
         <Box width={nameWidth}>
-          <Text bold color={theme.text.accent}>
+          <Text bold color={theme.text.primary} wrap="truncate-end">
             Model Usage
           </Text>
         </Box>
-        <Box width={requestsWidth} justifyContent="flex-end">
-          <Text bold color={theme.text.accent}>
+        <Box
+          width={requestsWidth}
+          flexDirection="column"
+          alignItems="flex-end"
+          flexShrink={0}
+        >
+          <Text bold color={theme.text.primary}>
             Reqs
           </Text>
         </Box>
-        <Box width={inputTokensWidth} justifyContent="flex-end">
-          <Text bold color={theme.text.accent}>
+        <Box
+          width={uncachedWidth}
+          flexDirection="column"
+          alignItems="flex-end"
+          flexShrink={0}
+        >
+          <Text bold color={theme.text.primary}>
             Input Tokens
           </Text>
         </Box>
-        <Box width={outputTokensWidth} justifyContent="flex-end">
-          <Text bold color={theme.text.accent}>
+        <Box
+          width={cachedWidth}
+          flexDirection="column"
+          alignItems="flex-end"
+          flexShrink={0}
+        >
+          <Text bold color={theme.text.primary}>
+            Cache Reads
+          </Text>
+        </Box>
+        <Box
+          width={outputTokensWidth}
+          flexDirection="column"
+          alignItems="flex-end"
+          flexShrink={0}
+        >
+          <Text bold color={theme.text.primary}>
             Output Tokens
           </Text>
         </Box>
       </Box>
-      {/* Divider */}
-      <Box width={tableWidth}>
-        <Text color={theme.text.secondary}>{'─'.repeat(tableWidth)}</Text>
-      </Box>
 
-      {/* Rows */}
-      {Object.entries(models).map(([name, modelMetrics]) => (
-        <Box key={name}>
+      {/* Divider */}
+      <Box
+        borderStyle="round"
+        borderBottom={true}
+        borderTop={false}
+        borderLeft={false}
+        borderRight={false}
+        borderColor={theme.border.default}
+        width={totalWidth}
+      ></Box>
+
+      {rows.map((row) => (
+        <Box key={row.key}>
           <Box width={nameWidth}>
-            <Text color={theme.text.primary}>{name.replace('-001', '')}</Text>
-          </Box>
-          <Box width={requestsWidth} justifyContent="flex-end">
-            <Text color={theme.text.primary}>
-              {modelMetrics.api.totalRequests}
+            <Text color={theme.text.primary} wrap="truncate-end">
+              {row.modelName}
             </Text>
           </Box>
-          <Box width={inputTokensWidth} justifyContent="flex-end">
-            <Text color={theme.status.warning}>
-              {modelMetrics.tokens.prompt.toLocaleString()}
-            </Text>
+          <Box
+            width={requestsWidth}
+            flexDirection="column"
+            alignItems="flex-end"
+            flexShrink={0}
+          >
+            <Text color={theme.text.primary}>{row.requests}</Text>
           </Box>
-          <Box width={outputTokensWidth} justifyContent="flex-end">
-            <Text color={theme.status.warning}>
-              {modelMetrics.tokens.candidates.toLocaleString()}
-            </Text>
+          <Box
+            width={uncachedWidth}
+            flexDirection="column"
+            alignItems="flex-end"
+            flexShrink={0}
+          >
+            <Text color={theme.text.primary}>{row.inputTokens}</Text>
+          </Box>
+          <Box
+            width={cachedWidth}
+            flexDirection="column"
+            alignItems="flex-end"
+            flexShrink={0}
+          >
+            <Text color={theme.text.secondary}>{row.cachedTokens}</Text>
+          </Box>
+          <Box
+            width={outputTokensWidth}
+            flexDirection="column"
+            alignItems="flex-end"
+            flexShrink={0}
+          >
+            <Text color={theme.text.primary}>{row.outputTokens}</Text>
           </Box>
         </Box>
       ))}
+
       {cacheEfficiency > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color={Colors.Foreground}>
+          <Text color={theme.text.primary}>
             <Text color={theme.status.success}>Savings Highlight:</Text>{' '}
-            {totalCachedTokens.toLocaleString()} ({cacheEfficiency.toFixed(1)}
-            %) of input tokens were served from the cache, reducing costs.
-          </Text>
-          <Box height={1} />
-          <Text color={theme.text.secondary}>
-            » Tip: For a full token breakdown, run `/stats model`.
+            {totalCachedTokens.toLocaleString()} (
+            <Text color={cacheEfficiencyColor}>
+              {cacheEfficiency.toFixed(1)}%
+            </Text>
+            ) of input tokens were served from the cache, reducing costs.
           </Text>
         </Box>
       )}
@@ -170,20 +251,10 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
   title,
   quotaLines,
 }) => {
-  const runtime = useRuntimeApi();
   const { stats } = useSessionStats();
   const { metrics } = stats;
   const { models, tools, files } = metrics;
   const computed = computeSessionStats(metrics);
-
-  // Get token tracking metrics from provider manager
-  const providerMetrics = runtime.getActiveProviderMetrics() ?? {
-    tokensPerMinute: 0,
-    throttleWaitTimeMs: 0,
-    totalTokens: 0,
-    totalRequests: 0,
-  };
-  const sessionUsage = runtime.getSessionTokenUsage();
 
   const successThresholds = {
     green: TOOL_SUCCESS_RATE_HIGH,
@@ -201,17 +272,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
 
   const renderTitle = () => {
     if (title) {
-      return theme.ui.gradient && theme.ui.gradient.length > 0 ? (
-        <ThemedGradient colors={theme.ui.gradient}>
-          <Text bold color={Colors.Foreground}>
-            {title}
-          </Text>
-        </ThemedGradient>
-      ) : (
-        <Text bold color={theme.text.accent}>
-          {title}
-        </Text>
-      );
+      return <ThemedGradient>{title}</ThemedGradient>;
     }
     return (
       <Text bold color={theme.text.accent}>
@@ -227,36 +288,28 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
       flexDirection="column"
       paddingY={1}
       paddingX={2}
+      overflow="hidden"
     >
       {renderTitle()}
       <Box height={1} />
 
-      {(tools.totalCalls > 0 ||
-        computed.totalDecisions > 0 ||
-        (files &&
-          (files.totalLinesAdded > 0 || files.totalLinesRemoved > 0))) && (
+      {tools.totalCalls > 0 && (
         <Section title="Interaction Summary">
           <StatRow title="Session ID:">
             <Text color={theme.text.primary}>{stats.sessionId}</Text>
           </StatRow>
-          {tools.totalCalls > 0 && (
-            <>
-              <StatRow title="Tool Calls:">
-                <Text color={theme.text.primary}>
-                  {tools.totalCalls} ({' '}
-                  <Text color={theme.status.success}>
-                    ✓ {tools.totalSuccess}
-                  </Text>{' '}
-                  <Text color={theme.status.error}>x {tools.totalFail}</Text> )
-                </Text>
-              </StatRow>
-              <StatRow title="Success Rate:">
-                <Text color={successColor}>
-                  {computed.successRate.toFixed(1)}%
-                </Text>
-              </StatRow>
-            </>
-          )}
+          <StatRow title="Tool Calls:">
+            <Text color={theme.text.primary}>
+              {tools.totalCalls} ({' '}
+              <Text color={theme.status.success}>
+                [OK] {tools.totalSuccess}
+              </Text>{' '}
+              <Text color={theme.status.error}>x {tools.totalFail}</Text> )
+            </Text>
+          </StatRow>
+          <StatRow title="Success Rate:">
+            <Text color={successColor}>{computed.successRate.toFixed(1)}%</Text>
+          </StatRow>
           {computed.totalDecisions > 0 && (
             <StatRow title="User Agreement:">
               <Text color={agreementColor}>
@@ -270,7 +323,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           {files &&
             (files.totalLinesAdded > 0 || files.totalLinesRemoved > 0) && (
               <StatRow title="Code Changes:">
-                <Text color={Colors.Foreground}>
+                <Text color={theme.text.primary}>
                   <Text color={theme.status.success}>
                     +{files.totalLinesAdded}
                   </Text>{' '}
@@ -309,48 +362,23 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           </Text>
         </SubStatRow>
       </Section>
-
-      {/* Token Tracking Section */}
-      <Section title="Token Tracking">
-        <StatRow title="Tokens Per Minute:">
-          <Text color={theme.text.primary}>
-            {formatTokensPerMinute(providerMetrics.tokensPerMinute || 0)}
-          </Text>
-        </StatRow>
-        <StatRow title="Throttle Wait Time:">
-          <Text color={theme.text.primary}>
-            {formatThrottleTime(providerMetrics.throttleWaitTimeMs || 0)}
-          </Text>
-        </StatRow>
-        <SubStatRow title="Session Token Usage:">
-          <Text color={theme.text.primary}>
-            {`Session Tokens - Input: ${sessionUsage.input.toLocaleString()}, Output: ${sessionUsage.output.toLocaleString()}, Cache: ${sessionUsage.cache.toLocaleString()}, Tool: ${sessionUsage.tool.toLocaleString()}, Thought: ${sessionUsage.thought.toLocaleString()}, Total: ${sessionUsage.total.toLocaleString()}`}
-          </Text>
-        </SubStatRow>
-      </Section>
-
-      {Object.keys(models).length > 0 && (
-        <ModelUsageTable
-          models={models}
-          totalCachedTokens={computed.totalCachedTokens}
-          cacheEfficiency={computed.cacheEfficiency}
-        />
-      )}
-
-      {/* Quota Information Section */}
+      <ModelUsageTable
+        models={models}
+        cacheEfficiency={computed.cacheEfficiency}
+        totalCachedTokens={computed.totalCachedTokens}
+      />
       {quotaLines && quotaLines.length > 0 && (
-        <Section title="Quota Information">
+        <Box flexDirection="column" marginTop={1}>
+          <Text bold color={theme.text.primary}>
+            Quota Information
+          </Text>
           {quotaLines.map((line, index) => (
-            <Text key={index} color={theme.text.primary}>
+            <Text key={index} color={theme.text.secondary}>
               {line}
             </Text>
           ))}
-        </Section>
+        </Box>
       )}
     </Box>
   );
 };
-
-/**
- * @plan PLAN-20250909-TOKTRACK.P05
- */

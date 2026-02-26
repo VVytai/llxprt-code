@@ -29,9 +29,6 @@ import { type IModel } from '../IModel.js';
 import {
   type IContent,
   type TextBlock,
-  type ThinkingBlock,
-  type ToolCallBlock,
-  type ToolResponseBlock,
 } from '../../services/history/IContent.js';
 import {
   limitOutputTokens,
@@ -423,10 +420,7 @@ export class OpenAIResponsesProvider extends BaseProvider {
   override getModelParams(): Record<string, unknown> | undefined {
     try {
       const providerSettings =
-        this.resolveSettingsService().getProviderSettings(this.name) as Record<
-          string,
-          unknown
-        >;
+        this.resolveSettingsService().getProviderSettings(this.name);
 
       const {
         temperature,
@@ -578,15 +572,9 @@ export class OpenAIResponsesProvider extends BaseProvider {
           input.push({ role: 'user', content: text });
         }
       } else if (c.speaker === 'ai') {
-        const textBlocks = c.blocks.filter(
-          (b) => b.type === 'text',
-        ) as TextBlock[];
-        const toolCallBlocks = c.blocks.filter(
-          (b) => b.type === 'tool_call',
-        ) as ToolCallBlock[];
-        const thinkingBlocks = c.blocks.filter(
-          (b) => b.type === 'thinking',
-        ) as ThinkingBlock[];
+        const textBlocks = c.blocks.filter((b) => b.type === 'text');
+        const toolCallBlocks = c.blocks.filter((b) => b.type === 'tool_call');
+        const thinkingBlocks = c.blocks.filter((b) => b.type === 'thinking');
 
         const contentText = textBlocks.map((b) => b.text).join('');
 
@@ -629,7 +617,7 @@ export class OpenAIResponsesProvider extends BaseProvider {
         // Convert tool responses to function_call_output format (Responses API)
         const toolResponseBlocks = c.blocks.filter(
           (b) => b.type === 'tool_response',
-        ) as ToolResponseBlock[];
+        );
 
         // Normalize tool IDs to OpenAI format (call_XXX) - fixes issue #825
         for (const toolResponseBlock of toolResponseBlocks) {
@@ -668,8 +656,7 @@ export class OpenAIResponsesProvider extends BaseProvider {
               msg.blocks.some(
                 (b) =>
                   b.type === 'tool_call' &&
-                  normalizeToOpenAIToolId((b as ToolCallBlock).id) ===
-                    outputCallId,
+                  normalizeToOpenAIToolId(b.id) === outputCallId,
               ),
           );
 

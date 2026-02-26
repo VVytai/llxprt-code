@@ -62,7 +62,7 @@ function createOptionsWithRuntime(
   config?: Config,
 ) {
   const settings = settingsService ?? getSettingsService();
-  const runtimeConfig = config ?? (createRuntimeConfigStub(settings) as Config);
+  const runtimeConfig = config ?? createRuntimeConfigStub(settings);
   const runtime = createProviderRuntimeContext({
     runtimeId: `base-provider.${Math.random().toString(36).slice(2, 10)}`,
     settingsService: settings,
@@ -90,7 +90,7 @@ class TestProvider extends BaseProvider {
     super(
       config,
       undefined,
-      runtimeConfig ?? (createRuntimeConfigStub(settingsService) as Config),
+      runtimeConfig ?? createRuntimeConfigStub(settingsService),
       settingsService,
     );
   }
@@ -146,7 +146,7 @@ class NonOAuthTestProvider extends BaseProvider {
     super(
       config,
       undefined,
-      runtimeConfig ?? (createRuntimeConfigStub(settingsService) as Config),
+      runtimeConfig ?? createRuntimeConfigStub(settingsService),
       settingsService,
     );
   }
@@ -444,7 +444,7 @@ describe('BaseProvider', () => {
 
       const provider = new TestProvider(config);
       const settings = getSettingsService();
-      const runtimeConfig = createRuntimeConfigStub(settings) as Config;
+      const runtimeConfig = createRuntimeConfigStub(settings);
       const runtime = createProviderRuntimeContext({
         runtimeId: 'oauth-cache',
         settingsService: settings,

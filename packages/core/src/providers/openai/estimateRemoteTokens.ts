@@ -1,8 +1,4 @@
-import {
-  type IContent,
-  type TextBlock,
-  type ToolResponseBlock,
-} from '../../services/history/IContent.js';
+import { type IContent } from '../../services/history/IContent.js';
 import { ConversationCache } from './ConversationCache.js';
 
 // Model context size configuration
@@ -91,14 +87,14 @@ export function estimateMessagesTokens(messages: IContent[]): number {
     // Add content from blocks
     for (const block of message.blocks) {
       if (block.type === 'text') {
-        const textBlock = block as TextBlock;
+        const textBlock = block;
         totalChars += textBlock.text.length;
       } else if (block.type === 'tool_call') {
         // Add tool call overhead
         totalChars += JSON.stringify(block).length;
       } else if (block.type === 'tool_response') {
         // Add tool response overhead
-        const toolResponseBlock = block as ToolResponseBlock;
+        const toolResponseBlock = block;
         if (typeof toolResponseBlock.result === 'string') {
           totalChars += toolResponseBlock.result.length;
         } else {

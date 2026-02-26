@@ -91,10 +91,11 @@ export function createTestConfigWithHook(options: TestHookOptions): Config {
     getExtensions: () => [],
     getDisabledHooks: () => [],
     getModel: () => 'test-model',
+    getSessionRecordingService: () => undefined,
     getHookSystem: () => {
       // Lazy initialization of HookSystem singleton
       if (!hookSystem) {
-        hookSystem = new HookSystem(config as Config);
+        hookSystem = new HookSystem(config);
       }
       return hookSystem;
     },
@@ -118,6 +119,7 @@ export function createTestConfigWithHooksDisabled(): Config {
     getExtensions: () => [],
     getDisabledHooks: () => [],
     getModel: () => 'test-model',
+    getSessionRecordingService: () => undefined,
     getHookSystem: () => undefined,
   } as unknown as Config;
 }

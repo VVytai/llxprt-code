@@ -210,9 +210,7 @@ describe('Profile with auth field', () => {
       ephemeralSettings: {},
     };
 
-    // Cast to StandardProfile to access auth
-    const standardProfile = profile as StandardProfile;
-    expect(standardProfile.auth).toBeUndefined();
+    expect(profile.auth).toBeUndefined();
   });
 
   it('should handle profile with auth field but undefined buckets', () => {
@@ -309,7 +307,7 @@ describe('Backward compatibility', () => {
 
     expect(legacyProfile.version).toBe(1);
     expect(legacyProfile.provider).toBe('anthropic');
-    expect((legacyProfile as StandardProfile).auth).toBeUndefined();
+    expect(legacyProfile.auth).toBeUndefined();
   });
 
   it('should allow profiles with explicit standard type but no auth', () => {

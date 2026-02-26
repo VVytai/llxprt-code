@@ -266,7 +266,7 @@ async function wireAuthBeforeSwitch(
   }
 
   if (!authKeyApplied && sanitizedProfile.ephemeralSettings?.['auth-key']) {
-    const authKey = sanitizedProfile.ephemeralSettings['auth-key'] as string;
+    const authKey = sanitizedProfile.ephemeralSettings['auth-key'];
     setEphemeralSetting('auth-key', authKey);
     setProviderApiKey(authKey);
     logger.debug(
@@ -276,7 +276,7 @@ async function wireAuthBeforeSwitch(
   }
 
   if (sanitizedProfile.ephemeralSettings?.['base-url']) {
-    const baseUrl = sanitizedProfile.ephemeralSettings['base-url'] as string;
+    const baseUrl = sanitizedProfile.ephemeralSettings['base-url'];
     setEphemeralSetting('base-url', baseUrl);
     setProviderBaseUrl(baseUrl);
     logger.debug(
@@ -458,12 +458,8 @@ export async function applyProfileWithGuards(
 
       // Extract full config from loaded sub-profile
       // Resolve authToken from either auth-key or auth-keyfile
-      let authToken = subProfile.ephemeralSettings?.['auth-key'] as
-        | string
-        | undefined;
-      const authKeyfile = subProfile.ephemeralSettings?.['auth-keyfile'] as
-        | string
-        | undefined;
+      let authToken = subProfile.ephemeralSettings?.['auth-key'];
+      const authKeyfile = subProfile.ephemeralSettings?.['auth-keyfile'];
 
       // If auth-key not provided but auth-keyfile is, read the key from file
       if (!authToken && authKeyfile) {
@@ -488,9 +484,7 @@ export async function applyProfileWithGuards(
         name: profileName,
         providerName: subProfile.provider,
         model: subProfile.model,
-        baseURL: subProfile.ephemeralSettings?.['base-url'] as
-          | string
-          | undefined,
+        baseURL: subProfile.ephemeralSettings?.['base-url'],
         authToken,
         authKeyfile,
         ephemeralSettings: (subProfile.ephemeralSettings ?? {}) as Record<

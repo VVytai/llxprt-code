@@ -11,7 +11,6 @@ import {
 } from '../../../runtime/providerRuntimeContext.js';
 import { createRuntimeInvocationContext } from '../../../runtime/RuntimeInvocationContext.js';
 import { createRuntimeConfigStub } from '../../../test-utils/runtime.js';
-import type { Config } from '../../../config/config.js';
 import type { IContent } from '../../../services/history/IContent.js';
 import type { IProviderConfig } from '../../types/IProviderConfig.js';
 import { GeminiProvider } from '../GeminiProvider.js';
@@ -132,11 +131,11 @@ class TestGeminiProvider extends GeminiProvider {
     config: unknown,
     baseURL?: string,
   ) {
-    return (await createCodeAssistContentGenerator(
+    return await createCodeAssistContentGenerator(
       httpOptions,
       config as never,
       baseURL,
-    )) as Awaited<ReturnType<typeof createCodeAssistContentGenerator>>;
+    );
   }
 }
 
@@ -245,7 +244,7 @@ describe('Gemini provider stateless contract tests', () => {
     settings.set('call-id', 'runtime-stream');
     const config = createRuntimeConfigStub(settings, {
       getEphemeralSettings: () => ({ streaming: 'disabled' }),
-    }) as Config;
+    });
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-stream',
@@ -300,7 +299,7 @@ describe('Gemini provider stateless contract tests', () => {
         temperature: 0.21,
         'max-output-tokens': 1024,
       }),
-    }) as Config;
+    });
     const runtimePrimary = createProviderRuntimeContext({
       runtimeId: 'runtime-config',
       settingsService: settingsPrimary,
@@ -351,7 +350,7 @@ describe('Gemini provider stateless contract tests', () => {
         temperature: 0.78,
         'max-output-tokens': 256,
       }),
-    }) as Config;
+    });
     const runtimeOverride = createProviderRuntimeContext({
       runtimeId: 'runtime-config',
       settingsService: settingsOverride,
@@ -411,7 +410,7 @@ describe('Gemini provider stateless contract tests', () => {
     const provider = new TestGeminiProvider();
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-tools');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-tools',
@@ -501,10 +500,10 @@ describe('Gemini provider stateless contract tests', () => {
     const provider = new TestGeminiProvider();
     const settingsA = new SettingsService();
     settingsA.set('call-id', 'runtime-oauth-a');
-    const configA = createRuntimeConfigStub(settingsA) as Config;
+    const configA = createRuntimeConfigStub(settingsA);
     const settingsB = new SettingsService();
     settingsB.set('call-id', 'runtime-oauth-b');
-    const configB = createRuntimeConfigStub(settingsB) as Config;
+    const configB = createRuntimeConfigStub(settingsB);
     provider.setConfig(configA);
     const runtimeA = createProviderRuntimeContext({
       runtimeId: 'runtime-oauth-a',
@@ -586,7 +585,7 @@ describe('Gemini provider stateless contract tests', () => {
     );
     const settings = new SettingsService();
     settings.set('call-id', 'runtime-oauth-base-url');
-    const config = createRuntimeConfigStub(settings) as Config;
+    const config = createRuntimeConfigStub(settings);
     provider.setConfig(config);
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-oauth-base-url',
@@ -621,7 +620,7 @@ describe('Gemini provider stateless contract tests', () => {
     });
     const config = createRuntimeConfigStub(settings, {
       getEphemeralSettings: getEphemerals,
-    }) as Config;
+    });
     const runtime = createProviderRuntimeContext({
       runtimeId: 'runtime-invocation',
       settingsService: settings,

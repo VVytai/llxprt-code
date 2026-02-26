@@ -634,7 +634,7 @@ export function createBootstrapResult(
     typeof inputOrBootstrapArgs === 'object' &&
     'profileName' in inputOrBootstrapArgs
   ) {
-    const bootstrapArgs = inputOrBootstrapArgs as BootstrapProfileArgs;
+    const bootstrapArgs = inputOrBootstrapArgs;
 
     // Apply profile from profileJson if present
     if (bootstrapArgs.profileJson !== null) {

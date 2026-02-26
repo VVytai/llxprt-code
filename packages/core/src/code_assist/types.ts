@@ -183,3 +183,19 @@ export interface CodeAssistGlobalUserSettingResponse {
   cloudaicompanionProject?: string;
   freeTierDataCollectionOptin: boolean;
 }
+
+export interface BucketInfo {
+  remainingAmount?: string;
+  remainingFraction?: number;
+  resetTime?: string;
+  tokenType?: string;
+  modelId?: string;
+}
+
+export interface RetrieveUserQuotaRequest {
+  project: string;
+}
+
+export interface RetrieveUserQuotaResponse {
+  buckets?: BucketInfo[];
+}

@@ -264,6 +264,7 @@ class GoogleWebFetchToolInvocation extends BaseToolInvocation<
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
+        await this.publishPolicyUpdate(outcome);
       },
     };
     return confirmationDetails;

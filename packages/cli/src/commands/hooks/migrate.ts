@@ -90,12 +90,12 @@ async function migrateHooks(options: MigrateOptions): Promise<void> {
 
     for (const definition of definitions as unknown as HookDefinition[]) {
       // Check if this definition already exists in project hooks
-      const exists = mergedHooks[typedEventName]!.some(
+      const exists = mergedHooks[typedEventName].some(
         (existing) => JSON.stringify(existing) === JSON.stringify(definition),
       );
 
       if (!exists) {
-        mergedHooks[typedEventName]!.push(definition);
+        mergedHooks[typedEventName].push(definition);
         changesMade = true;
       }
     }

@@ -222,7 +222,7 @@ export class ExtensionEnablementManager {
     }
 
     // Handle string path - existing disk-based logic
-    const scopePath = scopeOrPath as string;
+    const scopePath = scopeOrPath;
     const config = this.readConfig();
     if (!config[extensionName]) {
       config[extensionName] = { overrides: [] };
@@ -255,7 +255,7 @@ export class ExtensionEnablementManager {
     }
 
     // Handle string path - existing disk-based logic
-    const scopePath = scopeOrPath as string;
+    const scopePath = scopeOrPath;
     this.enable(extensionName, includeSubdirs, `!${scopePath}`);
   }
 

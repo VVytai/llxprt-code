@@ -7,6 +7,7 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
+import toml from '@iarna/toml';
 import { Storage } from '../config/storage.js';
 import {
   type PolicyEngineConfig,
@@ -17,7 +18,11 @@ import {
 } from './types.js';
 import { ApprovalMode as ApprovalModeEnum } from '../config/config.js';
 import type { PolicyEngine } from './policy-engine.js';
-import { loadPoliciesFromToml, type PolicyFileError } from './toml-loader.js';
+import {
+  loadPoliciesFromToml,
+  type PolicyFileError,
+  escapeRegex,
+} from './toml-loader.js';
 import {
   MessageBusType,
   type UpdatePolicy,
@@ -424,15 +429,43 @@ export async function createPolicyEngineConfig(
   }
 }
 
+interface TomlRule {
+  toolName?: string;
+  mcpName?: string;
+  decision?: string;
+  priority?: number;
+  commandPrefix?: string;
+  argsPattern?: string;
+  [key: string]: unknown;
+}
+
 export function createPolicyUpdater(
   policyEngine: PolicyEngine,
   messageBus: MessageBus,
 ) {
   messageBus.subscribe(
     MessageBusType.UPDATE_POLICY,
-    (message: UpdatePolicy) => {
+    async (message: UpdatePolicy) => {
       const toolName = message.toolName;
+      let argsPattern: RegExp | undefined;
 
+      if (message.argsPattern) {
+        try {
+          argsPattern = new RegExp(message.argsPattern);
+        } catch {
+          return; // Invalid regex, skip this policy update
+        }
+      }
+
+      // Convert commandPrefix to argsPattern for in-memory rule
+      if (message.commandPrefix) {
+        const escapedPrefix = escapeRegex(message.commandPrefix);
+        argsPattern = new RegExp(
+          '"command":"' + escapedPrefix + String.raw`(?:[\s"]|$)`,
+        );
+      }
+
+      // Add in-memory rule (works for current session)
       policyEngine.addRule({
         toolName,
         decision: PolicyDecision.ALLOW,
@@ -440,7 +473,79 @@ export function createPolicyUpdater(
         // This ensures user "always allow" selections are high priority
         // but still lose to admin policies (3.xxx) and settings excludes (200)
         priority: 2.95,
+        argsPattern,
       });
+
+      // PERSISTENCE LOGIC - Save to TOML if persist=true
+      if (message.persist) {
+        try {
+          const userPoliciesDir = Storage.getUserPoliciesDir();
+          await fs.mkdir(userPoliciesDir, { recursive: true });
+          const policyFile = path.join(userPoliciesDir, 'auto-saved.toml');
+
+          // Read existing file (if any)
+          let existingData: { rule?: TomlRule[] } = {};
+          try {
+            const fileContent = await fs.readFile(policyFile, 'utf-8');
+            existingData = toml.parse(fileContent) as { rule?: TomlRule[] };
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+              console.warn(
+                `Failed to parse ${policyFile}, overwriting with new policy.`,
+                error,
+              );
+            }
+          }
+
+          // Initialize rule array if needed
+          if (!existingData.rule) {
+            existingData.rule = [];
+          }
+
+          // Build new rule
+          const newRule: TomlRule = {};
+
+          if (message.mcpName) {
+            // MCP tool policy
+            newRule.mcpName = message.mcpName;
+            // Extract simple tool name (remove "mcpName__" prefix)
+            const simpleToolName = toolName.startsWith(`${message.mcpName}__`)
+              ? toolName.slice(message.mcpName.length + 2)
+              : toolName;
+            newRule.toolName = simpleToolName;
+            newRule.decision = 'allow';
+            newRule.priority = 200;
+          } else {
+            // Standard tool policy
+            newRule.toolName = toolName;
+            newRule.decision = 'allow';
+            newRule.priority = 100;
+          }
+
+          if (message.commandPrefix) {
+            newRule.commandPrefix = message.commandPrefix;
+          } else if (message.argsPattern) {
+            newRule.argsPattern = message.argsPattern;
+          }
+
+          // Append to existing rules
+          existingData.rule.push(newRule);
+
+          // Serialize to TOML
+          const newContent = toml.stringify(existingData as toml.JsonMap);
+
+          // Atomic write: tmp file + rename
+          const tmpFile = `${policyFile}.tmp`;
+          await fs.writeFile(tmpFile, newContent, 'utf-8');
+          await fs.rename(tmpFile, policyFile);
+        } catch (error) {
+          coreEvents.emitFeedback(
+            'error',
+            `Failed to persist policy for ${toolName}`,
+            error,
+          );
+        }
+      }
     },
   );
 }

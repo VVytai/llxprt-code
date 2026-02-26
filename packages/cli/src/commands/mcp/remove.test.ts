@@ -197,11 +197,8 @@ describe('mcp remove command', () => {
 
     it('should preserve other settings when removing a server', async () => {
       // Create settings file with other settings
-      // Note: "model" will be migrated to "model": { "name": ... } format
       const originalContent = `{
-        "model": {
-          "name": "gemini-2.5-pro"
-        },
+        "model": "gemini-2.5-pro",
         "mcpServers": {
           "server1": {
             "command": "node",

@@ -1157,8 +1157,8 @@ sub memory
           typeof part === 'object' &&
           part !== null &&
           'text' in part &&
-          typeof (part as Part).text === 'string' &&
-          (part as Part).text.includes('System Note'),
+          typeof part.text === 'string' &&
+          part.text.includes('System Note'),
       );
       expect(reminderPart).toBeDefined();
     });
@@ -1963,10 +1963,8 @@ sub memory
           typeof part === 'object' &&
           part !== null &&
           'text' in part &&
-          typeof (part as Part).text === 'string' &&
-          (part as Part).text.includes(
-            'Continue and take the next concrete action now',
-          ),
+          typeof part.text === 'string' &&
+          part.text.includes('Continue and take the next concrete action now'),
       );
       expect(continuationPart).toBeDefined();
 
@@ -2813,7 +2811,7 @@ sub memory
         countTokens: vi.fn(),
         embedContent: vi.fn(),
       };
-      client['contentGenerator'] = mockContentGenerator as ContentGenerator;
+      client['contentGenerator'] = mockContentGenerator;
 
       await client.generateContent(
         contents,

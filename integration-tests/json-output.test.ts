@@ -21,11 +21,9 @@ describe('JSON output', () => {
   });
 
   it('should return a valid JSON with response and stats', async () => {
-    const result = await rig.run(
-      'What is the capital of France?',
-      '--output-format',
-      'json',
-    );
+    const result = await rig.run({
+      args: ['What is the capital of France?', '--output-format', 'json'],
+    });
     const parsed = JSON.parse(result);
 
     expect(parsed).toHaveProperty('response');
@@ -36,13 +34,15 @@ describe('JSON output', () => {
     expect(typeof parsed.stats).toBe('object');
   });
 
-  it('should include session_id in JSON output', async () => {
-    const result = await rig.run('Say hello', '--output-format', 'json');
+  it('should return a valid JSON with a session ID', async () => {
+    const result = await rig.run({
+      args: ['Hello', '--output-format', 'json'],
+    });
     const parsed = JSON.parse(result);
 
     expect(parsed).toHaveProperty('session_id');
     expect(typeof parsed.session_id).toBe('string');
-    expect(parsed.session_id).toBeTruthy();
+    expect(parsed.session_id).not.toBe('');
   });
 
   // REMOVED (issue #443): Enforced auth type mismatch test removed.
@@ -50,18 +50,20 @@ describe('JSON output', () => {
   // more problems than it solved. Providers now handle auth internally.
 
   it('should not exit on tool errors and allow model to self-correct in JSON mode', async () => {
-    rig.setup('json-output-error', {
+    await rig.setup('json-output-error', {
       fakeResponsesPath: join(
         import.meta.dirname,
         'json-output.error.responses.jsonl',
       ),
     });
-    const result = await rig.run(
-      `Read the contents of ${rig.testDir}/path/to/nonexistent/file.txt and tell me what it says. ` +
-        'On error, respond to the user with exactly the text "File not found".',
-      '--output-format',
-      'json',
-    );
+    const result = await rig.run({
+      args: [
+        `Read the contents of ${rig.testDir}/path/to/nonexistent/file.txt and tell me what it says. ` +
+          'On error, respond to the user with exactly the text "File not found".',
+        '--output-format',
+        'json',
+      ],
+    });
 
     const parsed = JSON.parse(result);
 
@@ -89,5 +91,9 @@ describe('JSON output', () => {
 
     // Should NOT have an error field at the top level
     expect(parsed.error).toBeUndefined();
+
+    expect(parsed).toHaveProperty('session_id');
+    expect(typeof parsed.session_id).toBe('string');
+    expect(parsed.session_id).not.toBe('');
   });
 });

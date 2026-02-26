@@ -492,7 +492,7 @@ class EditToolInvocation extends BaseToolInvocation<
       'Current',
       'Proposed',
       DEFAULT_CREATE_PATCH_OPTIONS,
-    ) as string;
+    );
     const ideClient = this.config.getIdeClient();
     const ideConfirmation =
       this.config.getIdeMode() &&
@@ -512,6 +512,7 @@ class EditToolInvocation extends BaseToolInvocation<
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
+        await this.publishPolicyUpdate(outcome);
 
         if (ideConfirmation) {
           const result = await ideConfirmation;
@@ -633,7 +634,7 @@ class EditToolInvocation extends BaseToolInvocation<
         'Current',
         'Proposed',
         DEFAULT_CREATE_PATCH_OPTIONS,
-      ) as string;
+      );
       const displayResult = {
         fileDiff,
         fileName,

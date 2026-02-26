@@ -94,7 +94,7 @@ describe('Integration: Density + Compression Pipeline', () => {
       enableRecencyPruning: false,
       workspaceRoot: '/test',
     };
-    const result = strategy.optimize!(context.history, config);
+    const result = strategy.optimize(context.history, config);
     expect(result.removals).toHaveLength(0);
     expect(result.replacements.size).toBe(0);
     expect(result.metadata.readWritePairsPruned).toBe(0);
@@ -113,7 +113,7 @@ describe('Integration: Density + Compression Pipeline', () => {
 
   it('compress returns valid CompressionResult for populated history', async () => {
     const history: IContent[] = Array.from({ length: 10 }, (_, i) => ({
-      speaker: (i % 2 === 0 ? 'human' : 'ai') as 'human' | 'ai',
+      speaker: i % 2 === 0 ? 'human' : 'ai',
       blocks: [{ type: 'text' as const, text: `Message ${i}` }],
     }));
     const strategy = new HighDensityStrategy();

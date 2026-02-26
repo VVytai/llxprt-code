@@ -94,8 +94,7 @@ export class SubagentOrchestrator {
   constructor(private readonly options: SubagentOrchestratorOptions) {
     this.runtimeLoader = options.runtimeLoader ?? loadAgentRuntime;
     this.scopeFactory =
-      options.scopeFactory ??
-      (SubAgentScope.create.bind(SubAgentScope) as ScopeFactory);
+      options.scopeFactory ?? SubAgentScope.create.bind(SubAgentScope);
     this.idFactory = options.idFactory ?? randomUUID;
   }
 
@@ -263,8 +262,8 @@ export class SubagentOrchestrator {
   private buildModelConfig(profile: Profile): ModelConfig {
     return {
       model: profile.model,
-      temp: (profile.modelParams.temperature as number | undefined) ?? 0.7,
-      top_p: (profile.modelParams.top_p as number | undefined) ?? 1,
+      temp: profile.modelParams.temperature ?? 0.7,
+      top_p: profile.modelParams.top_p ?? 1,
     };
   }
 
@@ -550,8 +549,7 @@ export class SubagentOrchestrator {
       modelParams: {
         temperature: modelConfig.temp,
         topP: modelConfig.top_p,
-        maxTokens:
-          (profile.modelParams.max_tokens as number | undefined) ?? undefined,
+        maxTokens: profile.modelParams.max_tokens ?? undefined,
       },
       sessionId,
     });

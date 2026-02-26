@@ -91,7 +91,7 @@ function findInnermostScrollableAtPoint(
 
     for (const child of node.childNodes) {
       if (child.nodeName === 'ink-box' || child.nodeName === 'ink-root') {
-        visit(child as DOMElement);
+        visit(child);
       }
     }
   };

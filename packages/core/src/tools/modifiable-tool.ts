@@ -139,7 +139,7 @@ function getUpdatedParams<ToolParams>(
     'Current',
     'Proposed',
     DEFAULT_CREATE_PATCH_OPTIONS,
-  ) as string;
+  );
 
   return { updatedParams, updatedDiff };
 }
@@ -187,11 +187,11 @@ export async function modifyWithEditor<ToolParams>(
     overrides !== undefined && 'proposedContent' in overrides;
 
   const currentContent = hasCurrentOverride
-    ? (overrides!.currentContent ?? '')
+    ? (overrides.currentContent ?? '')
     : await modifyContext.getCurrentContent(originalParams);
 
   const proposedContent = hasProposedOverride
-    ? (overrides!.proposedContent ?? '')
+    ? (overrides.proposedContent ?? '')
     : await modifyContext.getProposedContent(originalParams);
 
   const { oldPath, newPath, dirPath } = createTempFilesForModify(

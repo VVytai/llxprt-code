@@ -10,10 +10,9 @@ import { DebugLogger } from '../../debug/index.js';
 import { type IModel } from '../IModel.js';
 import {
   type IContent,
-  type TextBlock,
   type ToolCallBlock,
-  type ToolResponseBlock,
   type ThinkingBlock,
+  type MediaBlock,
 } from '../../services/history/IContent.js';
 import { Config } from '../../config/config.js';
 import { getCoreSystemPromptAsync } from '../../core/prompts.js';
@@ -213,19 +212,17 @@ export class GeminiProvider extends BaseProvider {
           for (const propKey in propertiesObject) {
             cleanedProperties[propKey] = this.cleanGeminiSchema(
               propertiesObject[propKey],
-            ) as Schema;
+            );
           }
           cleanedSchema[key] = cleanedProperties;
         } else if (key === 'items' && typeof typedSchema[key] === 'object') {
           // Recursively clean schema within 'items' for array types
-          cleanedSchema[key] = this.cleanGeminiSchema(
-            typedSchema[key],
-          ) as Schema;
+          cleanedSchema[key] = this.cleanGeminiSchema(typedSchema[key]);
         } else if (key === 'anyOf' && Array.isArray(typedSchema[key])) {
           // Recursively clean schemas within 'anyOf'
           cleanedSchema[key] = (typedSchema[key] as unknown[]).map(
             (item: unknown) => this.cleanGeminiSchema(item),
-          ) as Schema[];
+          );
         } else {
           cleanedSchema[key] = (schema as { [key: string]: unknown })[key];
         }
@@ -847,7 +844,7 @@ export class GeminiProvider extends BaseProvider {
             const oauthContentGenerator =
               await this.createOAuthContentGenerator(
                 httpOptions,
-                configForOAuth!,
+                configForOAuth,
               );
             logger.debug(
               () =>
@@ -1057,7 +1054,7 @@ export class GeminiProvider extends BaseProvider {
         const parts: Part[] = [];
         for (const block of c.blocks) {
           if (block.type === 'text') {
-            parts.push({ text: (block as TextBlock).text });
+            parts.push({ text: block.text });
           }
         }
 
@@ -1069,9 +1066,9 @@ export class GeminiProvider extends BaseProvider {
 
         for (const block of c.blocks) {
           if (block.type === 'text') {
-            parts.push({ text: (block as TextBlock).text });
+            parts.push({ text: block.text });
           } else if (block.type === 'tool_call') {
-            const tc = block as ToolCallBlock;
+            const tc = block;
             parts.push({
               functionCall: {
                 id: tc.id,
@@ -1088,34 +1085,54 @@ export class GeminiProvider extends BaseProvider {
       } else if (c.speaker === 'tool') {
         const toolResponseBlock = c.blocks.find(
           (b) => b.type === 'tool_response',
-        ) as ToolResponseBlock | undefined;
+        );
         if (!toolResponseBlock) {
           throw new Error('Tool content must have a tool_response block');
         }
+
+        const mediaBlocks = c.blocks.filter(
+          (b): b is MediaBlock => b.type === 'media',
+        );
 
         const payload = buildToolResponsePayload(
           toolResponseBlock,
           configForMessages,
         );
-        contents.push({
-          role: 'user',
-          parts: [
-            {
-              functionResponse: {
-                id: toolResponseBlock.callId,
-                name: toolResponseBlock.toolName,
-                response: {
-                  status: payload.status,
-                  result: payload.result,
-                  error: payload.error,
-                  truncated: payload.truncated,
-                  originalLength: payload.originalLength,
-                  limitMessage: payload.limitMessage,
-                },
-              },
+
+        const frPart: Part = {
+          functionResponse: {
+            id: toolResponseBlock.callId,
+            name: toolResponseBlock.toolName,
+            response: {
+              status: payload.status,
+              result: payload.result,
+              error: payload.error,
+              truncated: payload.truncated,
+              originalLength: payload.originalLength,
+              limitMessage: payload.limitMessage,
             },
-          ],
-        });
+          },
+        };
+
+        if (mediaBlocks.length > 0 && isGemini3Model(currentModel)) {
+          // Gemini 3+: nest media inside functionResponse.parts
+          frPart.functionResponse!.parts = mediaBlocks.map((mb) => ({
+            inlineData: { mimeType: mb.mimeType, data: mb.data },
+          }));
+          contents.push({ role: 'user', parts: [frPart] });
+        } else if (mediaBlocks.length > 0) {
+          // Gemini 2 and below: media as sibling parts
+          const parts: Part[] = [frPart];
+          for (const mb of mediaBlocks) {
+            parts.push({
+              inlineData: { mimeType: mb.mimeType, data: mb.data },
+            } as Part);
+          }
+          contents.push({ role: 'user', parts });
+        } else {
+          // No media — just the functionResponse
+          contents.push({ role: 'user', parts: [frPart] });
+        }
       }
     }
 
@@ -1134,39 +1151,31 @@ export class GeminiProvider extends BaseProvider {
       'reasoning'
     ] as Record<string, unknown> | undefined;
     const reasoningEnabled =
-      (options.invocation?.getModelBehavior('reasoning.enabled') as
-        | boolean
-        | undefined) ??
+      options.invocation?.getModelBehavior<boolean>('reasoning.enabled') ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.enabled'] ===
         true ||
         reasoningObj?.enabled === true);
     const reasoningIncludeInResponse =
-      (options.invocation?.getCliSetting('reasoning.includeInResponse') as
-        | boolean
-        | undefined) ??
+      options.invocation?.getCliSetting<boolean>(
+        'reasoning.includeInResponse',
+      ) ??
       ((earlyEphemerals as Record<string, unknown>)[
         'reasoning.includeInResponse'
       ] !== false &&
         reasoningObj?.includeInResponse !== false);
     const reasoningStripFromContext =
-      (options.invocation?.getCliSetting('reasoning.stripFromContext') as
-        | 'all'
-        | 'allButLast'
-        | 'none'
-        | undefined) ??
+      options.invocation?.getCliSetting<'all' | 'allButLast' | 'none'>(
+        'reasoning.stripFromContext',
+      ) ??
       ((earlyEphemerals as Record<string, unknown>)[
         'reasoning.stripFromContext'
       ] as 'all' | 'allButLast' | 'none') ??
       (reasoningObj?.stripFromContext as 'all' | 'allButLast' | 'none') ??
       'all';
     const reasoningEffort =
-      (options.invocation?.getModelBehavior('reasoning.effort') as
-        | 'minimal'
-        | 'low'
-        | 'medium'
-        | 'high'
-        | 'xhigh'
-        | undefined) ??
+      options.invocation?.getModelBehavior<
+        'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
+      >('reasoning.effort') ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.effort'] as
         | 'minimal'
         | 'low'
@@ -1182,9 +1191,7 @@ export class GeminiProvider extends BaseProvider {
         | 'xhigh'
         | undefined);
     const reasoningMaxTokens =
-      (options.invocation?.getModelBehavior('reasoning.maxTokens') as
-        | number
-        | undefined) ??
+      options.invocation?.getModelBehavior<number>('reasoning.maxTokens') ??
       ((earlyEphemerals as Record<string, unknown>)['reasoning.maxTokens'] as
         | number
         | undefined) ??
@@ -1606,7 +1613,7 @@ export class GeminiProvider extends BaseProvider {
       if (!streamingEnabled && generatorWithStream.generateContent) {
         try {
           // REQ-RETRY-001: Retry logic is now handled by RetryOrchestrator at a higher level
-          const response = await generatorWithStream.generateContent!(
+          const response = await generatorWithStream.generateContent(
             oauthRequest,
             sessionId,
           );
@@ -1625,7 +1632,7 @@ export class GeminiProvider extends BaseProvider {
 
           let yielded = false;
           for (const chunk of mapResponseToChunks(
-            response as GenerateContentResponse,
+            response,
             reasoningIncludeInResponse,
           )) {
             yielded = true;
@@ -1672,7 +1679,7 @@ export class GeminiProvider extends BaseProvider {
           );
         }
 
-        stream = oauthStream as AsyncIterable<GenerateContentResponse>;
+        stream = oauthStream;
         if (streamingEnabled) {
           emitted = true;
           yield {
@@ -1829,12 +1836,8 @@ export class GeminiProvider extends BaseProvider {
 
     if (stream) {
       const iterator: AsyncIterator<GenerateContentResponse> =
-        typeof (stream as AsyncIterable<GenerateContentResponse>)[
-          Symbol.asyncIterator
-        ] === 'function'
-          ? (stream as AsyncIterable<GenerateContentResponse>)[
-              Symbol.asyncIterator
-            ]()
+        typeof stream[Symbol.asyncIterator] === 'function'
+          ? stream[Symbol.asyncIterator]()
           : (stream as unknown as AsyncIterator<GenerateContentResponse>);
       while (true) {
         const { value, done } = await iterator.next();

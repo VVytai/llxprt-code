@@ -536,7 +536,7 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
 
-    const readStream = stdin as NodeJS.ReadStream;
+    const readStream = stdin;
 
     if (editorState?.paused && typeof readStream.resume === 'function') {
       readStream.resume();
@@ -589,7 +589,7 @@ export const AppContainer = (props: AppContainerProps) => {
       return;
     }
 
-    const readStream = stdin as NodeJS.ReadStream;
+    const readStream = stdin;
 
     externalEditorStateRef.current = {
       paused: false,
@@ -958,10 +958,7 @@ export const AppContainer = (props: AppContainerProps) => {
     currentProvider: selectedProvider,
   } = useProviderDialog({
     addMessage: (msg) =>
-      addItem(
-        { type: msg.type as MessageType, text: msg.content },
-        msg.timestamp.getTime(),
-      ),
+      addItem({ type: msg.type, text: msg.content }, msg.timestamp.getTime()),
     appState,
     config,
     recordingIntegration,
@@ -1010,10 +1007,7 @@ export const AppContainer = (props: AppContainerProps) => {
     profiles,
   } = useLoadProfileDialog({
     addMessage: (msg) =>
-      addItem(
-        { type: msg.type as MessageType, text: msg.content },
-        msg.timestamp.getTime(),
-      ),
+      addItem({ type: msg.type, text: msg.content }, msg.timestamp.getTime()),
     appState,
     config,
     settings,
@@ -1051,10 +1045,7 @@ export const AppContainer = (props: AppContainerProps) => {
     saveProfile: saveProfileFromEditor,
   } = useProfileManagement({
     addMessage: (msg) =>
-      addItem(
-        { type: msg.type as MessageType, text: msg.content },
-        msg.timestamp.getTime(),
-      ),
+      addItem({ type: msg.type, text: msg.content }, msg.timestamp.getTime()),
     appState,
   });
 
@@ -1068,10 +1059,7 @@ export const AppContainer = (props: AppContainerProps) => {
     handleSelect: handleToolsSelect,
   } = useToolsDialog({
     addMessage: (msg) =>
-      addItem(
-        { type: msg.type as MessageType, text: msg.content },
-        msg.timestamp.getTime(),
-      ),
+      addItem({ type: msg.type, text: msg.content }, msg.timestamp.getTime()),
     appState,
     config,
   });

@@ -12,11 +12,7 @@ import type {
   RequestContext,
   ExecutionEventBus,
 } from '@a2a-js/sdk/server';
-import type {
-  ToolCallRequestInfo,
-  ServerGeminiToolCallRequestEvent,
-  Config,
-} from '@vybestack/llxprt-code-core';
+import type { ToolCallRequestInfo, Config } from '@vybestack/llxprt-code-core';
 import { GeminiEventType } from '@vybestack/llxprt-code-core';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -116,13 +112,13 @@ export class CoderAgentExecutor implements AgentExecutor {
 
     const agentSettings = persistedState._agentSettings;
     const config = await this.getConfig(agentSettings, sdkTask.id);
-    const contextId =
-      (metadata['_contextId'] as string) || (sdkTask.contextId as string);
+    const contextId = (metadata['_contextId'] as string) || sdkTask.contextId;
     const runtimeTask = await Task.create(
       sdkTask.id,
       contextId,
       config,
       eventBus,
+      agentSettings.autoExecute,
     );
     runtimeTask.taskState = persistedState._taskState;
     const contentGeneratorConfig =
@@ -145,7 +141,13 @@ export class CoderAgentExecutor implements AgentExecutor {
   ): Promise<TaskWrapper> {
     const agentSettings = agentSettingsInput || ({} as AgentSettings);
     const config = await this.getConfig(agentSettings, taskId);
-    const runtimeTask = await Task.create(taskId, contextId, config, eventBus);
+    const runtimeTask = await Task.create(
+      taskId,
+      contextId,
+      config,
+      eventBus,
+      agentSettings.autoExecute,
+    );
     const contentGeneratorConfig2 =
       runtimeTask.config.getContentGeneratorConfig();
     if (contentGeneratorConfig2) {
@@ -284,8 +286,8 @@ export class CoderAgentExecutor implements AgentExecutor {
     requestContext: RequestContext,
     eventBus: ExecutionEventBus,
   ): Promise<void> {
-    const userMessage = requestContext.userMessage as Message;
-    const sdkTask = requestContext.task as SDKTask | undefined;
+    const userMessage = requestContext.userMessage;
+    const sdkTask = requestContext.task;
 
     const taskId = sdkTask?.id || userMessage.taskId || uuidv4();
     const contextId =
@@ -472,9 +474,7 @@ export class CoderAgentExecutor implements AgentExecutor {
             throw new Error('Execution aborted');
           }
           if (event.type === GeminiEventType.ToolCallRequest) {
-            toolCallRequests.push(
-              (event as ServerGeminiToolCallRequestEvent).value,
-            );
+            toolCallRequests.push(event.value);
             continue;
           }
           await currentTask.acceptAgentMessage(event);

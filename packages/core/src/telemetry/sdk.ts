@@ -160,7 +160,6 @@ export async function shutdownTelemetry(config: Config): Promise<void> {
     return;
   }
   try {
-    // ClearcutLogger is disabled - no data sent to Google
     await sdk.shutdown();
     if (config.getDebugMode()) {
       console.log('OpenTelemetry SDK shut down successfully.');

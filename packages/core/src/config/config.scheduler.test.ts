@@ -98,7 +98,7 @@ describe('Config - CoreToolScheduler Singleton', () => {
         callbacks,
       );
 
-      expect(scheduler1).toBeInstanceOf(CoreToolScheduler as unknown);
+      expect(scheduler1).toBeInstanceOf(CoreToolScheduler);
       expect(scheduler1).toBeDefined();
     });
 

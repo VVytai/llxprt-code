@@ -11,6 +11,8 @@ import {
   type LoadCodeAssistResponse,
   type LongRunningOperationResponse,
   type OnboardUserRequest,
+  type RetrieveUserQuotaRequest,
+  type RetrieveUserQuotaResponse,
   type SetCodeAssistGlobalUserSettingRequest,
 } from './types.js';
 import {
@@ -138,6 +140,15 @@ export class CodeAssistServer implements ContentGenerator {
   ): Promise<CodeAssistGlobalUserSettingResponse> {
     return this.requestPost<CodeAssistGlobalUserSettingResponse>(
       'setCodeAssistGlobalUserSetting',
+      req,
+    );
+  }
+
+  async retrieveUserQuota(
+    req: RetrieveUserQuotaRequest,
+  ): Promise<RetrieveUserQuotaResponse> {
+    return this.requestPost<RetrieveUserQuotaResponse>(
+      'retrieveUserQuota',
       req,
     );
   }

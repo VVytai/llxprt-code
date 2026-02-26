@@ -184,7 +184,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
         provider: createProviderAdapterFromManager(
           mockConfig.getProviderManager?.(),
         ),
-        telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+        telemetry: createTelemetryAdapterFromConfig(mockConfig),
         tools: createToolRegistryViewFromRegistry(
           mockConfig.getToolRegistry?.(),
         ),
@@ -273,7 +273,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
         provider: createProviderAdapterFromManager(
           mockConfig.getProviderManager?.(),
         ),
-        telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+        telemetry: createTelemetryAdapterFromConfig(mockConfig),
         tools: createToolRegistryViewFromRegistry(
           mockConfig.getToolRegistry?.(),
         ),
@@ -358,7 +358,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
         provider: createProviderAdapterFromManager(
           mockConfig.getProviderManager?.(),
         ),
-        telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+        telemetry: createTelemetryAdapterFromConfig(mockConfig),
         tools: createToolRegistryViewFromRegistry(
           mockConfig.getToolRegistry?.(),
         ),
@@ -451,7 +451,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
         provider: createProviderAdapterFromManager(
           mockConfig.getProviderManager?.(),
         ),
-        telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+        telemetry: createTelemetryAdapterFromConfig(mockConfig),
         tools: createToolRegistryViewFromRegistry(
           mockConfig.getToolRegistry?.(),
         ),
@@ -500,7 +500,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
         provider: createProviderAdapterFromManager(
           mockConfig.getProviderManager?.(),
         ),
-        telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+        telemetry: createTelemetryAdapterFromConfig(mockConfig),
         tools: createToolRegistryViewFromRegistry(
           mockConfig.getToolRegistry?.(),
         ),
@@ -586,7 +586,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
         provider: createProviderAdapterFromManager(
           mockConfig.getProviderManager?.(),
         ),
-        telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+        telemetry: createTelemetryAdapterFromConfig(mockConfig),
         tools: createToolRegistryViewFromRegistry(
           mockConfig.getToolRegistry?.(),
         ),
@@ -701,7 +701,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
           provider: createProviderAdapterFromManager(
             mockConfig.getProviderManager?.(),
           ),
-          telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+          telemetry: createTelemetryAdapterFromConfig(mockConfig),
           tools: createToolRegistryViewFromRegistry(
             mockConfig.getToolRegistry?.(),
           ),
@@ -793,7 +793,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
           provider: createProviderAdapterFromManager(
             mockConfig.getProviderManager?.(),
           ),
-          telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+          telemetry: createTelemetryAdapterFromConfig(mockConfig),
           tools: createToolRegistryViewFromRegistry(
             mockConfig.getToolRegistry?.(),
           ),
@@ -885,7 +885,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
           provider: createProviderAdapterFromManager(
             mockConfig.getProviderManager?.(),
           ),
-          telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+          telemetry: createTelemetryAdapterFromConfig(mockConfig),
           tools: createToolRegistryViewFromRegistry(
             mockConfig.getToolRegistry?.(),
           ),
@@ -943,7 +943,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
           provider: createProviderAdapterFromManager(
             mockConfig.getProviderManager?.(),
           ),
-          telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+          telemetry: createTelemetryAdapterFromConfig(mockConfig),
           tools: createToolRegistryViewFromRegistry(
             mockConfig.getToolRegistry?.(),
           ),
@@ -1008,7 +1008,7 @@ describe('GeminiChat Token Count Sync - API Usage Metadata', () => {
           provider: createProviderAdapterFromManager(
             mockConfig.getProviderManager?.(),
           ),
-          telemetry: createTelemetryAdapterFromConfig(mockConfig as Config),
+          telemetry: createTelemetryAdapterFromConfig(mockConfig),
           tools: createToolRegistryViewFromRegistry(
             mockConfig.getToolRegistry?.(),
           ),

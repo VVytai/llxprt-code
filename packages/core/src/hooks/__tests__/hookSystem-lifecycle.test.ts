@@ -285,7 +285,7 @@ describe('HookSystem management APIs (DELTA-HSYS-002)', () => {
       if (hooks.length === 0) return; // guard: no hooks in this system instance
 
       // Use the real hook command as id for the toggle test
-      const realHookId = hooks[0].config.command!;
+      const realHookId = hooks[0].config.command;
 
       // Set to initial state
       system.setHookEnabled(realHookId, initialEnabled);

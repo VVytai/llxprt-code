@@ -6,7 +6,7 @@
 
 /**
  * @plan:PLAN-20260216-HOOKSYSTEMREWRITE.P03
- * @requirement:HOOK-001,HOOK-003,HOOK-004,HOOK-005,HOOK-006,HOOK-007,HOOK-008,HOOK-009,HOOK-142
+ * @requirement:HOOK-001,HOOK-003,HOOK-004,HOOK-005,HOOK-006,HOOK-007,HOOK-008,HOOK-142
  * @pseudocode:analysis/pseudocode/01-hook-system-lifecycle.md
  */
 
@@ -23,27 +23,16 @@ import type { MessageBus } from '../confirmation-bus/message-bus.js';
 const debugLogger = DebugLogger.getLogger('llxprt:core:hooks:system');
 
 /**
- * Status information for the HookSystem
- * @requirement:HOOK-009
- */
-export interface HookSystemStatus {
-  initialized: boolean;
-  totalHooks: number;
-}
-
-/**
  * HookSystem is the central coordinator for all hook infrastructure.
  * It owns single shared instances of HookRegistry, HookPlanner, HookRunner,
  * HookAggregator, and HookEventHandler, reused across all event fires.
  *
  * @requirement:HOOK-001 - Created lazily on first call to Config.getHookSystem()
- * @requirement:HOOK-003 - Calls HookRegistry.initialize() at most once per Config lifetime
- * @requirement:HOOK-004 - Returns immediately on subsequent initialize() calls
+ * @requirement:HOOK-003 - Calls HookRegistry.initialize() to load hooks from config
  * @requirement:HOOK-005 - Throws HookSystemNotInitializedError if accessed before initialize()
- * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler(), getStatus() as public accessors
+ * @requirement:HOOK-006 - Exposes getRegistry(), getEventHandler() as public accessors
  * @requirement:HOOK-007 - Trigger functions obtain components from HookSystem, never construct new ones
  * @requirement:HOOK-008 - First hook event fires initialize() before delegating to event handler
- * @requirement:HOOK-009 - getStatus() reports { initialized: boolean; totalHooks: number }
  * @requirement:HOOK-142 - Importable from packages/core/src/hooks/hookSystem.ts
  */
 export class HookSystem {
@@ -53,7 +42,6 @@ export class HookSystem {
   private readonly runner: HookRunner;
   private readonly aggregator: HookAggregator;
   private eventHandler: HookEventHandler | null = null;
-  private initialized = false;
 
   /**
    * @plan PLAN-20250218-HOOKSYSTEM.P03
@@ -89,19 +77,25 @@ export class HookSystem {
 
   /**
    * Initialize the hook system. Must be called before getRegistry() or getEventHandler().
-   * Safe to call multiple times - subsequent calls are no-ops.
+   * Can be called multiple times to reload hooks from config.
    *
-   * @requirement:HOOK-003 - Calls HookRegistry.initialize() at most once
-   * @requirement:HOOK-004 - Returns immediately on subsequent calls
+   * WARNING: Not safe for concurrent calls. Ensure initialize() completes before
+   * calling again. JavaScript is single-threaded but async, so callers must
+   * await each initialize() call before starting another.
+   *
+   * @requirement:HOOK-003 - Calls HookRegistry.initialize() to load hooks from config
    * @requirement:HOOK-008 - Called by trigger functions on first event fire
    */
   async initialize(): Promise<void> {
-    if (this.initialized) {
-      debugLogger.debug('HookSystem already initialized, skipping');
-      return;
-    }
-
     debugLogger.debug('Initializing HookSystem');
+
+    // Dispose old event handler to prevent MessageBus subscription leaks.
+    // LLxprt enhancement: Upstream Gemini doesn't need this because their
+    // HookEventHandler doesn't subscribe to MessageBus. LLxprt added MessageBus
+    // integration in PLAN-20250218-HOOKSYSTEM.P03 (DELTA-HEVT-001).
+    // Without disposal, each re-init creates a new subscription without
+    // unsubscribing the old one, causing memory leaks.
+    this.dispose();
 
     // Initialize the registry (loads hooks from config)
     await this.registry.initialize();
@@ -118,11 +112,9 @@ export class HookSystem {
       this.injectedDebugLogger,
     );
 
-    this.initialized = true;
-
-    const status = this.getStatus();
+    const totalHooks = this.registry.getAllHooks().length;
     debugLogger.log(
-      `HookSystem initialized with ${status.totalHooks} registered hook(s)`,
+      `HookSystem initialized with ${totalHooks} registered hook(s)`,
     );
   }
 
@@ -132,11 +124,6 @@ export class HookSystem {
    * @requirement:HOOK-005,HOOK-006
    */
   getRegistry(): HookRegistry {
-    if (!this.initialized) {
-      throw new HookSystemNotInitializedError(
-        'Cannot access HookRegistry before HookSystem is initialized',
-      );
-    }
     return this.registry;
   }
 
@@ -146,7 +133,7 @@ export class HookSystem {
    * @requirement:HOOK-005,HOOK-006
    */
   getEventHandler(): HookEventHandler {
-    if (!this.initialized || !this.eventHandler) {
+    if (!this.eventHandler) {
       throw new HookSystemNotInitializedError(
         'Cannot access HookEventHandler before HookSystem is initialized',
       );
@@ -155,21 +142,10 @@ export class HookSystem {
   }
 
   /**
-   * Get the current status of the hook system.
-   * @requirement:HOOK-009
-   */
-  getStatus(): HookSystemStatus {
-    return {
-      initialized: this.initialized,
-      totalHooks: this.initialized ? this.registry.getAllHooks().length : 0,
-    };
-  }
-
-  /**
    * Check if the hook system is initialized.
    */
   isInitialized(): boolean {
-    return this.initialized;
+    return this.eventHandler !== null;
   }
 
   /**
@@ -180,9 +156,6 @@ export class HookSystem {
    * @pseudocode message-bus-integration.md lines 30-36
    */
   setHookEnabled(hookId: string, enabled: boolean): void {
-    if (!this.initialized) {
-      return;
-    }
     this.registry.setHookEnabled(hookId, enabled);
   }
 
@@ -194,9 +167,6 @@ export class HookSystem {
    * @pseudocode message-bus-integration.md lines 30-36
    */
   getAllHooks(): HookRegistryEntry[] {
-    if (!this.initialized) {
-      return [];
-    }
     return this.registry.getAllHooks();
   }
 

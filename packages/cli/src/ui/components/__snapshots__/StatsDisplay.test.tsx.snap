@@ -7,7 +7,7 @@ exports[`<StatsDisplay /> > Code Changes Display > displays Code Changes when li
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 1 ( ✓ 1 x 0 )                                                       │
+│  Tool Calls:                 1 ( [OK] 1 x 0 )                                                    │
 │  Success Rate:               100.0%                                                              │
 │  Code Changes:               +42 -18                                                             │
 │                                                                                                  │
@@ -16,12 +16,6 @@ exports[`<StatsDisplay /> > Code Changes Display > displays Code Changes when li
 │  Agent Active:               100ms                                                               │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              100ms (100.0%)                                                      │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
@@ -34,7 +28,7 @@ exports[`<StatsDisplay /> > Code Changes Display > hides Code Changes when no li
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 1 ( ✓ 1 x 0 )                                                       │
+│  Tool Calls:                 1 ( [OK] 1 x 0 )                                                    │
 │  Success Rate:               100.0%                                                              │
 │                                                                                                  │
 │  Performance                                                                                     │
@@ -42,12 +36,6 @@ exports[`<StatsDisplay /> > Code Changes Display > hides Code Changes when no li
 │  Agent Active:               100ms                                                               │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              100ms (100.0%)                                                      │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
@@ -60,7 +48,7 @@ exports[`<StatsDisplay /> > Conditional Color Tests > renders success rate in gr
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 10 ( ✓ 10 x 0 )                                                     │
+│  Tool Calls:                 10 ( [OK] 10 x 0 )                                                  │
 │  Success Rate:               100.0%                                                              │
 │                                                                                                  │
 │  Performance                                                                                     │
@@ -68,12 +56,6 @@ exports[`<StatsDisplay /> > Conditional Color Tests > renders success rate in gr
 │  Agent Active:               0s                                                                  │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              0s (0.0%)                                                           │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
@@ -86,7 +68,7 @@ exports[`<StatsDisplay /> > Conditional Color Tests > renders success rate in re
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 10 ( ✓ 5 x 5 )                                                      │
+│  Tool Calls:                 10 ( [OK] 5 x 5 )                                                   │
 │  Success Rate:               50.0%                                                               │
 │                                                                                                  │
 │  Performance                                                                                     │
@@ -94,12 +76,6 @@ exports[`<StatsDisplay /> > Conditional Color Tests > renders success rate in re
 │  Agent Active:               0s                                                                  │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              0s (0.0%)                                                           │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
@@ -112,7 +88,7 @@ exports[`<StatsDisplay /> > Conditional Color Tests > renders success rate in ye
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 10 ( ✓ 9 x 1 )                                                      │
+│  Tool Calls:                 10 ( [OK] 9 x 1 )                                                   │
 │  Success Rate:               90.0%                                                               │
 │                                                                                                  │
 │  Performance                                                                                     │
@@ -120,12 +96,6 @@ exports[`<StatsDisplay /> > Conditional Color Tests > renders success rate in ye
 │  Agent Active:               0s                                                                  │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              0s (0.0%)                                                           │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
@@ -142,16 +112,10 @@ exports[`<StatsDisplay /> > Conditional Rendering Tests > hides Efficiency secti
 │    » API Time:               100ms (100.0%)                                                      │
 │    » Tool Time:              0s (0.0%)                                                           │
 │                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
-│                                                                                                  │
-│  Model Usage                  Reqs   Input Tokens  Output Tokens                                 │
-│  ───────────────────────────────────────────────────────────────                                 │
-│  gemini-2.5-pro                  1            100            100                                 │
+│  Model Usage                 Reqs   Input Tokens   Cache Reads  Output Tokens                    │
+│  ────────────────────────────────────────────────────────────────────────────                    │
+│  gemini-2.5-pro                 1            100             0            100                    │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -163,7 +127,7 @@ exports[`<StatsDisplay /> > Conditional Rendering Tests > hides User Agreement w
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 2 ( ✓ 1 x 1 )                                                       │
+│  Tool Calls:                 2 ( [OK] 1 x 1 )                                                    │
 │  Success Rate:               50.0%                                                               │
 │                                                                                                  │
 │  Performance                                                                                     │
@@ -172,96 +136,109 @@ exports[`<StatsDisplay /> > Conditional Rendering Tests > hides User Agreement w
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              123ms (100.0%)                                                      │
 │                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`<StatsDisplay /> > Model Usage Table Updates > should apply color to cache efficiency percentage 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│  Session Stats                                                                                   │
+│                                                                                                  │
+│  Performance                                                                                     │
+│  Wall Time:                  1s                                                                  │
+│  Agent Active:               100ms                                                               │
+│    » API Time:               100ms (100.0%)                                                      │
+│    » Tool Time:              0s (0.0%)                                                           │
+│                                                                                                  │
+│                                                                                                  │
+│  Model Usage                 Reqs   Input Tokens   Cache Reads  Output Tokens                    │
+│  ────────────────────────────────────────────────────────────────────────────                    │
+│  gemini-2.5-pro                 1            500           500            100                    │
+│                                                                                                  │
+│  Savings Highlight: 500 (50.0%) of input tokens were served from the cache, reducing costs.      │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`<StatsDisplay /> > Model Usage Table Updates > should display separate Input Tokens and Cache Reads columns 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│  Session Stats                                                                                   │
+│                                                                                                  │
+│  Performance                                                                                     │
+│  Wall Time:                  1s                                                                  │
+│  Agent Active:               1.0s                                                                │
+│    » API Time:               1.0s (100.0%)                                                       │
+│    » Tool Time:              0s (0.0%)                                                           │
+│                                                                                                  │
+│                                                                                                  │
+│  Model Usage                 Reqs   Input Tokens   Cache Reads  Output Tokens                    │
+│  ────────────────────────────────────────────────────────────────────────────                    │
+│  gemini-2.5-pro                 5            600           400            500                    │
+│                                                                                                  │
+│  Savings Highlight: 400 (40.0%) of input tokens were served from the cache, reducing costs.      │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
 
 exports[`<StatsDisplay /> > Quota Display > does not render quota section when quotaLines are not provided 1`] = `
-"
-  ERROR  RuntimeContextProvider is missing from the component tree.
-
- src/ui/contexts/RuntimeContext.tsx:182:11
-
- 179: export function useRuntimeBridge(): RuntimeContextBridge {
- 180:   const context = useContext(RuntimeContext);
- 181:   if (!context) {
- 182:     throw new Error(
- 183:       'RuntimeContextProvider is missing from the component tree.',
- 184:     );
- 185:   }
-
- - useRuntimeBridge (src/ui/contexts/RuntimeContext.tsx:182:11)
- - useRuntimeApi (src/ui/contexts/RuntimeContext.tsx:190:10)
- - StatsDisplay (src/ui/components/StatsDisplay.tsx:171:19)
- -Object.react-stack-bott
-  m-frame                (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-r
-                         econciler/cjs/react-reconciler.development.js:15859:20)
- -renderWithHoo
-  s            (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler/
-               cjs/react-reconciler.development.js:3221:22)
- -updateFunctionComp
-  nent              (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconc
-                    iler/cjs/react-reconciler.development.js:6475:19)
- -beginWor
-          (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler/cjs/r
-          eact-reconciler.development.js:8009:18)
- -runWithFiberIn
-  EV            (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler
-                /cjs/react-reconciler.development.js:1738:13)
- -performUnitOfW
-  rk            (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler
-                /cjs/react-reconciler.development.js:12834:22)
- -workLoopSyn
-             (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler/cj
-             s/react-reconciler.development.js:12644:41)
-"
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│  Session Stats                                                                                   │
+│                                                                                                  │
+│  Performance                                                                                     │
+│  Wall Time:                  1s                                                                  │
+│  Agent Active:               0s                                                                  │
+│    » API Time:               0s (0.0%)                                                           │
+│    » Tool Time:              0s (0.0%)                                                           │
+│                                                                                                  │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
 
 exports[`<StatsDisplay /> > Quota Display > handles empty quotaLines gracefully 1`] = `
-"
-  ERROR  RuntimeContextProvider is missing from the component tree.
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│  Session Stats                                                                                   │
+│                                                                                                  │
+│  Performance                                                                                     │
+│  Wall Time:                  1s                                                                  │
+│  Agent Active:               0s                                                                  │
+│    » API Time:               0s (0.0%)                                                           │
+│    » Tool Time:              0s (0.0%)                                                           │
+│                                                                                                  │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
 
- src/ui/contexts/RuntimeContext.tsx:182:11
-
- 179: export function useRuntimeBridge(): RuntimeContextBridge {
- 180:   const context = useContext(RuntimeContext);
- 181:   if (!context) {
- 182:     throw new Error(
- 183:       'RuntimeContextProvider is missing from the component tree.',
- 184:     );
- 185:   }
-
- - useRuntimeBridge (src/ui/contexts/RuntimeContext.tsx:182:11)
- - useRuntimeApi (src/ui/contexts/RuntimeContext.tsx:190:10)
- - StatsDisplay (src/ui/components/StatsDisplay.tsx:171:19)
- -Object.react-stack-bott
-  m-frame                (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-r
-                         econciler/cjs/react-reconciler.development.js:15859:20)
- -renderWithHoo
-  s            (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler/
-               cjs/react-reconciler.development.js:3221:22)
- -updateFunctionComp
-  nent              (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconc
-                    iler/cjs/react-reconciler.development.js:6475:19)
- -beginWor
-          (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler/cjs/r
-          eact-reconciler.development.js:8009:18)
- -runWithFiberIn
-  EV            (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler
-                /cjs/react-reconciler.development.js:1738:13)
- -performUnitOfW
-  rk            (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler
-                /cjs/react-reconciler.development.js:12834:22)
- -workLoopSyn
-             (/Users/acoliver/projects/llxprt/branch-1/llxprt-code/node_modules/react-reconciler/cj
-             s/react-reconciler.development.js:12644:41)
-"
+exports[`<StatsDisplay /> > Quota Display > renders quota information when quotaLines are provided 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                  │
+│  Session Stats                                                                                   │
+│                                                                                                  │
+│  Performance                                                                                     │
+│  Wall Time:                  1s                                                                  │
+│  Agent Active:               100ms                                                               │
+│    » API Time:               100ms (100.0%)                                                      │
+│    » Tool Time:              0s (0.0%)                                                           │
+│                                                                                                  │
+│                                                                                                  │
+│  Model Usage                 Reqs   Input Tokens   Cache Reads  Output Tokens                    │
+│  ────────────────────────────────────────────────────────────────────────────                    │
+│  gemini-2.5-pro                 1             50            50            100                    │
+│                                                                                                  │
+│  Savings Highlight: 50 (50.0%) of input tokens were served from the cache, reducing costs.       │
+│                                                                                                  │
+│  Quota Information                                                                               │
+│  ## Anthropic Quota Information                                                                  │
+│                                                                                                  │
+│  **Daily Usage**                                                                                 │
+│  Used: 1000 / 10000 tokens (10.0%)                                                               │
+│  Remaining: 9000 tokens                                                                          │
+│  Resets: 2026-02-15 00:00:00 UTC                                                                 │
+│                                                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
 
 exports[`<StatsDisplay /> > Title Rendering > renders the custom title when a title prop is provided 1`] = `
@@ -274,12 +251,6 @@ exports[`<StatsDisplay /> > Title Rendering > renders the custom title when a ti
 │  Agent Active:               0s                                                                  │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              0s (0.0%)                                                           │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
@@ -296,12 +267,6 @@ exports[`<StatsDisplay /> > Title Rendering > renders the default title when no 
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              0s (0.0%)                                                           │
 │                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
-│                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -317,21 +282,13 @@ exports[`<StatsDisplay /> > renders a table with two models correctly 1`] = `
 │    » API Time:               19.5s (100.0%)                                                      │
 │    » Tool Time:              0s (0.0%)                                                           │
 │                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
-│                                                                                                  │
-│  Model Usage                  Reqs   Input Tokens  Output Tokens                                 │
-│  ───────────────────────────────────────────────────────────────                                 │
-│  gemini-2.5-pro                  3          1,000          2,000                                 │
-│  gemini-2.5-flash                5         25,000         15,000                                 │
+│  Model Usage                 Reqs   Input Tokens   Cache Reads  Output Tokens                    │
+│  ────────────────────────────────────────────────────────────────────────────                    │
+│  gemini-2.5-pro                 3            500           500          2,000                    │
+│  gemini-2.5-flash               5         15,000        10,000         15,000                    │
 │                                                                                                  │
 │  Savings Highlight: 10,500 (40.4%) of input tokens were served from the cache, reducing costs.   │
-│                                                                                                  │
-│  » Tip: For a full token breakdown, run \`/stats model\`.                                          │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -343,7 +300,7 @@ exports[`<StatsDisplay /> > renders all sections when all data is present 1`] = 
 │                                                                                                  │
 │  Interaction Summary                                                                             │
 │  Session ID:                 test-session-id                                                     │
-│  Tool Calls:                 2 ( ✓ 1 x 1 )                                                       │
+│  Tool Calls:                 2 ( [OK] 1 x 1 )                                                    │
 │  Success Rate:               50.0%                                                               │
 │  User Agreement:             100.0% (1 reviewed)                                                 │
 │                                                                                                  │
@@ -353,20 +310,12 @@ exports[`<StatsDisplay /> > renders all sections when all data is present 1`] = 
 │    » API Time:               100ms (44.8%)                                                       │
 │    » Tool Time:              123ms (55.2%)                                                       │
 │                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
-│                                                                                                  │
-│  Model Usage                  Reqs   Input Tokens  Output Tokens                                 │
-│  ───────────────────────────────────────────────────────────────                                 │
-│  gemini-2.5-pro                  1            100            100                                 │
+│  Model Usage                 Reqs   Input Tokens   Cache Reads  Output Tokens                    │
+│  ────────────────────────────────────────────────────────────────────────────                    │
+│  gemini-2.5-pro                 1             50            50            100                    │
 │                                                                                                  │
 │  Savings Highlight: 50 (50.0%) of input tokens were served from the cache, reducing costs.       │
-│                                                                                                  │
-│  » Tip: For a full token breakdown, run \`/stats model\`.                                          │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"
 `;
@@ -381,12 +330,6 @@ exports[`<StatsDisplay /> > renders only the Performance section in its zero sta
 │  Agent Active:               0s                                                                  │
 │    » API Time:               0s (0.0%)                                                           │
 │    » Tool Time:              0s (0.0%)                                                           │
-│                                                                                                  │
-│  Token Tracking                                                                                  │
-│  Tokens Per Minute:          0                                                                   │
-│  Throttle Wait Time:         0ms                                                                 │
-│    » Session Token Usage: Session Tokens - Input: 0, Output: 0, Cache: 0, Tool: 0, Thought: 0,   │
-│                           Total: 0                                                               │
 │                                                                                                  │
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯"

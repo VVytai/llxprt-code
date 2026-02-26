@@ -466,7 +466,7 @@ describe('Profile with Keyfile Integration Tests', () => {
 
         const profile: Profile = {
           version: 1,
-          provider: provider as Profile['provider'],
+          provider,
           model: 'test-model',
           modelParams: {},
           ephemeralSettings: {

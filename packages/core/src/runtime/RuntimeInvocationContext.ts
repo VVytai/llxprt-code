@@ -77,8 +77,8 @@ function cloneAndFreeze<T extends object>(
   if (!value) {
     return undefined;
   }
-  const clone = Object.assign({}, value) as T;
-  return Object.freeze(clone) as Readonly<T>;
+  const clone = Object.assign({}, value);
+  return Object.freeze(clone);
 }
 
 export function createRuntimeInvocationContext(
@@ -87,7 +87,7 @@ export function createRuntimeInvocationContext(
   const runtimeId =
     typeof init.runtime.runtimeId === 'string' &&
     init.runtime.runtimeId.trim() !== ''
-      ? (init.runtime.runtimeId as string)
+      ? init.runtime.runtimeId
       : (init.fallbackRuntimeId ?? '');
 
   if (!runtimeId) {

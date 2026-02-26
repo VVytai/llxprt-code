@@ -9,10 +9,8 @@ import { BaseLLMClient } from './baseLlmClient.js';
 import type { ContentGenerator } from './contentGenerator.js';
 import type {
   GenerateContentResponse,
-  GenerateContentParameters,
   EmbedContentResponse,
   CountTokensResponse,
-  CountTokensParameters,
 } from '@google/genai';
 
 // Mock retryWithBackoff to immediately call the function once without delays
@@ -136,7 +134,7 @@ describe('BaseLLMClient', () => {
       });
 
       const callArgs = vi.mocked(mockContentGenerator.generateContent).mock
-        .calls[0][0] as GenerateContentParameters;
+        .calls[0][0];
       expect(callArgs.config?.responseJsonSchema).toEqual(schema);
       expect(callArgs.config?.responseMimeType).toBe('application/json');
     });
@@ -225,7 +223,7 @@ describe('BaseLLMClient', () => {
       });
 
       const callArgs = vi.mocked(mockContentGenerator.generateContent).mock
-        .calls[0][0] as GenerateContentParameters;
+        .calls[0][0];
       expect(callArgs.config?.temperature).toBe(0.7);
     });
   });
@@ -355,7 +353,7 @@ describe('BaseLLMClient', () => {
 
       expect(result).toBe(100);
       const callArgs = vi.mocked(mockContentGenerator.countTokens).mock
-        .calls[0][0] as CountTokensParameters;
+        .calls[0][0];
       expect(callArgs.contents).toHaveLength(2);
     });
   });
@@ -392,7 +390,7 @@ describe('BaseLLMClient', () => {
       // Validate the parameters passed to the underlying generator
       expect(mockContentGenerator.generateContent).toHaveBeenCalledTimes(1);
       const callArgs = vi.mocked(mockContentGenerator.generateContent).mock
-        .calls[0][0] as GenerateContentParameters;
+        .calls[0][0];
       expect(callArgs.model).toBe('test-model');
       expect(callArgs.contents).toEqual(options.contents);
       expect(callArgs.config?.temperature).toBe(0);
@@ -454,7 +452,7 @@ describe('BaseLLMClient', () => {
       });
 
       const callArgs = vi.mocked(mockContentGenerator.generateContent).mock
-        .calls[0][0] as GenerateContentParameters;
+        .calls[0][0];
       expect(callArgs.config?.systemInstruction).toBe('Be helpful');
     });
   });

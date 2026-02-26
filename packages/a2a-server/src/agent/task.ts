@@ -76,6 +76,7 @@ export class Task {
   skipFinalTrueAfterInlineEdit = false;
   currentPromptId: string | undefined;
   promptCount = 0;
+  autoExecute: boolean;
 
   // For tool waiting logic
   private pendingToolCalls: Map<string, string> = new Map(); //toolCallId --> status
@@ -91,6 +92,7 @@ export class Task {
     contextId: string,
     config: Config,
     eventBus?: ExecutionEventBus,
+    autoExecute = false,
   ) {
     this.id = id;
     this.contextId = contextId;
@@ -109,6 +111,7 @@ export class Task {
     this.taskState = 'submitted';
     this.eventBus = eventBus;
     this.completedToolCalls = [];
+    this.autoExecute = autoExecute;
     this._resetToolCompletionPromise();
   }
 
@@ -117,8 +120,9 @@ export class Task {
     contextId: string,
     config: Config,
     eventBus?: ExecutionEventBus,
+    autoExecute?: boolean,
   ): Promise<Task> {
-    const task = new Task(id, contextId, config, eventBus);
+    const task = new Task(id, contextId, config, eventBus, autoExecute);
     task.scheduler = await task.createScheduler();
     return task;
   }
@@ -405,8 +409,15 @@ export class Task {
       }
     });
 
-    if (this.config.getApprovalMode() === ApprovalMode.YOLO) {
-      logger.info('[Task] YOLO mode enabled. Auto-approving all tool calls.');
+    if (
+      this.autoExecute ||
+      this.config.getApprovalMode() === ApprovalMode.YOLO
+    ) {
+      logger.info(
+        '[Task] ' +
+          (this.autoExecute ? '' : 'YOLO mode enabled. ') +
+          'Auto-approving all tool calls.',
+      );
       toolCalls.forEach((tc: ToolCall) => {
         if (tc.status === 'awaiting_approval' && tc.confirmationDetails) {
           void tc.confirmationDetails.onConfirm(
@@ -795,8 +806,8 @@ export class Task {
       return false;
     }
 
-    const callId = part.data['callId'] as string;
-    const outcomeString = part.data['outcome'] as string;
+    const callId = part.data['callId'];
+    const outcomeString = part.data['outcome'];
     let confirmationOutcome: ToolConfirmationOutcome | undefined;
 
     if (outcomeString === 'proceed_once') {

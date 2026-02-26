@@ -75,7 +75,7 @@ export class SyntheticToolResponseHandler {
       if (msg.speaker === 'ai') {
         msg.blocks.forEach((block) => {
           if (block.type === 'tool_call') {
-            const toolCallBlock = block as ToolCallBlock;
+            const toolCallBlock = block;
             if (toolCallBlock.id) {
               toolCallIds.add(toolCallBlock.id);
             }
@@ -89,7 +89,7 @@ export class SyntheticToolResponseHandler {
       if (msg.speaker === 'tool') {
         msg.blocks.forEach((block) => {
           if (block.type === 'tool_response') {
-            const toolResponseBlock = block as ToolResponseBlock;
+            const toolResponseBlock = block;
             toolResponseIds.add(toolResponseBlock.callId);
 
             // Track synthetic responses separately for debugging
@@ -145,7 +145,7 @@ export class SyntheticToolResponseHandler {
       ...msg,
       blocks: msg.blocks.map((block) => {
         if (block.type === 'tool_call') {
-          const tc = block as ToolCallBlock;
+          const tc = block;
           const id = tc.id;
           if (!id) return tc;
           if (id.startsWith('hist_tool_')) return tc;
@@ -167,7 +167,7 @@ export class SyntheticToolResponseHandler {
           return { ...tc, id: `hist_tool_${id}` } as ToolCallBlock;
         }
         if (block.type === 'tool_response') {
-          const tr = block as ToolResponseBlock;
+          const tr = block;
           const callId = tr.callId;
           if (!callId) return tr;
           if (callId.startsWith('hist_tool_')) return tr;
@@ -221,7 +221,7 @@ export class SyntheticToolResponseHandler {
       blocks: msg.blocks.map((block) => {
         // Deep copy each block
         if (block.type === 'tool_call') {
-          const tcBlock = block as ToolCallBlock;
+          const tcBlock = block;
           return {
             type: 'tool_call',
             id: tcBlock.id,
@@ -230,7 +230,7 @@ export class SyntheticToolResponseHandler {
             description: tcBlock.description,
           } as ToolCallBlock;
         } else if (block.type === 'tool_response') {
-          const trBlock = block as ToolResponseBlock;
+          const trBlock = block;
           return {
             type: 'tool_response',
             callId: trBlock.callId,
@@ -274,7 +274,7 @@ export class SyntheticToolResponseHandler {
     const aiMsg = deepCopyMessages[lastAIIndex];
     aiMsg.blocks.forEach((block) => {
       if (block.type === 'tool_call') {
-        const toolCallBlock = block as ToolCallBlock;
+        const toolCallBlock = block;
         if (toolCallBlock.id && toolCallBlock.name) {
           toolNameMap.set(toolCallBlock.id, toolCallBlock.name);
         }

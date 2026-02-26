@@ -8,12 +8,7 @@ import {
 } from '../utils/toolResponsePayload.js';
 
 import { DebugLogger } from '../../debug/index.js';
-import {
-  type IContent,
-  type ToolCallBlock,
-  type ToolResponseBlock,
-  type TextBlock,
-} from '../../services/history/IContent.js';
+import { type IContent } from '../../services/history/IContent.js';
 import { type ITool } from '../ITool.js';
 import { type ResponsesTool } from '../../tools/IToolFormatter.js';
 import {
@@ -175,10 +170,10 @@ export function buildResponsesRequest(
               // Check if this AI message contains the tool call for our tool response
               const toolResponseBlocks = msg.blocks.filter(
                 (block) => block.type === 'tool_response',
-              ) as ToolResponseBlock[];
+              );
               const hasMatchingCall = prevMsg.blocks.some((block) => {
                 if (block.type === 'tool_call') {
-                  const toolCallBlock = block as ToolCallBlock;
+                  const toolCallBlock = block;
                   return toolResponseBlocks.some(
                     (respBlock) => respBlock.callId === toolCallBlock.id,
                   );
@@ -223,7 +218,7 @@ export function buildResponsesRequest(
         if (msg.speaker === 'ai') {
           msg.blocks.forEach((block) => {
             if (block.type === 'tool_call') {
-              const toolCallBlock = block as ToolCallBlock;
+              const toolCallBlock = block;
               functionCalls.push({
                 type: 'function_call' as const,
                 call_id: normalizeToOpenAIToolId(toolCallBlock.id),
@@ -241,7 +236,7 @@ export function buildResponsesRequest(
         if (msg.speaker === 'tool') {
           msg.blocks.forEach((block) => {
             if (block.type === 'tool_response') {
-              const toolResponseBlock = block as ToolResponseBlock;
+              const toolResponseBlock = block;
 
               const payload = buildToolResponsePayload(
                 toolResponseBlock,
@@ -281,8 +276,9 @@ export function buildResponsesRequest(
       .map((msg) => {
         // Extract text content from blocks
         const textBlocks = msg.blocks.filter(
-          (block) => block.type === 'text',
-        ) as TextBlock[];
+          (block): block is Extract<typeof block, { type: 'text' }> =>
+            block.type === 'text',
+        );
         const content =
           textBlocks.length > 0
             ? textBlocks.map((block) => block.text).join('\n')

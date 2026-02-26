@@ -556,9 +556,7 @@ describe('KeyringTokenStore Integration', () => {
         fc.array(
           fc.record({
             provider: validNameArb,
-            op: fc.constantFrom('save', 'remove') as fc.Arbitrary<
-              'save' | 'remove'
-            >,
+            op: fc.constantFrom('save', 'remove'),
           }),
           { minLength: 1, maxLength: 15 },
         ),

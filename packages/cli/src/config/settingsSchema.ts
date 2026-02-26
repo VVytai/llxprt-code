@@ -327,11 +327,12 @@ export const SETTINGS_SCHEMA = {
     showInDialog: false,
   },
   sandbox: {
-    type: 'object',
+    type: 'string',
     label: 'Sandbox',
     category: 'Advanced',
     requiresRestart: true,
     default: undefined as boolean | string | undefined,
+    ref: 'BooleanOrString',
     description:
       'Sandbox execution environment (can be a boolean or a path string).',
     showInDialog: false,

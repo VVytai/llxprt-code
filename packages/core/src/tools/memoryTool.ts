@@ -273,7 +273,7 @@ class MemoryToolInvocation extends BaseToolInvocation<
       'Current',
       'Proposed',
       DEFAULT_CREATE_PATCH_OPTIONS,
-    ) as string;
+    );
 
     const confirmationDetails: ToolEditConfirmationDetails = {
       type: 'edit',
@@ -287,6 +287,7 @@ class MemoryToolInvocation extends BaseToolInvocation<
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           MemoryToolInvocation.allowlist.add(allowlistKey);
         }
+        await this.publishPolicyUpdate(outcome);
       },
     };
     return confirmationDetails;

@@ -218,12 +218,8 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       // Find thinking and text blocks
       const allBlocks = results.flatMap((r) => r.blocks);
-      const thinking = allBlocks.find((b) => b.type === 'thinking') as
-        | ThinkingBlock
-        | undefined;
-      const text = allBlocks.find((b) => b.type === 'text') as
-        | TextBlock
-        | undefined;
+      const thinking = allBlocks.find((b) => b.type === 'thinking');
+      const text = allBlocks.find((b) => b.type === 'text');
 
       expect(thinking).toBeDefined();
       expect(thinking!.thought).toBe('I thought about this carefully...');
@@ -275,11 +271,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       const assistantMsg = messages.find(
         (m: { role: string }) => m.role === 'assistant',
-      ) as
-        | {
-            reasoning_content?: string;
-          }
-        | undefined;
+      );
 
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg!.reasoning_content).toBe('Processing...');
@@ -326,18 +318,14 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       // STEP 3: Verify ThinkingBlock was created from parsing
       const allBlocks = generatedResults.flatMap((r) => r.blocks);
-      const thinkingBlock = allBlocks.find((b) => b.type === 'thinking') as
-        | ThinkingBlock
-        | undefined;
+      const thinkingBlock = allBlocks.find((b) => b.type === 'thinking');
       expect(thinkingBlock).toBeDefined();
       expect(thinkingBlock!.thought).toBe(
         'Let me think about this carefully...',
       );
       expect(thinkingBlock!.sourceField).toBe('reasoning_content');
 
-      const textBlock = allBlocks.find((b) => b.type === 'text') as
-        | TextBlock
-        | undefined;
+      const textBlock = allBlocks.find((b) => b.type === 'text');
       expect(textBlock).toBeDefined();
       expect(textBlock!.text).toContain('Final answer');
 
@@ -372,12 +360,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
       // STEP 6: Verify reasoning_content appears in built message
       const assistantMsg = messages.find(
         (m: { role: string }) => m.role === 'assistant',
-      ) as
-        | {
-            content?: string;
-            reasoning_content?: string;
-          }
-        | undefined;
+      );
 
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg!.content).toContain('Final answer');
@@ -435,11 +418,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       const assistantMsg = messages.find(
         (m: { role: string }) => m.role === 'assistant',
-      ) as
-        | {
-            reasoning_content?: string;
-          }
-        | undefined;
+      );
 
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg!.reasoning_content).toBe(
@@ -486,11 +465,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       const assistantMsg = messages.find(
         (m: { role: string }) => m.role === 'assistant',
-      ) as
-        | {
-            reasoning_content?: string;
-          }
-        | undefined;
+      );
 
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg!.reasoning_content).toBeUndefined();
@@ -539,9 +514,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
       const thinking = allBlocks.find((b) => b.type === 'thinking');
       expect(thinking).toBeUndefined();
 
-      const text = allBlocks.find((b) => b.type === 'text') as
-        | TextBlock
-        | undefined;
+      const text = allBlocks.find((b) => b.type === 'text');
       expect(text).toBeDefined();
       expect(text!.text).toContain('Normal response');
     });
@@ -607,7 +580,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
       const assistantMsg = messages.find(
         (m: { role: string; tool_calls?: unknown[] }) =>
           m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0,
-      ) as { reasoning_content?: string } | undefined;
+      );
 
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg!.reasoning_content).toBe(
@@ -671,12 +644,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       const assistantMsg = messages.find(
         (m: { role: string }) => m.role === 'assistant',
-      ) as
-        | {
-            tool_calls?: unknown[];
-            reasoning_content?: string;
-          }
-        | undefined;
+      );
 
       expect(assistantMsg).toBeDefined();
       expect(assistantMsg!.tool_calls).toBeDefined();
@@ -754,10 +722,7 @@ describe('OpenAIProvider E2E Tests @plan:PLAN-20251202-THINKING.P16', () => {
 
       const assistantMsgs = messages.filter(
         (m: { role: string }) => m.role === 'assistant',
-      ) as Array<{
-        tool_calls?: unknown[];
-        reasoning_content?: string;
-      }>;
+      );
 
       expect(assistantMsgs.length).toBe(2);
 

@@ -250,7 +250,7 @@ describe('AgentExecutor', () => {
         onActivity,
       );
 
-      const agentRegistry = executor['toolRegistry'] as ToolRegistry;
+      const agentRegistry = executor['toolRegistry'];
 
       expect(agentRegistry).not.toBe(parentToolRegistry);
       expect(agentRegistry.getAllToolNames()).toEqual(
