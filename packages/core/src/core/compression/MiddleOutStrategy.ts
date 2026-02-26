@@ -39,6 +39,7 @@ import {
   adjustForToolCallBoundary,
   aggregateTextFromBlocks,
   buildContinuationDirective,
+  sanitizeHistoryForCompression,
 } from './utils.js';
 import { getCompressionPrompt } from '../prompts.js';
 
@@ -82,7 +83,9 @@ export class MiddleOutStrategy implements CompressionStrategy {
       context.runtimeContext.ephemerals.compressionProfile();
     const provider = context.resolveProvider(compressionProfile);
 
-    // Build the LLM request
+    // Build the LLM request — sanitize tool blocks to text so the compression
+    // call doesn't trip Anthropic's strict tool_use/tool_result pairing
+    // validation (orphaned blocks from interrupted loops would cause 400s).
     // @plan PLAN-20260211-HIGHDENSITY.P23
     // @requirement REQ-HD-011.3, REQ-HD-012.2
     const compressionRequest: IContent[] = [
@@ -90,7 +93,7 @@ export class MiddleOutStrategy implements CompressionStrategy {
         speaker: 'human',
         blocks: [{ type: 'text', text: prompt }],
       },
-      ...toCompress,
+      ...sanitizeHistoryForCompression(toCompress),
       ...this.buildContextInjections(context),
       {
         speaker: 'human',

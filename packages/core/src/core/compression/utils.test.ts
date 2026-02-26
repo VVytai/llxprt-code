@@ -19,6 +19,7 @@ import {
   adjustForToolCallBoundary,
   findForwardValidSplitPoint,
   findBackwardValidSplitPoint,
+  sanitizeHistoryForCompression,
 } from './utils.js';
 
 // ---------------------------------------------------------------------------
@@ -477,5 +478,146 @@ describe('edge cases', () => {
     // c1 callId doesn't match c_other → allCallsHaveResponses=false → continue.
     // i=1: ai text (no tool_calls, toolCalls.length===0) → falls through to return i+1=2.
     expect(findBackwardValidSplitPoint(history, 3)).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeHistoryForCompression
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHistoryForCompression', () => {
+  it('passes through messages with only text blocks unchanged', () => {
+    const history = [humanMsg('hello'), aiTextMsg('world')];
+    const result = sanitizeHistoryForCompression(history);
+    expect(result).toEqual(history);
+  });
+
+  it('converts tool_call blocks to text blocks', () => {
+    const history = [aiToolCallMsg({ id: 'c1', name: 'read_file' })];
+    const result = sanitizeHistoryForCompression(history);
+    expect(result).toHaveLength(1);
+    expect(result[0].speaker).toBe('ai');
+    expect(result[0].blocks).toHaveLength(1);
+    expect(result[0].blocks[0].type).toBe('text');
+    expect((result[0].blocks[0] as { text: string }).text).toContain(
+      '[Tool Call: read_file]',
+    );
+  });
+
+  it('converts tool_response blocks to text blocks and re-tags speaker', () => {
+    const history = [toolResponseMsg('c1', 'read_file', 'file contents here')];
+    const result = sanitizeHistoryForCompression(history);
+    expect(result).toHaveLength(1);
+    expect(result[0].speaker).toBe('human');
+    expect(result[0].blocks).toHaveLength(1);
+    expect(result[0].blocks[0].type).toBe('text');
+    const text = (result[0].blocks[0] as { text: string }).text;
+    expect(text).toContain('[Tool Result: read_file]');
+    expect(text).toContain('file contents here');
+  });
+
+  it('includes tool_response error text', () => {
+    const msg: IContent = {
+      speaker: 'tool',
+      blocks: [
+        {
+          type: 'tool_response',
+          callId: 'c1',
+          toolName: 'run_command',
+          result: undefined,
+          error: 'command not found',
+        },
+      ],
+    };
+    const result = sanitizeHistoryForCompression([msg]);
+    const text = (result[0].blocks[0] as { text: string }).text;
+    expect(text).toContain('Error: command not found');
+  });
+
+  it('serialises non-string tool_response results as JSON', () => {
+    const msg: IContent = {
+      speaker: 'tool',
+      blocks: [
+        {
+          type: 'tool_response',
+          callId: 'c1',
+          toolName: 'list_dir',
+          result: { files: ['a.ts', 'b.ts'] },
+        },
+      ],
+    };
+    const result = sanitizeHistoryForCompression([msg]);
+    const text = (result[0].blocks[0] as { text: string }).text;
+    expect(text).toContain('"files"');
+    expect(text).toContain('a.ts');
+  });
+
+  it('includes tool_call parameters in text output', () => {
+    const msg: IContent = {
+      speaker: 'ai',
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 'c1',
+          name: 'write_file',
+          parameters: { path: '/tmp/x', content: 'hi' },
+        },
+      ],
+    };
+    const result = sanitizeHistoryForCompression([msg]);
+    const text = (result[0].blocks[0] as { text: string }).text;
+    expect(text).toContain('Parameters:');
+    expect(text).toContain('/tmp/x');
+  });
+
+  it('handles mixed text + tool blocks in a single message', () => {
+    const msg: IContent = {
+      speaker: 'ai',
+      blocks: [
+        { type: 'text', text: 'I will read the file.' },
+        {
+          type: 'tool_call',
+          id: 'c1',
+          name: 'read_file',
+          parameters: { path: '/a' },
+        },
+      ],
+    };
+    const result = sanitizeHistoryForCompression([msg]);
+    expect(result[0].blocks).toHaveLength(2);
+    expect(result[0].blocks[0].type).toBe('text');
+    expect((result[0].blocks[0] as { text: string }).text).toBe(
+      'I will read the file.',
+    );
+    expect(result[0].blocks[1].type).toBe('text');
+    expect((result[0].blocks[1] as { text: string }).text).toContain(
+      '[Tool Call: read_file]',
+    );
+  });
+
+  it('handles orphaned tool_use (no matching tool_result) without error', () => {
+    const history: IContent[] = [
+      humanMsg('do something'),
+      aiToolCallMsg({ id: 'c1', name: 'run_cmd' }),
+      // No tool_result for c1 — orphaned by loop detector
+      humanMsg('next request'),
+    ];
+    const result = sanitizeHistoryForCompression(history);
+    expect(result).toHaveLength(3);
+    // The orphaned tool_call is now just text — no structural validation issues
+    expect(result[1].blocks[0].type).toBe('text');
+    expect((result[1].blocks[0] as { text: string }).text).toContain(
+      '[Tool Call: run_cmd]',
+    );
+  });
+
+  it('re-tags tool speaker to human even without tool_response blocks', () => {
+    // Edge case: a 'tool' speaker message with only text blocks
+    const msg: IContent = {
+      speaker: 'tool',
+      blocks: [{ type: 'text', text: 'some tool output' }],
+    };
+    const result = sanitizeHistoryForCompression([msg]);
+    expect(result[0].speaker).toBe('human');
   });
 });
