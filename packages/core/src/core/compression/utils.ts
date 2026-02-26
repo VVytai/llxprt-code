@@ -230,7 +230,7 @@ export function sanitizeHistoryForCompression(
           let text = `[Tool Call: ${tc.name}]`;
           if (tc.parameters !== undefined) {
             try {
-              text += `\nParameters: ${JSON.stringify(tc.parameters, null, 2)}`;
+              text += `\nParameters: ${JSON.stringify(tc.parameters)}`;
             } catch {
               text += '\nParameters: [unserializable]';
             }
@@ -247,7 +247,7 @@ export function sanitizeHistoryForCompression(
               const resultStr =
                 typeof tr.result === 'string'
                   ? tr.result
-                  : JSON.stringify(tr.result, null, 2);
+                  : JSON.stringify(tr.result);
               text += `\nResult: ${resultStr}`;
             } catch {
               text += '\nResult: [unserializable]';
