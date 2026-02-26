@@ -691,6 +691,9 @@ describe('git extension helpers', () => {
         downloadFile('https://example.com/file.tar.gz', destPath),
       ).rejects.toThrow('Stream error');
 
+      // Allow async cleanup (fs.unlink) to settle
+      await new Promise((r) => setTimeout(r, 50));
+
       // Verify that the partial file was deleted
       const fileExists = await fs
         .access(destPath)
