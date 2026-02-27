@@ -25,17 +25,17 @@ Get started immediately with powerful LLM options:
 # Your Claude Pro / Max subscription
 /auth anthropic enable
 /provider anthropic
-/model claude-sonnet-4-5-20250929
+/model claude-sonnet-4-6
 
 # Your ChatGPT Plus / Pro subscription (Codex)
 /auth codex enable
 /provider codex
-/model gpt-5.2
+/model gpt-5.3-codex
 
 # Kimi subscription (K2 Thinking with reasoning)
 /provider kimi
 /key **************
-/model kimi-k2-thinking
+/model kimi-for-coding
 ```
 
 ## Why Choose LLxprt Code?
