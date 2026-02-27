@@ -726,9 +726,13 @@ describe('setupCredentialProxyDockerMacOS', () => {
 
   it('does NOT add --network host (unlike Podman)', async () => {
     const args: string[] = [];
-    await setupCredentialProxyDockerMacOS(args, '/tmp/cred-proxy.sock');
+    const result = await setupCredentialProxyDockerMacOS(
+      args,
+      '/tmp/cred-proxy.sock',
+    );
 
     expect(args).not.toContain('--network');
+    result.cleanup?.();
   });
 
   it('returns cleanup function that stops TCP server', async () => {
@@ -818,8 +822,9 @@ describe('setupSshAgentDockerMacOS - fallback', () => {
   it('fallback does NOT add --network host', async () => {
     vi.mocked(child_process.execSync).mockReturnValue(Buffer.from('colima'));
     const args: string[] = [];
-    await setupSshAgentDockerMacOS(args, '/tmp/auth.sock');
+    const result = await setupSshAgentDockerMacOS(args, '/tmp/auth.sock');
 
     expect(args).not.toContain('--network');
+    result.cleanup?.();
   });
 });

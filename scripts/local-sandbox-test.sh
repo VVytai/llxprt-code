@@ -38,16 +38,25 @@ fi
 SANDBOX_IMAGE_REPO="ghcr.io/vybestack/llxprt-code/sandbox"
 
 resolve_sandbox_version() {
-  local ver
-  ver=$(npm ls -g @vybestack/llxprt-code --depth=0 --json 2>/dev/null \
-    | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' | head -1)
+  local ver=""
+  if command -v npm >/dev/null 2>&1; then
+    ver=$(
+      npm ls -g @vybestack/llxprt-code --depth=0 --json 2>/dev/null \
+        | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' \
+        | head -1 || true
+    )
+  fi
   if [[ -n "${ver}" ]]; then
     echo "${ver}"
     return
   fi
   echo "Could not detect installed version, falling back to latest release" >&2
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Error: gh not found in PATH (required for release fallback)" >&2
+    return 1
+  fi
   gh release list --repo vybestack/llxprt-code --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null \
-    | sed 's/^v//'
+    | sed 's/^v//' || return 1
 }
 
 VERSION=$(resolve_sandbox_version)
