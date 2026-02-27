@@ -1,6 +1,6 @@
 export type AnthropicContentBlock =
   | { type: 'text'; text: string }
-  | { type: 'thinking'; thinking: string; signature: string }
+  | { type: 'thinking'; thinking: string; signature?: string }
   | { type: 'redacted_thinking'; data: string }
   | { type: 'tool_use'; id: string; name: string; input: unknown }
   | {
