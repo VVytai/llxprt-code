@@ -422,6 +422,25 @@ describe('AnthropicProvider Issue #1494: thinking blocks without signatures must
         expect(msg.content).not.toBe('[No content generated]');
       }
     }
+
+    // Explicitly verify the redacted thinking was preserved as text fallback
+    const assistantWithToolUse = request.messages.find(
+      (m) =>
+        m.role === 'assistant' &&
+        Array.isArray(m.content) &&
+        m.content.some((b) => b.type === 'tool_use'),
+    );
+    expect(assistantWithToolUse).toBeDefined();
+    const blocks = assistantWithToolUse!.content as AnthropicContentBlock[];
+    const textFallback = blocks.find(
+      (b) =>
+        b.type === 'text' &&
+        (b as { text: string }).text.includes('Old reasoning'),
+    );
+    expect(
+      textFallback,
+      'Unsigned thinking should be preserved as text when redacted',
+    ).toBeDefined();
   });
 
   it('still uses proper thinking/redacted_thinking for signed blocks', async () => {
