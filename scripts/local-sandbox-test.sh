@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Local sandbox testing script.
+# Usage: ./scripts/local-sandbox-test.sh [docker|podman] [-- extra-llxprt-args...]
+#
+# Examples:
+#   ./scripts/local-sandbox-test.sh              # defaults to podman
+#   ./scripts/local-sandbox-test.sh docker
+#   ./scripts/local-sandbox-test.sh podman -- --profile-load synthetic "write me a haiku"
+
+ENGINE="podman"
+if [[ "${1:-}" == "docker" || "${1:-}" == "podman" ]]; then
+  ENGINE="${1}"
+  shift
+fi
+
+# Consume optional "--" separator
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
+case "${ENGINE}" in
+  docker|podman) ;;
+  *)
+    echo "Usage: ${0} [docker|podman] [-- extra-llxprt-args...]" >&2
+    exit 1
+    ;;
+esac
+
+if ! command -v "${ENGINE}" >/dev/null 2>&1; then
+  echo "Error: ${ENGINE} not found in PATH" >&2
+  exit 1
+fi
+
+if ! command -v llxprt >/dev/null 2>&1; then
+  echo "Error: llxprt not found in PATH (npm install -g @vybestack/llxprt-code)" >&2
+  exit 1
+fi
+
+SANDBOX_IMAGE_REPO="ghcr.io/vybestack/llxprt-code/sandbox"
+
+resolve_sandbox_version() {
+  local ver=""
+  if command -v npm >/dev/null 2>&1; then
+    ver=$(
+      npm ls -g @vybestack/llxprt-code --depth=0 --json 2>/dev/null \
+        | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' \
+        | head -1 || true
+    )
+  fi
+  if [[ -n "${ver}" ]]; then
+    echo "${ver}"
+    return
+  fi
+  echo "Could not detect installed version, falling back to latest release" >&2
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Error: gh not found in PATH (required for release fallback)" >&2
+    return 1
+  fi
+  gh release list --repo vybestack/llxprt-code --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null \
+    | sed 's/^v//' || return 1
+}
+
+VERSION="$(resolve_sandbox_version || true)"
+if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
+  echo "Error: could not resolve sandbox version" >&2
+  exit 1
+fi
+SANDBOX_IMAGE="${SANDBOX_IMAGE_REPO}:${VERSION}"
+
+echo "Engine:        ${ENGINE}" >&2
+echo "Sandbox image: ${SANDBOX_IMAGE}" >&2
+echo "" >&2
+
+LLXPRT_SANDBOX="${ENGINE}" \
+SANDBOX_FLAGS="--cpus=2 --memory=12g --pids-limit=256" \
+exec llxprt --sandbox-image "${SANDBOX_IMAGE}" "$@"
