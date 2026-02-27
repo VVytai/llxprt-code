@@ -16,6 +16,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import net from 'node:net';
 import { quote, parse } from 'shell-quote';
 import {
   USER_SETTINGS_DIR,
@@ -199,8 +200,7 @@ export async function setupSshAgentForwarding(
 
   if (platform === 'darwin') {
     if (config.command === 'docker') {
-      setupSshAgentDockerMacOS(args);
-      return {};
+      return setupSshAgentDockerMacOS(args, sshAuthSock);
     }
 
     if (config.command === 'podman') {
@@ -243,15 +243,51 @@ export function setupSshAgentLinux(
   args.push('--env', `SSH_AUTH_SOCK=${CONTAINER_SSH_AGENT_SOCK}`);
 }
 
+export async function createTcpToUdsBridge(
+  udsPath: string,
+): Promise<{ port: number; server: net.Server }> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer({ allowHalfOpen: false }, (socket) => {
+      const udsClient = net.connect(udsPath);
+
+      socket.pipe(udsClient);
+      udsClient.pipe(socket);
+
+      socket.on('error', () => {
+        udsClient.destroy();
+      });
+      socket.on('close', () => {
+        udsClient.destroy();
+      });
+
+      udsClient.on('error', () => {
+        socket.destroy();
+      });
+      udsClient.on('close', () => {
+        socket.destroy();
+      });
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address() as net.AddressInfo;
+      resolve({ port: address.port, server });
+    });
+
+    server.on('error', reject);
+  });
+}
+
 /**
  * Sets up SSH agent forwarding for Docker on macOS using the Docker Desktop
  * magic socket (/run/host-services/ssh-auth.sock).
  *
  * Falls back gracefully if Docker Desktop is not detected (R6.2).
  */
-export function setupSshAgentDockerMacOS(args: string[]): void {
+export async function setupSshAgentDockerMacOS(
+  args: string[],
+  sshAuthSock?: string,
+): Promise<SshAgentResult> {
   try {
-    // Detect Docker Desktop by checking for the osType context
     const info = execSync('docker info --format "{{.OperatingSystem}}"', {
       timeout: 5000,
     })
@@ -259,23 +295,55 @@ export function setupSshAgentDockerMacOS(args: string[]): void {
       .trim();
     const isDesktop = /docker desktop/i.test(info);
 
-    if (!isDesktop) {
-      console.warn(
-        'Docker Desktop not detected on macOS. SSH agent forwarding may not work. ' +
-          'Consider using Docker Desktop or set LLXPRT_SANDBOX_SSH_AGENT=off.',
-      );
-      return;
+    if (isDesktop) {
+      const magicSocket = '/run/host-services/ssh-auth.sock';
+      args.push('--volume', `${magicSocket}:${CONTAINER_SSH_AGENT_SOCK}`);
+      args.push('--env', `SSH_AUTH_SOCK=${CONTAINER_SSH_AGENT_SOCK}`);
+      return {};
     }
 
-    // R6.1: Use the Docker Desktop magic socket
-    const magicSocket = '/run/host-services/ssh-auth.sock';
-    args.push('--volume', `${magicSocket}:${CONTAINER_SSH_AGENT_SOCK}`);
-    args.push('--env', `SSH_AUTH_SOCK=${CONTAINER_SSH_AGENT_SOCK}`);
+    if (!sshAuthSock) {
+      console.warn(
+        'Docker Desktop not detected and no SSH_AUTH_SOCK available. ' +
+          'SSH agent forwarding disabled.',
+      );
+      return {};
+    }
+
+    const { port, server } = await createTcpToUdsBridge(sshAuthSock);
+
+    const containerSshAgentSock = '/tmp/ssh-agent';
+    const entrypointPrefix =
+      `command -v socat >/dev/null 2>&1 || { echo "ERROR: socat not found — SSH agent forwarding requires socat in the sandbox image" >&2; }; ` +
+      `rm -f ${containerSshAgentSock}; ` +
+      `socat UNIX-LISTEN:${containerSshAgentSock},fork TCP4:host.docker.internal:${port} &`;
+
+    args.push('--env', `SSH_AUTH_SOCK=${containerSshAgentSock}`);
+
+    let cleanedUp = false;
+    const cleanup = () => {
+      if (cleanedUp) {
+        return;
+      }
+      cleanedUp = true;
+
+      try {
+        server.close();
+      } catch {
+        // ignore
+      }
+    };
+
+    return {
+      cleanup,
+      entrypointPrefix,
+    };
   } catch {
     console.warn(
       'Failed to detect Docker Desktop. SSH agent forwarding disabled. ' +
         'Set LLXPRT_SANDBOX_SSH_AGENT=off to suppress this warning.',
     );
+    return {};
   }
 }
 
@@ -667,6 +735,38 @@ export async function setupCredentialProxyPodmanMacOS(
 
   return {
     tunnelProcess,
+    cleanup,
+    entrypointPrefix,
+    containerSocketPath: CONTAINER_CREDENTIAL_PROXY_SOCK,
+  };
+}
+
+export async function setupCredentialProxyDockerMacOS(
+  args: string[],
+  hostCredentialSocketPath: string,
+): Promise<CredentialProxyBridgeResult> {
+  const { port, server } = await createTcpToUdsBridge(hostCredentialSocketPath);
+
+  const entrypointPrefix =
+    `command -v socat >/dev/null 2>&1 || { echo "ERROR: socat not found — credential proxy relay requires socat in the sandbox image" >&2; }; ` +
+    `rm -f ${CONTAINER_CREDENTIAL_PROXY_SOCK}; ` +
+    `socat UNIX-LISTEN:${CONTAINER_CREDENTIAL_PROXY_SOCK},fork TCP4:host.docker.internal:${port} &`;
+
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) {
+      return;
+    }
+    cleanedUp = true;
+
+    try {
+      server.close();
+    } catch {
+      // ignore
+    }
+  };
+
+  return {
     cleanup,
     entrypointPrefix,
     containerSocketPath: CONTAINER_CREDENTIAL_PROXY_SOCK,
@@ -1549,30 +1649,41 @@ export async function start_sandbox(
       if (socketPath) {
         // @plan:PLAN-20250214-CREDPROXY.P34 R3.6: Pass socket path to container via env var
         const shouldBridgeCredentialProxy =
-          config.command === 'podman' && os.platform() === 'darwin';
+          (config.command === 'podman' || config.command === 'docker') &&
+          os.platform() === 'darwin';
 
         if (shouldBridgeCredentialProxy) {
-          credentialProxyBridgeResult = await setupCredentialProxyPodmanMacOS(
-            args,
-            socketPath,
-            SSH_TUNNEL_POLL_TIMEOUT_MS,
-            {
-              reserveTunnelPort: (port) => {
-                reservedTunnelPorts.add(port);
+          if (config.command === 'podman') {
+            credentialProxyBridgeResult = await setupCredentialProxyPodmanMacOS(
+              args,
+              socketPath,
+              SSH_TUNNEL_POLL_TIMEOUT_MS,
+              {
+                reserveTunnelPort: (port) => {
+                  reservedTunnelPorts.add(port);
+                },
+                excludedTunnelPorts: reservedTunnelPorts,
               },
-              excludedTunnelPorts: reservedTunnelPorts,
-            },
-          );
-          credentialProxyBridgeCleanup = credentialProxyBridgeResult.cleanup;
-          if (credentialProxyBridgeResult.entrypointPrefix) {
-            entrypointPrefixes.push(
-              credentialProxyBridgeResult.entrypointPrefix,
+            );
+          } else if (config.command === 'docker') {
+            credentialProxyBridgeResult = await setupCredentialProxyDockerMacOS(
+              args,
+              socketPath,
             );
           }
-          args.push(
-            '--env',
-            `LLXPRT_CREDENTIAL_SOCKET=${credentialProxyBridgeResult.containerSocketPath}`,
-          );
+
+          if (credentialProxyBridgeResult) {
+            credentialProxyBridgeCleanup = credentialProxyBridgeResult.cleanup;
+            if (credentialProxyBridgeResult.entrypointPrefix) {
+              entrypointPrefixes.push(
+                credentialProxyBridgeResult.entrypointPrefix,
+              );
+            }
+            args.push(
+              '--env',
+              `LLXPRT_CREDENTIAL_SOCKET=${credentialProxyBridgeResult.containerSocketPath}`,
+            );
+          }
         } else {
           args.push('--env', `LLXPRT_CREDENTIAL_SOCKET=${socketPath}`);
         }
