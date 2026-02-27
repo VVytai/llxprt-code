@@ -9,8 +9,11 @@ set -euo pipefail
 #   ./scripts/local-sandbox-test.sh docker
 #   ./scripts/local-sandbox-test.sh podman -- --profile-load synthetic "write me a haiku"
 
-ENGINE="${1:-podman}"
-shift || true
+ENGINE="podman"
+if [[ "${1:-}" == "docker" || "${1:-}" == "podman" ]]; then
+  ENGINE="${1}"
+  shift
+fi
 
 # Consume optional "--" separator
 if [[ "${1:-}" == "--" ]]; then
@@ -59,8 +62,8 @@ resolve_sandbox_version() {
     | sed 's/^v//' || return 1
 }
 
-VERSION=$(resolve_sandbox_version)
-if [[ -z "${VERSION}" ]]; then
+VERSION="$(resolve_sandbox_version || true)"
+if [[ -z "${VERSION}" || "${VERSION}" == "null" ]]; then
   echo "Error: could not resolve sandbox version" >&2
   exit 1
 fi
