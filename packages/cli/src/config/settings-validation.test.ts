@@ -331,10 +331,10 @@ describe('settings-validation', () => {
       expect(result.success).toBe(true);
     });
 
-    it('should reject lsp as boolean true (only false or object allowed)', () => {
-      const invalidSettings = { lsp: true };
-      const result = validateSettings(invalidSettings);
-      expect(result.success).toBe(false);
+    it('should accept lsp as boolean true (enables LSP with defaults)', () => {
+      const validSettings = { lsp: true };
+      const result = validateSettings(validSettings);
+      expect(result.success).toBe(true);
     });
 
     it('should reject lsp as string', () => {
