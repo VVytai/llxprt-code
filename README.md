@@ -45,7 +45,7 @@ Get started immediately with powerful LLM options:
 - **Load Balancer Profiles**: Balance requests across providers or accounts with automatic failover
 - **Free Tier Support**: Start coding immediately with Gemini or Qwen free tiers
 - **Provider Flexibility**: Switch between any Anthropic, Gemini, OpenAI, Kimi, or OpenAI-compatible provider
-- **Top Open Models**: Works seamlessly with GLM-4.7, Kimi K2 Thinking, MiniMax M2.1, and Qwen 3 Coder
+- **Top Open Models**: Works seamlessly with GLM-5, Kimi K 2.5, MiniMax M2.5, and Qwen 3.5 Next Coder
 - **Local Models**: Run models locally with LM Studio, llama.cpp for complete privacy
 - **Privacy First**: No telemetry by default, local processing available
 - **Subagent Flexibility**: Create agents with different models, providers, or settings
@@ -58,7 +58,7 @@ npm install -g @vybestack/llxprt-code
 llxprt
 
 # Try without installing
-npx @vybestack/llxprt-code --provider synthetic --model hf:zai-org/GLM-4.7 --keyfile ~/.synthetic_key "simplify the README.md"
+npx @vybestack/llxprt-code --provider synthetic --model hf:zai-org/GLM-5 --keyfile ~/.synthetic_key "simplify the README.md"
 ```
 
 ## What is LLxprt Code?
@@ -103,7 +103,7 @@ llxprt
 - **Multi-Account Failover** - Configure multiple OAuth buckets that failover automatically on rate limits
 - **Load Balancer Profiles** - Balance across providers/accounts with roundrobin or failover policies
 - **Extensive Provider Support** - Anthropic, Gemini, OpenAI, Kimi, and any OpenAI-compatible provider [**Provider Guide →**](./docs/providers/quick-reference.md)
-- **Top Open Models** - GLM-4.7, Kimi K2 Thinking, MiniMax M2.1, Qwen 3 Coder
+- **Top Open Models** - GLM-5, Kimi K2.5, MiniMax M2.5, Qwen 3.5 Next Coder
 - **Local Model Support** - LM Studio, llama.cpp, Ollama for complete privacy
 - **Profile System** - Save provider configurations and model settings
 - **Advanced Subagents** - Isolated AI assistants with different models/providers
@@ -130,7 +130,7 @@ Ideal for automation, CI/CD, and scripted workflows:
 
 ```bash
 # Single command with immediate response
-llxprt --profile-load zai-glm46 "Refactor this function for better readability"
+llxprt --profile-load zai-glm5 "Refactor this function for better readability"
 llxprt "Generate unit tests for payment module" > tests/payment.test.js
 ```
 
@@ -211,7 +211,7 @@ Create specialized AI assistants with isolated contexts and different configurat
 Each subagent can be configured with:
 
 - **Different providers** (Gemini vs Anthropic vs Qwen vs Local)
-- **Different models** (Flash vs Sonnet vs GLM-4.7 vs Custom)
+- **Different models** (Flash vs Sonnet vs GLM-5 vs Custom)
 - **Different tool access** (Restrict or allow specific tools)
 - **Different settings** (Temperature, timeouts, max turns)
 - **Isolated runtime context** (No memory or state crossover)
