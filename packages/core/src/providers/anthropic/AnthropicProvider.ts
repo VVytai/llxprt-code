@@ -1260,14 +1260,41 @@ export class AnthropicProvider extends BaseProvider {
           for (const block of c.blocks) {
             if (block.type === 'thinking') {
               const thinkingBlock = block;
-              if (
-                thinkingBlock.sourceField !== 'thinking' ||
-                !thinkingBlock.signature
-              ) {
+              if (thinkingBlock.sourceField !== 'thinking') {
+                // Non-Anthropic thinking (e.g., Gemini thought parts) — preserve as text
+                // so the model retains the reasoning context.
+                if (thinkingBlock.thought) {
+                  contentArray.push({
+                    type: 'text',
+                    text: thinkingBlock.thought,
+                  });
+                }
+                continue;
+              }
+              if (!thinkingBlock.signature) {
+                // Anthropic-format thinking without a signature (e.g., z.ai GLM models
+                // that use the Anthropic API but don't produce cryptographic signatures).
+                // Never silently drop non-empty reasoning content.
+                if (!thinkingBlock.thought) {
+                  // Truly empty thinking block — nothing to preserve
+                  continue;
+                }
                 this.getLogger().debug(
                   () =>
-                    `[AnthropicProvider] Skipping thinking block without signature at index ${contentIndex}`,
+                    `[AnthropicProvider] Including thinking block without signature at index ${contentIndex} (unsigned provider)`,
                 );
+                if (shouldRedactThinkingBase) {
+                  // Cannot produce redacted_thinking without a signature — fall back to text
+                  contentArray.push({
+                    type: 'text',
+                    text: thinkingBlock.thought,
+                  });
+                } else {
+                  contentArray.push({
+                    type: 'thinking',
+                    thinking: thinkingBlock.thought,
+                  });
+                }
                 continue;
               }
               if (shouldRedactBlock(thinkingBlock)) {

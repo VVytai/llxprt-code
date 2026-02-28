@@ -969,14 +969,22 @@ describe('AnthropicProvider Issue #1150: API Shape Validation', () => {
       expect(assistantWithToolUse).toBeDefined();
       const content = assistantWithToolUse!.content as AnthropicContentBlock[];
 
-      // First block must be thinking (from the Anthropic-style block)
-      expect(isThinkingBlock(content[0])).toBe(true);
-
-      // Count thinking blocks - should only have 1 (from sourceField: 'thinking')
+      // Count thinking blocks - should only have 1 (from sourceField: 'thinking' with signature)
       const thinkingCount = content.filter(isThinkingBlock).length;
       expect(
         thinkingCount,
         'Should only include thinking blocks with sourceField=thinking, not sourceField=thought',
+      ).toBe(1);
+
+      // The Gemini-style thought (sourceField: 'thought') should be preserved as text, not dropped
+      const textBlocks = content.filter(
+        (b) =>
+          b.type === 'text' &&
+          (b as { text: string }).text.includes('Gemini thought process'),
+      );
+      expect(
+        textBlocks.length,
+        'Non-Anthropic thinking should be preserved as text',
       ).toBe(1);
     });
   });
