@@ -88,7 +88,8 @@ export type HistoryItemUser = HistoryItemBase & {
   text: string;
 };
 
-export type HistoryItemGemini = HistoryItemBase & {
+export type HistoryItemAi = HistoryItemBase & {
+  // Wire string 'gemini' is persisted in checkpoint data; do not change
   type: 'gemini';
   text: string;
   model?: string;
@@ -96,7 +97,8 @@ export type HistoryItemGemini = HistoryItemBase & {
   thinkingBlocks?: ThinkingBlock[]; // @plan:PLAN-20251202-THINKING-UI.P06
 };
 
-export type HistoryItemGeminiContent = HistoryItemBase & {
+export type HistoryItemAiContent = HistoryItemBase & {
+  // Wire string 'gemini_content' is persisted in checkpoint data; do not change
   type: 'gemini_content';
   text: string;
   model?: string;
@@ -260,8 +262,8 @@ export type HistoryItemSkillsList = HistoryItemBase & {
 export type HistoryItemWithoutId =
   | HistoryItemUser
   | HistoryItemUserShell
-  | HistoryItemGemini
-  | HistoryItemGeminiContent
+  | HistoryItemAi
+  | HistoryItemAiContent
   | HistoryItemInfo
   | HistoryItemError
   | HistoryItemWarning
@@ -303,7 +305,8 @@ export enum MessageType {
   CACHE_STATS = 'cache_stats',
   LB_STATS = 'lb_stats',
   QUIT = 'quit',
-  GEMINI = 'gemini',
+  // Wire string 'gemini' is persisted in checkpoint data; do not change
+  AI = 'gemini',
   COMPRESSION = 'compression',
   EXTENSIONS_LIST = 'extensions_list',
   CHAT_LIST = 'chat_list',
@@ -393,7 +396,7 @@ export interface SubmitPromptResult {
 }
 
 /**
- * Defines the result of the slash command processor for its consumer (useGeminiStream).
+ * Defines the result of the slash command processor for its consumer (useAgentStream).
  */
 export type SlashCommandProcessorResult =
   | {

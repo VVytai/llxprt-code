@@ -25,7 +25,7 @@ import {
 import type { SettingsFile, Settings } from '../config/settings.js';
 import { LoadedSettings } from '../config/settings.js';
 import process from 'node:process';
-import { useGeminiStream } from './hooks/geminiStream/index.js';
+import { useAgentStream } from './hooks/agentStream/index.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
 import type { ConsoleMessageItem, HistoryItem } from './types.js';
 import { StreamingState } from './types.js';
@@ -231,8 +231,8 @@ vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
 });
 
 // Mock heavy dependencies or those with side effects
-vi.mock('./hooks/geminiStream/index', () => ({
-  useGeminiStream: vi.fn(() => ({
+vi.mock('./hooks/agentStream/index', () => ({
+  useAgentStream: vi.fn(() => ({
     streamingState: 'Idle',
     submitQuery: vi.fn(),
     initError: null,
@@ -559,7 +559,7 @@ describe('App UI', () => {
   });
 
   it('should render correctly with the prompt input box - common checks', () => {
-    vi.mocked(useGeminiStream).mockReturnValue({
+    vi.mocked(useAgentStream).mockReturnValue({
       streamingState: StreamingState.Idle,
       submitQuery: vi.fn(),
       initError: null,
@@ -586,7 +586,7 @@ describe('App UI', () => {
   it.runIf(isPowerShell())(
     'should render PowerShell-specific placeholder',
     () => {
-      vi.mocked(useGeminiStream).mockReturnValue({
+      vi.mocked(useAgentStream).mockReturnValue({
         streamingState: StreamingState.Idle,
         submitQuery: vi.fn(),
         initError: null,
@@ -613,7 +613,7 @@ describe('App UI', () => {
   it.skipIf(isPowerShell())(
     'should render standard placeholder on non-PowerShell',
     () => {
-      vi.mocked(useGeminiStream).mockReturnValue({
+      vi.mocked(useAgentStream).mockReturnValue({
         streamingState: StreamingState.Idle,
         submitQuery: vi.fn(),
         initError: null,
@@ -641,7 +641,7 @@ describe('App UI', () => {
 
       mockConfig.getQuestion = vi.fn(() => 'hello from prompt-interactive');
 
-      vi.mocked(useGeminiStream).mockReturnValue({
+      vi.mocked(useAgentStream).mockReturnValue({
         streamingState: StreamingState.Idle,
         submitQuery: mockSubmitQuery,
         initError: null,
