@@ -13,7 +13,6 @@
  * None of these functions call React hooks.
  */
 
-import { FinishReason } from '@google/genai';
 import type {
   ServerContentEvent as ContentEvent,
   ServerErrorEvent as ErrorEvent,
@@ -21,8 +20,12 @@ import type {
   ThoughtSummary,
   ThinkingBlock,
   ModelInfo,
+  CanonicalFinishReason,
 } from '@vybestack/llxprt-code-core';
-import { uiTelemetryService } from '@vybestack/llxprt-code-core';
+import {
+  uiTelemetryService,
+  isCanonicalFinishReason,
+} from '@vybestack/llxprt-code-core';
 import type {
   AgentEvent,
   AgentStopInfo,
@@ -204,13 +207,14 @@ function handleModelInfoEvent(
 }
 
 /**
- * Type-safely narrows a string to FinishReason by checking membership in the
- * enum's values. Returns undefined for unknown values so buildFinishReasonMessage
- * is never called with an out-of-range key.
+ * Narrows the FinishedValue.reason string to a CanonicalFinishReason.
+ * Returns undefined for unknown values so buildFinishReasonMessage treats
+ * them as a normal/other case.
  */
-function narrowFinishReason(reason: string): FinishReason | undefined {
-  const values = Object.values(FinishReason) as string[];
-  return values.includes(reason) ? (reason as FinishReason) : undefined;
+function toCanonicalFinishReason(
+  reason: string,
+): CanonicalFinishReason | undefined {
+  return isCanonicalFinishReason(reason) ? reason : undefined;
 }
 
 /**
@@ -225,8 +229,8 @@ function computeFinishNotice(
   if (refusal) return refusal;
   if (!finished.reason) return undefined;
   return buildFinishReasonMessage(
-    narrowFinishReason(finished.reason) ??
-      FinishReason.FINISH_REASON_UNSPECIFIED,
+    toCanonicalFinishReason(finished.reason),
+    finished.stopReason,
   );
 }
 

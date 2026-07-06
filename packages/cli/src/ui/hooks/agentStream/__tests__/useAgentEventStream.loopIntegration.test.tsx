@@ -30,7 +30,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook } from '../../../../test-utils/render.js';
 import { act } from 'react';
-import { FinishReason } from '@google/genai';
 import type { PartListUnion, Content, Part } from '@google/genai';
 
 import {
@@ -99,7 +98,7 @@ function contentEvent(text: string): ServerAgentStreamEvent {
 function finishedEvent(): ServerAgentStreamEvent {
   return {
     type: AgentEventType.Finished,
-    value: { reason: FinishReason.STOP },
+    value: { reason: 'stop' },
   };
 }
 

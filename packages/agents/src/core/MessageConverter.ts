@@ -29,8 +29,8 @@ import {
   type ThoughtPart,
   isThoughtPart,
   type UsageMetadataWithCache,
-} from '@vybestack/llxprt-code-core/core/chatSessionTypes.js';
-import { getResponseTextFromParts } from '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js';
+} from './googlePartHelpers.js';
+import { getResponseTextFromParts } from './googlePartHelpers.js';
 import { setProviderStopReason } from './providerStopReason.js';
 
 const logger = new DebugLogger('llxprt:core:message-converter');
@@ -405,7 +405,7 @@ function convertAllFunctionResponses(parts: Part[]): IContent {
   return { speaker: 'tool', blocks };
 }
 
-function classifyMixedParts(parts: Part[]): {
+export function classifyMixedParts(parts: Part[]): {
   blocks: ContentBlock[];
   hasAIContent: boolean;
   hasToolContent: boolean;
@@ -417,6 +417,7 @@ function classifyMixedParts(parts: Part[]): {
   for (const part of parts) {
     if (typeof part === 'string') {
       blocks.push({ type: 'text', text: part });
+      hasAIContent = true;
     } else if (isThoughtPart(part)) {
       const thinkingBlock: ThinkingBlock = {
         type: 'thinking',
@@ -431,6 +432,7 @@ function classifyMixedParts(parts: Part[]): {
       hasAIContent = true;
     } else if ('text' in part && part.text !== undefined) {
       blocks.push({ type: 'text', text: part.text });
+      hasAIContent = true;
     } else if ('functionCall' in part && part.functionCall) {
       hasAIContent = true;
       blocks.push({

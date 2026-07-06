@@ -8,9 +8,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ServerAgentStreamEvent } from './turn.js';
 import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
 import type { GenerateContentResponse, Part } from '@google/genai';
+import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ChatSession } from './chatSession.js';
 import { StreamEventType } from './chatSession.js';
-import { type MockedChatInstance } from './turn-test-helpers.js';
+import {
+  type MockedChatInstance,
+  mockResponseToChunk,
+} from './turn-test-helpers.js';
 import { DEFAULT_STREAM_FIRST_RESPONSE_TIMEOUT_MS } from '@vybestack/llxprt-code-core/utils/streamIdleTimeout.js';
 
 const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
@@ -134,15 +138,15 @@ function failsafe(ms: number): { promise: Promise<never>; cancel: () => void } {
 /** A stream whose first .next() never resolves (acquisition resolves fine). */
 function createStreamWithStalledFirstNext(): AsyncGenerator<{
   type: StreamEventType;
-  value: GenerateContentResponse;
+  value: ModelStreamChunk;
 }> {
   return (async function* () {
     await new Promise<void>(() => {});
     yield {
       type: StreamEventType.CHUNK,
-      value: {
+      value: mockResponseToChunk({
         candidates: [{ content: { parts: [{ text: 'never' }] } }],
-      } as GenerateContentResponse,
+      }),
     };
   })();
 }
@@ -307,7 +311,7 @@ describe('Turn - first-response timeout (issue #2379)', () => {
 
     const leakyIterator: AsyncIterator<{
       type: StreamEventType;
-      value: GenerateContentResponse;
+      value: ModelStreamChunk;
     }> = {
       async next() {
         await firstNextGate;
@@ -315,9 +319,9 @@ describe('Turn - first-response timeout (issue #2379)', () => {
           done: false,
           value: {
             type: StreamEventType.CHUNK,
-            value: {
+            value: mockResponseToChunk({
               candidates: [{ content: { parts: [{ text: 'late' }] } }],
-            } as GenerateContentResponse,
+            }),
           },
         };
       },
@@ -369,7 +373,7 @@ describe('Turn - first-response timeout (issue #2379)', () => {
     let returnCalled = false;
     const throwingIterator: AsyncIterator<{
       type: StreamEventType;
-      value: GenerateContentResponse;
+      value: ModelStreamChunk;
     }> = {
       async next(): Promise<never> {
         throw new Error('first next failed');
@@ -403,9 +407,9 @@ describe('Turn - first-response timeout (issue #2379)', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: {
+        value: mockResponseToChunk({
           candidates: [{ content: { parts: [{ text: 'Hello' }] } }],
-        } as GenerateContentResponse,
+        }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -437,16 +441,16 @@ describe('Turn - first-response timeout (issue #2379)', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
       yield {
         type: StreamEventType.CHUNK,
-        value: {
+        value: mockResponseToChunk({
           candidates: [{ content: { parts: [{ text: 'Hel' }] } }],
-        } as GenerateContentResponse,
+        }),
       };
       await new Promise((resolve) => setTimeout(resolve, 60));
       yield {
         type: StreamEventType.CHUNK,
-        value: {
+        value: mockResponseToChunk({
           candidates: [{ content: { parts: [{ text: 'lo' }] } }],
-        } as GenerateContentResponse,
+        }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -510,9 +514,9 @@ describe('Turn - first-response timeout (issue #2379)', () => {
           });
           yield {
             type: StreamEventType.CHUNK,
-            value: {
+            value: mockResponseToChunk({
               candidates: [{ content: { parts: [{ text: 'never' }] } }],
-            } as GenerateContentResponse,
+            }),
           };
         })();
         return Promise.resolve(stream);

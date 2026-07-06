@@ -8,31 +8,9 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   type CodeAssistServer,
   UserTierId,
-  // Follow-up (#1569): Re-enable when getCodeAssistServer is exported from core
-  // getCodeAssistServer,
+  getCodeAssistServer,
 } from '@vybestack/llxprt-code-core';
 import type { AgentClientSource } from '../cliUiRuntime.js';
-
-// Follow-up (#1569): Remove when getCodeAssistServer is exported from core
-function getCodeAssistServer(
-  runtime: AgentClientSource,
-): CodeAssistServer | undefined {
-  const contentGenerator: unknown = runtime
-    .getAgentClient()
-    .getContentGenerator();
-
-  // Check if it's a CodeAssistServer
-  if (
-    contentGenerator !== undefined &&
-    contentGenerator !== null &&
-    typeof contentGenerator === 'object' &&
-    'projectId' in contentGenerator
-  ) {
-    return contentGenerator as CodeAssistServer;
-  }
-
-  return undefined;
-}
 
 export interface PrivacyState {
   isLoading: boolean;

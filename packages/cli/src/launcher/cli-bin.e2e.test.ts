@@ -9,7 +9,7 @@ import { mkdtemp, writeFile, rm, access } from 'node:fs/promises';
 import { accessSync, constants } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -18,6 +18,27 @@ async function pathExists(targetPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function resolveExecutableFromPath(command: string): string | null {
+  const lookup = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(lookup, [command], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    return null;
+  }
+  return (
+    result.stdout.split(/\r?\n/).find((line) => line.trim() !== '') ?? null
+  );
+}
+async function resolveTestBunPath(workspaceBunPath: string): Promise<string> {
+  const envBunPath = process.env['BUN_PATH'];
+  if (envBunPath !== undefined) {
+    return envBunPath;
+  }
+  if (await pathExists(workspaceBunPath)) {
+    return workspaceBunPath;
+  }
+  return resolveExecutableFromPath('bun') ?? workspaceBunPath;
 }
 
 const cliPackageRoot = resolve(__dirname, '..', '..');
@@ -154,11 +175,10 @@ describe('cli bin end-to-end credential routing', () => {
     async (_label, socketEnvValue) => {
       const binPath = resolve(cliPackageRoot, 'bin', 'llxprt.cjs');
       // This e2e test drives the real CJS launcher, so it needs a concrete Bun
-      // binary path. The bundled Bun is a direct dependency installed at the
-      // monorepo root, so resolve it there. This is intentionally a fixed path
-      // (rather than the production resolveBunPath walker) to keep the test
-      // hermetic; if the monorepo layout changes, update this path.
-      const bunPath = resolve(
+      // binary path. Prefer the bundled monorepo Bun when present, but allow
+      // developer installs that expose Bun on PATH without creating a local
+      // node_modules/.bin/bun shim.
+      const workspaceBunPath = resolve(
         cliPackageRoot,
         '..',
         '..',
@@ -166,6 +186,7 @@ describe('cli bin end-to-end credential routing', () => {
         '.bin',
         process.platform === 'win32' ? 'bun.cmd' : 'bun',
       );
+      const bunPath = await resolveTestBunPath(workspaceBunPath);
       // Fail fast with an actionable message if the monorepo layout has
       // shifted, rather than surfacing an opaque ENOENT from inside the spawned
       // subprocess. Do this BEFORE creating the temp dir so a stale path can
