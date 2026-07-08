@@ -20,9 +20,11 @@ import {
   type GenerateContentConfig,
 } from '@google/genai';
 import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import { responseToModelStreamChunk } from '../core/streamChunkWrapper.js';
-import { attachHookRestrictedAllowedTools } from '../core/hookRestrictionsLegacyCompat.js';
+import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type {
+  ContentBlock,
+  ToolCallBlock,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import { MockTool } from '@vybestack/llxprt-code-core/test-utils/mock-tool.js';
 import { z } from 'zod';
@@ -53,16 +55,47 @@ export interface ViTestApi {
 }
 
 /**
- * Creates a mock API response chunk, safely spreading functionCalls when
- * present.
+ * Converts a Google-shaped Part to a neutral ContentBlock.
+ */
+function partToBlock(part: Part): ContentBlock {
+  if ('text' in part && part.text !== undefined) {
+    if (part.thought === true) {
+      return { type: 'thinking', thought: part.text };
+    }
+    return { type: 'text', text: part.text };
+  }
+  if ('functionCall' in part && part.functionCall) {
+    const fc = part.functionCall;
+    return {
+      type: 'tool_call',
+      id: fc.id ?? fc.name,
+      name: fc.name,
+      parameters: fc.args ?? {},
+    } as ToolCallBlock;
+  }
+  if ('functionResponse' in part && part.functionResponse) {
+    return {
+      type: 'tool_response',
+      callId: part.functionResponse.id ?? part.functionResponse.name ?? '',
+      toolName: part.functionResponse.name ?? '',
+      result: part.functionResponse.response,
+    };
+  }
+  // Fallback: wrap as text
+  return { type: 'text', text: JSON.stringify(part) };
+}
+
+/**
+ * Creates a mock API response chunk by converting Google-shaped Parts to
+ * a neutral ModelStreamChunk. Keeps backward compatibility with existing
+ * test callers that pass Part[].
  */
 export const createMockResponseChunk = (
   parts: Part[],
   functionCalls?: FunctionCall[],
   allowedTools?: readonly string[],
 ): ModelStreamChunk => {
-  // Avoid duplicating function calls: if parts already carry functionCall
-  // entries, only append the functionCalls that are not represented in parts.
+  // Merge functionCalls into parts if not already present
   const existingCallNames = new Set(
     parts
       .filter(
@@ -80,20 +113,20 @@ export const createMockResponseChunk = (
       }
     }
   }
-  let mockResp = {
-    candidates: [
-      { index: 0, content: { role: 'model', parts: candidateParts } },
-    ],
-    ...(functionCalls && functionCalls.length > 0 ? { functionCalls } : {}),
-  } as unknown as Parameters<typeof responseToModelStreamChunk>[0];
-  // When the caller specifies hook-restricted allowed tools, attach the
-  // restriction to the synthetic GenerateContentResponse BEFORE wrapping so
-  // the neutral ModelStreamChunk carries hookRestrictions the same way the
-  // real StreamProcessor → TurnProcessor pipeline does.
+
+  const blocks = candidateParts.map(partToBlock);
+  const chunk = toModelStreamChunk({
+    speaker: 'ai',
+    blocks,
+  });
+
   if (allowedTools !== undefined) {
-    mockResp = attachHookRestrictedAllowedTools(mockResp, allowedTools);
+    chunk.hookRestrictions = {
+      allowedToolNames: [...allowedTools],
+    };
   }
-  return responseToModelStreamChunk(mockResp);
+
+  return chunk;
 };
 
 /**

@@ -6,37 +6,33 @@
 
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import {
-  applyTemplateToInitialMessages,
-} from '../executor-prompt-builder.js';
+import { applyTemplateToInitialMessages } from '../executor-prompt-builder.js';
 import { templateString } from '../utils.js';
-import {
-  getRecoveryWarningMessage,
-} from '../recovery.js';
+import { getRecoveryWarningMessage } from '../recovery.js';
 import { AgentTerminateMode } from '../types.js';
-import type { Content } from '@google/genai';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 
 /**
  * @plan PLAN-20260707-AGENTNEUTRAL.P24
  * @requirement REQ-005.5b
  *
- * Characterization tests for executor behavior BEFORE retype.
+ * Characterization tests for executor behavior.
  * These pin OBSERVABLE behavior (templated text content, recovery message
- * content, system prompt structure) so the P25 neutral retype preserves it.
+ * content, system prompt structure) so the neutral retype preserves it.
  */
 
 // ─── Helpers ───────────────────────────────────────────────
 
-/** Extract all text from any content-like structure (current Google shape). */
-function extractTextFromContent(content: Content): string {
-  return (content.parts ?? [])
-    .filter((p) => 'text' in p && p.text !== undefined)
-    .map((p) => (p as { text: string }).text)
+/** Extract all text from a neutral IContent. */
+function extractTextFromContent(content: IContent): string {
+  return content.blocks
+    .filter((b) => b.type === 'text')
+    .map((b) => (b as { text: string }).text)
     .join('');
 }
 
-/** Extract text from any result shape (works on current + future neutral). */
-function extractAllText(results: Content[]): string[] {
+/** Extract text from any result shape. */
+function extractAllText(results: IContent[]): string[] {
   return results.map(extractTextFromContent);
 }
 
@@ -44,10 +40,10 @@ function extractAllText(results: Content[]): string[] {
 
 describe('executorRun.characterization — template application', () => {
   it('substitutes single placeholder in initial message text', () => {
-    const messages: Content[] = [
+    const messages: IContent[] = [
       {
-        role: 'user',
-        parts: [{ text: 'Hello ${name}!' }],
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'Hello ${name}!' }],
       },
     ];
     const result = applyTemplateToInitialMessages(messages, { name: 'World' });
@@ -55,10 +51,15 @@ describe('executorRun.characterization — template application', () => {
   });
 
   it('substitutes multiple placeholders in a single part', () => {
-    const messages: Content[] = [
+    const messages: IContent[] = [
       {
-        role: 'user',
-        parts: [{ text: '${greeting}, ${name}. You have ${count} tasks.' }],
+        speaker: 'human',
+        blocks: [
+          {
+            type: 'text',
+            text: '${greeting}, ${name}. You have ${count} tasks.',
+          },
+        ],
       },
     ];
     const result = applyTemplateToInitialMessages(messages, {
@@ -71,11 +72,11 @@ describe('executorRun.characterization — template application', () => {
     ]);
   });
 
-  it('preserves message count and role', () => {
-    const messages: Content[] = [
-      { role: 'user', parts: [{ text: '${a}' }] },
-      { role: 'model', parts: [{ text: '${b}' }] },
-      { role: 'user', parts: [{ text: '${c}' }] },
+  it('preserves message count and speaker', () => {
+    const messages: IContent[] = [
+      { speaker: 'human', blocks: [{ type: 'text', text: '${a}' }] },
+      { speaker: 'ai', blocks: [{ type: 'text', text: '${b}' }] },
+      { speaker: 'human', blocks: [{ type: 'text', text: '${c}' }] },
     ];
     const result = applyTemplateToInitialMessages(messages, {
       a: '1',
@@ -83,18 +84,21 @@ describe('executorRun.characterization — template application', () => {
       c: '3',
     });
     expect(result).toHaveLength(3);
-    expect(result.map((r) => r.role)).toStrictEqual([
-      'user',
-      'model',
-      'user',
+    expect(result.map((r) => r.speaker)).toStrictEqual([
+      'human',
+      'ai',
+      'human',
     ]);
   });
 
-  it('handles multiple text parts within a single message', () => {
-    const messages: Content[] = [
+  it('handles multiple text blocks within a single message', () => {
+    const messages: IContent[] = [
       {
-        role: 'user',
-        parts: [{ text: '${first} ' }, { text: '${second}' }],
+        speaker: 'human',
+        blocks: [
+          { type: 'text', text: '${first} ' },
+          { type: 'text', text: '${second}' },
+        ],
       },
     ];
     const result = applyTemplateToInitialMessages(messages, {
@@ -104,22 +108,24 @@ describe('executorRun.characterization — template application', () => {
     expect(extractAllText(result)).toStrictEqual(['Hello World']);
   });
 
-  it('passes through non-text parts unchanged', () => {
-    const messages: Content[] = [
+  it('passes through non-text blocks unchanged', () => {
+    const messages: IContent[] = [
       {
-        role: 'user',
-        parts: [
-          { text: '${msg}' },
-          { inlineData: { mimeType: 'image/png', data: 'base64data' } },
+        speaker: 'human',
+        blocks: [
+          { type: 'text', text: '${msg}' },
+          {
+            type: 'media',
+            mediaType: 'image/png',
+            data: 'base64data',
+          },
         ],
       },
     ];
     const result = applyTemplateToInitialMessages(messages, { msg: 'analyze' });
-    const nonTextPart = result[0].parts.find(
-      (p) => !('text' in p),
-    );
-    expect(nonTextPart).toBeDefined();
-    expect((nonTextPart as Record<string, unknown>).inlineData).toBeDefined();
+    const nonTextBlock = result[0]?.blocks.find((b) => b.type !== 'text');
+    expect(nonTextBlock).toBeDefined();
+    expect(nonTextBlock?.type).toBe('media');
   });
 
   it('handles empty initial messages array', () => {
@@ -127,11 +133,11 @@ describe('executorRun.characterization — template application', () => {
     expect(result).toStrictEqual([]);
   });
 
-  it('handles message with no parts', () => {
-    const messages: Content[] = [{ role: 'user', parts: [] }];
+  it('handles message with no blocks', () => {
+    const messages: IContent[] = [{ speaker: 'human', blocks: [] }];
     const result = applyTemplateToInitialMessages(messages, {});
     expect(result).toHaveLength(1);
-    expect(result[0].parts).toStrictEqual([]);
+    expect(result[0]?.blocks).toStrictEqual([]);
   });
 });
 
@@ -146,8 +152,11 @@ describe('executorRun.characterization — property-based template', () => {
           value: fc.string(),
         }),
         ({ key, value }) => {
-          const messages: Content[] = [
-            { role: 'user', parts: [{ text: `\${${key}}` }] },
+          const messages: IContent[] = [
+            {
+              speaker: 'human',
+              blocks: [{ type: 'text', text: `\${${key}}` }],
+            },
           ];
           const result = applyTemplateToInitialMessages(messages, {
             [key]: value,
@@ -170,7 +179,6 @@ describe('executorRun.characterization — property-based template', () => {
           ),
         }),
         ({ template, inputs }) => {
-          // Only test with templates that reference existing keys
           const placeholderKeys = Array.from(
             template.matchAll(/\$\{(\w+)\}/g),
             (m) => m[1],
@@ -193,7 +201,9 @@ describe('executorRun.characterization — property-based template', () => {
     fc.assert(
       fc.property(
         fc.uniqueArray(
-          fc.string().filter((s) => /^\w+$/.test(s) && s.length > 0 && s.length <= 10),
+          fc
+            .string()
+            .filter((s) => /^\w+$/.test(s) && s.length > 0 && s.length <= 10),
           { minLength: 1, maxLength: 5 },
         ),
         fc.uniqueArray(fc.string(), { minLength: 1, maxLength: 5 }),
@@ -206,8 +216,11 @@ describe('executorRun.characterization — property-based template', () => {
           });
           const template = templateParts.join('|');
 
-          const messages: Content[] = [
-            { role: 'user', parts: [{ text: template }] },
+          const messages: IContent[] = [
+            {
+              speaker: 'human',
+              blocks: [{ type: 'text', text: template }],
+            },
           ];
           const result = applyTemplateToInitialMessages(messages, inputs);
           const text = extractTextFromContent(result[0]);
@@ -223,20 +236,20 @@ describe('executorRun.characterization — property-based template', () => {
 // ─── Recovery warning message ──────────────────────────────
 
 describe('executorRun.characterization — recovery warning', () => {
-  it('produces user-role message with text part for protocol violation', () => {
+  it('produces human-speaker message with text block for protocol violation', () => {
     const msg = getRecoveryWarningMessage(
       AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL,
     );
-    expect(msg.role).toBe('user');
-    expect(msg.parts).toHaveLength(1);
-    expect(msg.parts[0]).toHaveProperty('text');
+    expect(msg.speaker).toBe('human');
+    expect(msg.blocks).toHaveLength(1);
+    expect(msg.blocks[0]?.type).toBe('text');
   });
 
   it('protocol violation message mentions complete_task', () => {
     const msg = getRecoveryWarningMessage(
       AgentTerminateMode.ERROR_NO_COMPLETE_TASK_CALL,
     );
-    const text = (msg.parts[0] as { text: string }).text;
+    const text = (msg.blocks[0] as { text: string }).text;
     expect(text).toContain('complete_task');
     expect(text).toContain('WARNING');
     expect(text).toContain('final turn');
@@ -244,7 +257,7 @@ describe('executorRun.characterization — recovery warning', () => {
 
   it('limit-reached message mentions the limit reason', () => {
     const msg = getRecoveryWarningMessage(AgentTerminateMode.TIMEOUT);
-    const text = (msg.parts[0] as { text: string }).text;
+    const text = (msg.blocks[0] as { text: string }).text;
     expect(text).toContain('TIMEOUT');
     expect(text).toContain('WARNING');
     expect(text).toContain('complete_task');
@@ -259,7 +272,7 @@ describe('executorRun.characterization — recovery warning', () => {
     ];
     for (const reason of reasons) {
       const msg = getRecoveryWarningMessage(reason);
-      const text = (msg.parts[0] as { text: string }).text;
+      const text = (msg.blocks[0] as { text: string }).text;
       expect(text).toMatch(/^WARNING/);
       expect(text).toContain('complete_task');
       expect(text).toContain('final turn');

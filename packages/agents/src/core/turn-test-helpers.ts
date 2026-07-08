@@ -94,6 +94,20 @@ export function mockResponseToChunk(response: {
   return chunk;
 }
 
+/**
+ * Creates a ModelStreamChunk with hook restrictions from a legacy mock response.
+ */
+export function mockChunkWithRestrictions(
+  response: Parameters<typeof mockResponseToChunk>[0],
+  allowedTools?: readonly string[],
+): ModelStreamChunk {
+  const chunk = mockResponseToChunk(response);
+  if (allowedTools !== undefined) {
+    chunk.hookRestrictions = { allowedToolNames: [...allowedTools] };
+  }
+  return chunk;
+}
+
 function partsToBlocks(parts: Array<Record<string, unknown>>): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   for (const part of parts) {

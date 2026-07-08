@@ -750,25 +750,51 @@ describe('useAgentEventStream loop integration', () => {
     runPromise?: Promise<unknown>,
   ): Promise<ToolCall> {
     return new Promise((resolve, reject) => {
-      const start = Date.now(); let settled = false;
-      if (runPromise) { void Promise.resolve(runPromise).catch(() => {}).then(() => { settled = true; }); }
+      const start = Date.now();
+      let settled = false;
+      if (runPromise) {
+        void Promise.resolve(runPromise)
+          .catch(() => {})
+          .then(() => {
+            settled = true;
+          });
+      }
       const check = (): void => {
-        const all: ToolCall[] = harness.onToolCallsUpdate.mock.calls.flatMap((c) => c[0] as ToolCall[]);
-        const found = all.find((tc) => tc.request.callId === callId && tc.status === status);
-        if (found) { resolve(found); return; }
-        if (settled) { reject(new Error(`Run settled before ${callId} reached "${status}"`)); return; }
-        if (Date.now() - start > timeoutMs) { reject(new Error(`Timed out: ${callId} never reached "${status}"`)); return; }
+        const all: ToolCall[] = harness.onToolCallsUpdate.mock.calls.flatMap(
+          (c) => c[0] as ToolCall[],
+        );
+        const found = all.find(
+          (tc) => tc.request.callId === callId && tc.status === status,
+        );
+        if (found) {
+          resolve(found);
+          return;
+        }
+        if (settled) {
+          reject(new Error(`Run settled before ${callId} reached "${status}"`));
+          return;
+        }
+        if (Date.now() - start > timeoutMs) {
+          reject(new Error(`Timed out: ${callId} never reached "${status}"`));
+          return;
+        }
         setTimeout(check, 10);
       };
       check();
     });
   }
 
-  function getOnConfirm(tc: WaitingToolCall): (outcome: ToolConfirmationOutcome) => Promise<void> {
+  function getOnConfirm(
+    tc: WaitingToolCall,
+  ): (outcome: ToolConfirmationOutcome) => Promise<void> {
     return (tc.confirmationDetails as ToolCallConfirmationDetails).onConfirm;
   }
 
-  function setupConfirmationTest(toolName: string, callId: string, scripts: ServerAgentStreamEvent[][]): { harness: HookHarness; controller: AbortController } {
+  function setupConfirmationTest(
+    toolName: string,
+    callId: string,
+    scripts: ServerAgentStreamEvent[][],
+  ): { harness: HookHarness; controller: AbortController } {
     const tool = new MockTool({ name: toolName });
     tool.shouldConfirm = true;
     tool.executeFn.mockResolvedValue({
@@ -799,31 +825,72 @@ describe('useAgentEventStream loop integration', () => {
   }
 
   it('(iii-a) approval: ProceedOnce via confirmationDetails.onConfirm resolves the tool and the loop continues', async () => {
-    const { harness, controller } = setupConfirmationTest('confirm_tool', 'call-appr', [
-      [toolCallRequestEvent('confirm_tool', 'call-appr', { x: 1 }), finishedEvent()],
-      [contentEvent('approved-and-done'), finishedEvent()],
-    ]);
-    const runPromise = act(async () => { await harness.result.current.runStream('go' as AgentRequestInput, controller.signal, 'prompt-appr'); });
-    const awaitingTc = await waitForToolCallStatus(harness, 'call-appr', 'awaiting_approval', 5000, runPromise);
+    const { harness, controller } = setupConfirmationTest(
+      'confirm_tool',
+      'call-appr',
+      [
+        [
+          toolCallRequestEvent('confirm_tool', 'call-appr', { x: 1 }),
+          finishedEvent(),
+        ],
+        [contentEvent('approved-and-done'), finishedEvent()],
+      ],
+    );
+    const runPromise = act(async () => {
+      await harness.result.current.runStream(
+        'go' as AgentRequestInput,
+        controller.signal,
+        'prompt-appr',
+      );
+    });
+    const awaitingTc = await waitForToolCallStatus(
+      harness,
+      'call-appr',
+      'awaiting_approval',
+      5000,
+      runPromise,
+    );
     const waitingTc = awaitingTc as WaitingToolCall;
     expect(waitingTc.confirmationDetails).toBeDefined();
     await getOnConfirm(waitingTc)(ToolConfirmationOutcome.ProceedOnce);
     await runPromise;
-    expect(await waitForToolCallStatus(harness, 'call-appr', 'success')).toBeDefined();
-    const textValues = harness.routedEvents.filter((e) => e.type === 'text').map((e) => (e as { text: string }).text);
+    expect(
+      await waitForToolCallStatus(harness, 'call-appr', 'success'),
+    ).toBeDefined();
+    const textValues = harness.routedEvents
+      .filter((e) => e.type === 'text')
+      .map((e) => (e as { text: string }).text);
     expect(textValues).toContain('approved-and-done');
     expect(harness.addItem).toHaveBeenCalledTimes(1);
   });
 
   it('(iii-b) approval: Cancel via confirmationDetails.onConfirm rejects the tool and the turn ends with cancelled status', async () => {
-    const { harness, controller } = setupConfirmationTest('confirm_tool', 'call-rej', [[toolCallRequestEvent('confirm_tool', 'call-rej'), finishedEvent()]]);
-    const runPromise = act(async () => { await harness.result.current.runStream('go' as AgentRequestInput, controller.signal, 'prompt-rej'); });
-    const awaitingTc = await waitForToolCallStatus(harness, 'call-rej', 'awaiting_approval', 5000, runPromise);
+    const { harness, controller } = setupConfirmationTest(
+      'confirm_tool',
+      'call-rej',
+      [[toolCallRequestEvent('confirm_tool', 'call-rej'), finishedEvent()]],
+    );
+    const runPromise = act(async () => {
+      await harness.result.current.runStream(
+        'go' as AgentRequestInput,
+        controller.signal,
+        'prompt-rej',
+      );
+    });
+    const awaitingTc = await waitForToolCallStatus(
+      harness,
+      'call-rej',
+      'awaiting_approval',
+      5000,
+      runPromise,
+    );
     const waitingTc = awaitingTc as WaitingToolCall;
     expect(waitingTc.confirmationDetails).toBeDefined();
     await getOnConfirm(waitingTc)(ToolConfirmationOutcome.Cancel);
     await runPromise;
-    expect(await waitForToolCallStatus(harness, 'call-rej', 'cancelled')).toBeDefined();
+    expect(
+      await waitForToolCallStatus(harness, 'call-rej', 'cancelled'),
+    ).toBeDefined();
     const doneEvents = harness.routedEvents.filter((e) => e.type === 'done');
     expect(doneEvents.length).toBeGreaterThanOrEqual(1);
   });
@@ -832,14 +899,29 @@ describe('useAgentEventStream loop integration', () => {
     const policyEngine = createAllowPolicyEngine();
     const messageBus = new MessageBus(policyEngine, false);
     const toolRegistry = createToolRegistryForTest([]);
-    const config = createTestConfig({ messageBus, toolRegistry, policyEngine, interactive: true, approvalMode: ApprovalMode.YOLO });
+    const config = createTestConfig({
+      messageBus,
+      toolRegistry,
+      policyEngine,
+      interactive: true,
+      approvalMode: ApprovalMode.YOLO,
+    });
     const { client } = createScriptedAgentClient([]);
     const displayCallbacksHolder = { current: {} as DisplayCallbacks };
     const editorCallbacksHolder = { current: {} as Record<string, unknown> };
-    const agent = createRealEngineAgent({ agentClient: client, config, messageBus, interactiveMode: true, displayCallbacksHolder, editorCallbacksHolder });
+    const agent = createRealEngineAgent({
+      agentClient: client,
+      config,
+      messageBus,
+      interactiveMode: true,
+      displayCallbacksHolder,
+      editorCallbacksHolder,
+    });
     const harness = setupHookWithAgent(agent);
     expect(displayCallbacksHolder.current).toHaveProperty('onToolCallsUpdate');
-    expect(displayCallbacksHolder.current).toHaveProperty('onAllToolCallsComplete');
+    expect(displayCallbacksHolder.current).toHaveProperty(
+      'onAllToolCallsComplete',
+    );
     expect(editorCallbacksHolder.current).toHaveProperty('getPreferredEditor');
     harness.unmount();
     expect(Object.keys(displayCallbacksHolder.current)).toHaveLength(0);

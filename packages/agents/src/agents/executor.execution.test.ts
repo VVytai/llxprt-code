@@ -329,17 +329,16 @@ describe('AgentExecutor run (Execution Loop and Logic)', () => {
     );
 
     const turn2Params = getMockMessageParams(mockSendMessageStream, 1);
-    const turn2Parts = turn2Params.message;
-    expect(turn2Parts).toBeDefined();
-    expect(turn2Parts).toHaveLength(1);
+    const turn2Message = turn2Params.message;
+    expect(turn2Message).toBeDefined();
+    expect(turn2Message.blocks).toHaveLength(1);
 
-    expect(turn2Parts![0]).toStrictEqual(
+    expect(turn2Message.blocks[0]).toStrictEqual(
       expect.objectContaining({
-        functionResponse: expect.objectContaining({
-          name: TASK_COMPLETE_TOOL_NAME,
-          response: { error: expectedError },
-          id: 'call1',
-        }),
+        type: 'tool_response',
+        callId: 'call1',
+        toolName: TASK_COMPLETE_TOOL_NAME,
+        result: expect.objectContaining({ error: expectedError }),
       }),
     );
 
@@ -452,16 +451,18 @@ describe('AgentExecutor run (Execution Loop and Logic)', () => {
     expect(output.terminate_reason).toBe(AgentTerminateMode.GOAL);
 
     const turn2Params = getMockMessageParams(mockSendMessageStream, 1);
-    const parts = turn2Params.message;
-    expect(parts).toBeDefined();
-    expect(parts).toHaveLength(2);
-    expect(parts).toStrictEqual(
+    const turn2Message = turn2Params.message;
+    expect(turn2Message).toBeDefined();
+    expect(turn2Message.blocks).toHaveLength(2);
+    expect(turn2Message.blocks).toStrictEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          functionResponse: expect.objectContaining({ id: 'c1' }),
+          type: 'tool_response',
+          callId: 'c1',
         }),
         expect.objectContaining({
-          functionResponse: expect.objectContaining({ id: 'c2' }),
+          type: 'tool_response',
+          callId: 'c2',
         }),
       ]),
     );
@@ -507,16 +508,15 @@ describe('AgentExecutor run (Execution Loop and Logic)', () => {
     consoleWarnSpy.mockRestore();
 
     const turn2Params = getMockMessageParams(mockSendMessageStream, 1);
-    const parts = turn2Params.message;
-    expect(parts).toBeDefined();
-    expect(parts![0]).toStrictEqual(
+    const turn2Message = turn2Params.message;
+    expect(turn2Message).toBeDefined();
+    expect(turn2Message.blocks[0]).toStrictEqual(
       expect.objectContaining({
-        functionResponse: expect.objectContaining({
-          id: badCallId,
-          name: ReadFileTool.Name,
-          response: {
-            error: expect.stringContaining('Unauthorized tool call'),
-          },
+        type: 'tool_response',
+        callId: badCallId,
+        toolName: ReadFileTool.Name,
+        result: expect.objectContaining({
+          error: expect.stringContaining('Unauthorized tool call'),
         }),
       }),
     );

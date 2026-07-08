@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import type { Part } from '@google/genai';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   toSnakeCase,
   isFatalToolError,
@@ -27,9 +27,7 @@ import {
   type ExecutionLoopContext,
 } from '../subagentExecution.js';
 import { ToolErrorType } from '@vybestack/llxprt-code-tools';
-import type {
-  CompletedToolCall,
-} from '../coreToolScheduler.js';
+import type { CompletedToolCall } from '../coreToolScheduler.js';
 import type { DebugLogger } from '@vybestack/llxprt-code-core/debug/DebugLogger.js';
 import type { ToolResultDisplay } from '@vybestack/llxprt-code-core/core/subagentTypes.js';
 import { SubagentTerminateMode } from '@vybestack/llxprt-code-core/core/subagentTypes.js';
@@ -37,13 +35,18 @@ import { SubagentTerminateMode } from '@vybestack/llxprt-code-core/core/subagent
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function makeLogger(): DebugLogger {
-  return { debug: () => {}, warn: () => {}, info: () => {}, error: () => {} } as unknown as DebugLogger;
+  return {
+    debug: () => {},
+    warn: () => {},
+    info: () => {},
+    error: () => {},
+  } as unknown as DebugLogger;
 }
 
 function makeCompletedCall(
   name: string,
   callId: string,
-  responseParts?: Part[],
+  responseParts?: ContentBlock[],
   status: 'success' | 'error' | 'cancelled' = 'success',
 ): CompletedToolCall {
   return {
@@ -79,10 +82,13 @@ describe('subagentRun characterization: toSnakeCase', () => {
   });
   it('PROPERTY: toSnakeCase contains no spaces or hyphens', () => {
     fc.assert(
-      fc.property(fc.string({ maxLength: 50 }).filter((s) => s.length > 0), (s) => {
-        const result = toSnakeCase(s);
-        expect(result).not.toMatch(/[\s-]/);
-      }),
+      fc.property(
+        fc.string({ maxLength: 50 }).filter((s) => s.length > 0),
+        (s) => {
+          const result = toSnakeCase(s);
+          expect(result).not.toMatch(/[\s-]/);
+        },
+      ),
     );
   });
 });
@@ -105,7 +111,9 @@ describe('subagentRun characterization: isFatalToolError', () => {
   it('PROPERTY: only TOOL_DISABLED and TOOL_NOT_REGISTERED are fatal', () => {
     const allTypes = Object.values(ToolErrorType);
     for (const t of allTypes) {
-      const expected = t === ToolErrorType.TOOL_DISABLED || t === ToolErrorType.TOOL_NOT_REGISTERED;
+      const expected =
+        t === ToolErrorType.TOOL_DISABLED ||
+        t === ToolErrorType.TOOL_NOT_REGISTERED;
       expect(isFatalToolError(t)).toBe(expected);
     }
   });
@@ -121,7 +129,11 @@ describe('subagentRun characterization: extractToolDetail', () => {
     expect(extractToolDetail('display text')).toBe('display text');
   });
   it('extracts .message from object resultDisplay', () => {
-    expect(extractToolDetail({ message: 'obj detail' } as unknown as ToolResultDisplay)).toBe('obj detail');
+    expect(
+      extractToolDetail({
+        message: 'obj detail',
+      } as unknown as ToolResultDisplay),
+    ).toBe('obj detail');
   });
   it('returns undefined for nothing', () => {
     expect(extractToolDetail()).toBeUndefined();
@@ -137,7 +149,11 @@ describe('subagentRun characterization: extractToolDetail', () => {
 
 describe('subagentRun characterization: buildToolUnavailableMessage', () => {
   it('includes tool name and detail when available', () => {
-    const msg = buildToolUnavailableMessage('myTool', undefined, new Error('missing'));
+    const msg = buildToolUnavailableMessage(
+      'myTool',
+      undefined,
+      new Error('missing'),
+    );
     expect(msg).toContain('myTool');
     expect(msg).toContain('missing');
   });
@@ -148,8 +164,12 @@ describe('subagentRun characterization: buildToolUnavailableMessage', () => {
   it('PROPERTY: always mentions the tool name', () => {
     fc.assert(
       fc.property(
-        fc.string({ minLength: 1, maxLength: 30 }).filter((s) => !s.includes('"')),
-        (name) => { expect(buildToolUnavailableMessage(name)).toContain(name); },
+        fc
+          .string({ minLength: 1, maxLength: 30 })
+          .filter((s) => !s.includes('"')),
+        (name) => {
+          expect(buildToolUnavailableMessage(name)).toContain(name);
+        },
       ),
     );
   });
@@ -158,27 +178,32 @@ describe('subagentRun characterization: buildToolUnavailableMessage', () => {
 // ─── buildPartsFromCompletedCalls ─────────────────────────────────────────────
 
 describe('subagentRun characterization: buildPartsFromCompletedCalls', () => {
-  it('produces functionResponse parts for calls without responseParts', () => {
+  it('produces tool_response blocks for calls without responseParts', () => {
     const calls = [makeCompletedCall('read_file', 'c1')];
     const parts = buildPartsFromCompletedCalls(calls, makeBuildPartsCtx());
     expect(parts).toHaveLength(1);
-    expect(parts[0]).toHaveProperty('functionResponse');
-    expect((parts[0] as { functionResponse: { name: string } }).functionResponse.name).toBe('read_file');
+    expect(parts[0]).toHaveProperty('type', 'tool_response');
+    expect((parts[0] as { toolName: string }).toolName).toBe('read_file');
   });
-  it('appends non-functionCall parts from responseParts', () => {
-    const textPart: Part = { text: 'result text' };
-    const calls = [makeCompletedCall('read_file', 'c1', [textPart])];
+  it('appends non-tool-call blocks from responseParts', () => {
+    const textBlock: ContentBlock = { type: 'text', text: 'result text' };
+    const calls = [makeCompletedCall('read_file', 'c1', [textBlock])];
     const parts = buildPartsFromCompletedCalls(calls, makeBuildPartsCtx());
     expect(parts).toHaveLength(1);
-    expect(parts[0]).toHaveProperty('text');
+    expect(parts[0]).toHaveProperty('type', 'text');
   });
-  it('skips functionCall parts within responseParts (only non-functionCall)', () => {
-    const textPart: Part = { text: 'visible' };
-    const fcPart: Part = { functionCall: { name: 'inner', args: {} } };
-    const calls = [makeCompletedCall('myTool', 'c1', [textPart, fcPart])];
+  it('skips tool_call blocks within responseParts (only non-tool-call)', () => {
+    const textBlock: ContentBlock = { type: 'text', text: 'visible' };
+    const tcBlock: ContentBlock = {
+      type: 'tool_call',
+      id: 'inner',
+      name: 'inner',
+      parameters: {},
+    };
+    const calls = [makeCompletedCall('myTool', 'c1', [textBlock, tcBlock])];
     const parts = buildPartsFromCompletedCalls(calls, makeBuildPartsCtx());
     expect(parts).toHaveLength(1);
-    expect(parts[0]).toHaveProperty('text');
+    expect(parts[0]).toHaveProperty('type', 'text');
   });
   it('preserves order of completed calls', () => {
     const calls = [
@@ -188,14 +213,16 @@ describe('subagentRun characterization: buildPartsFromCompletedCalls', () => {
     ];
     const parts = buildPartsFromCompletedCalls(calls, makeBuildPartsCtx());
     expect(parts).toHaveLength(3);
-    expect((parts[0] as { functionResponse: { name: string } }).functionResponse.name).toBe('tool_a');
-    expect((parts[1] as { functionResponse: { name: string } }).functionResponse.name).toBe('tool_b');
-    expect((parts[2] as { functionResponse: { name: string } }).functionResponse.name).toBe('tool_c');
+    expect((parts[0] as { toolName: string }).toolName).toBe('tool_a');
+    expect((parts[1] as { toolName: string }).toolName).toBe('tool_b');
+    expect((parts[2] as { toolName: string }).toolName).toBe('tool_c');
   });
-  it('PROPERTY: one part per completed call when no responseParts', () => {
+  it('PROPERTY: one block per completed call when no responseParts', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 10 }), (n) => {
-        const calls = Array.from({ length: n }, (_, i) => makeCompletedCall(`t${i}`, `c${i}`));
+        const calls = Array.from({ length: n }, (_, i) =>
+          makeCompletedCall(`t${i}`, `c${i}`),
+        );
         const parts = buildPartsFromCompletedCalls(calls, makeBuildPartsCtx());
         expect(parts).toHaveLength(n);
       }),
@@ -204,9 +231,11 @@ describe('subagentRun characterization: buildPartsFromCompletedCalls', () => {
   it('calls onMessage for display strings on success (non-output-updating tools)', () => {
     const messages: string[] = [];
     const ctx = makeBuildPartsCtx();
-    ctx.onMessage = (msg: string) => { messages.push(msg); };
-    const textPart: Part = { text: 'output' };
-    const calls = [makeCompletedCall('myTool', 'c1', [textPart], 'success')];
+    ctx.onMessage = (msg: string) => {
+      messages.push(msg);
+    };
+    const textBlock: ContentBlock = { type: 'text', text: 'output' };
+    const calls = [makeCompletedCall('myTool', 'c1', [textBlock], 'success')];
     buildPartsFromCompletedCalls(calls, ctx);
     // responseParts are present, so display is extracted from response.resultDisplay which is undefined here
     // So no onMessage call expected for this case
@@ -217,8 +246,13 @@ describe('subagentRun characterization: buildPartsFromCompletedCalls', () => {
 // ─── filterTextWithEmoji ──────────────────────────────────────────────────────
 
 describe('subagentRun characterization: filterTextWithEmoji', () => {
-  function makeCtx(emojiFilter: unknown): Pick<ExecutionLoopContext, 'emojiFilter' | 'onMessage'> {
-    return { emojiFilter: emojiFilter as ExecutionLoopContext['emojiFilter'], onMessage: undefined };
+  function makeCtx(
+    emojiFilter: unknown,
+  ): Pick<ExecutionLoopContext, 'emojiFilter' | 'onMessage'> {
+    return {
+      emojiFilter: emojiFilter as ExecutionLoopContext['emojiFilter'],
+      onMessage: undefined,
+    };
   }
   it('passes through text when no emojiFilter', () => {
     const result = filterTextWithEmoji('hello world', makeCtx(undefined));
@@ -226,13 +260,17 @@ describe('subagentRun characterization: filterTextWithEmoji', () => {
     expect(result.blocked).toBe(false);
   });
   it('passes through when filter allows', () => {
-    const filter = { filterText: () => ({ blocked: false, filtered: 'clean' }) };
+    const filter = {
+      filterText: () => ({ blocked: false, filtered: 'clean' }),
+    };
     const result = filterTextWithEmoji('clean', makeCtx(filter));
     expect(result.text).toBe('clean');
     expect(result.blocked).toBe(false);
   });
   it('blocks when filter blocks', () => {
-    const filter = { filterText: () => ({ blocked: true, error: 'bad emoji' }) };
+    const filter = {
+      filterText: () => ({ blocked: true, error: 'bad emoji' }),
+    };
     const result = filterTextWithEmoji('naughty', makeCtx(filter));
     expect(result.blocked).toBe(true);
     expect(result.error).toBe('bad emoji');
@@ -251,11 +289,17 @@ describe('subagentRun characterization: filterTextWithEmoji', () => {
 // ─── checkTerminationConditions ──────────────────────────────────────────────
 
 describe('subagentRun characterization: checkTerminationConditions', () => {
-  function makeTermCtx(overrides: Partial<ExecutionLoopContext> = {}): Parameters<typeof checkTerminationConditions>[2] {
+  function makeTermCtx(
+    overrides: Partial<ExecutionLoopContext> = {},
+  ): Parameters<typeof checkTerminationConditions>[2] {
     return {
       runConfig: { max_turns: 10, max_time_minutes: 30 },
       subagentId: 'sa-1',
-      output: { terminate_reason: undefined, final_message: undefined, emitted_vars: {} },
+      output: {
+        terminate_reason: undefined,
+        final_message: undefined,
+        emitted_vars: {},
+      },
       logger: makeLogger(),
       ...overrides,
     } as unknown as Parameters<typeof checkTerminationConditions>[2];
@@ -270,20 +314,24 @@ describe('subagentRun characterization: checkTerminationConditions', () => {
     expect(result.shouldStop).toBe(false);
   });
   it('stops on timeout', () => {
-    const startTime = Date.now() - (31 * 60 * 1000); // 31 min ago
+    const startTime = Date.now() - 31 * 60 * 1000; // 31 min ago
     const result = checkTerminationConditions(3, startTime, makeTermCtx());
     expect(result.shouldStop).toBe(true);
     expect(result.reason).toBe(SubagentTerminateMode.TIMEOUT);
   });
   it('does not stop within time limit', () => {
-    const startTime = Date.now() - (10 * 60 * 1000); // 10 min ago
+    const startTime = Date.now() - 10 * 60 * 1000; // 10 min ago
     const result = checkTerminationConditions(3, startTime, makeTermCtx());
     expect(result.shouldStop).toBe(false);
   });
   it('PROPERTY: max turns reached → always stops with MAX_TURNS', () => {
     fc.assert(
       fc.property(fc.integer({ min: 0, max: 28 * 60 }), (minutesAgo) => {
-        const result = checkTerminationConditions(10, Date.now() - minutesAgo * 60 * 1000, makeTermCtx());
+        const result = checkTerminationConditions(
+          10,
+          Date.now() - minutesAgo * 60 * 1000,
+          makeTermCtx(),
+        );
         expect(result.shouldStop).toBe(true);
         expect(result.reason).toBe(SubagentTerminateMode.MAX_TURNS);
       }),
@@ -292,9 +340,16 @@ describe('subagentRun characterization: checkTerminationConditions', () => {
   it('PROPERTY: under max turns and within time → never stops', () => {
     fc.assert(
       fc.property(
-        fc.record({ turn: fc.integer({ min: 0, max: 9 }), minutesAgo: fc.integer({ min: 0, max: 29 }) }),
+        fc.record({
+          turn: fc.integer({ min: 0, max: 9 }),
+          minutesAgo: fc.integer({ min: 0, max: 29 }),
+        }),
         ({ turn, minutesAgo }) => {
-          const result = checkTerminationConditions(turn, Date.now() - minutesAgo * 60 * 1000, makeTermCtx());
+          const result = checkTerminationConditions(
+            turn,
+            Date.now() - minutesAgo * 60 * 1000,
+            makeTermCtx(),
+          );
           expect(result.shouldStop).toBe(false);
         },
       ),
