@@ -285,7 +285,7 @@ describe('toModelStreamChunk providerMetadata property-based', () => {
         (b): b is { type: 'thinking'; providerMetadata?: unknown } =>
           b.type === 'thinking',
       );
-      if (!tb || !tb.providerMetadata) return false;
+      if (!tb?.providerMetadata) return false;
       return JSON.stringify(tb.providerMetadata) === JSON.stringify(blockMeta);
     },
   );

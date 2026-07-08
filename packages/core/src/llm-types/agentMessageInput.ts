@@ -32,9 +32,6 @@ import type {
   ContentBlock,
   TextBlock,
   ThinkingBlock,
-  MediaBlock,
-  ToolCallBlock,
-  ToolResponseBlock,
 } from '../services/history/IContent.js';
 import type {
   ModelGenerationRequest,
@@ -77,13 +74,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isSpeaker(value: unknown): value is IContent['speaker'] {
+  return value === 'human' || value === 'ai' || value === 'tool';
+}
+
 function isIContent(value: unknown): value is IContent {
   return (
-    isRecord(value) &&
-    (value.speaker === 'human' ||
-      value.speaker === 'ai' ||
-      value.speaker === 'tool') &&
-    Array.isArray(value.blocks)
+    isRecord(value) && isSpeaker(value.speaker) && Array.isArray(value.blocks)
   );
 }
 
@@ -113,6 +110,15 @@ function isContentBlockArray(value: unknown): value is ContentBlock[] {
   return Array.isArray(value) && value.every((item) => isContentBlock(item));
 }
 
+const LEGACY_PART_KEYS = [
+  'text',
+  'thought',
+  'inlineData',
+  'fileData',
+  'functionCall',
+  'functionResponse',
+] as const;
+
 /**
  * True when the object carries any of the recognized legacy Google `Part`
  * discriminator keys (text/thought/inlineData/fileData/functionCall/
@@ -120,17 +126,7 @@ function isContentBlockArray(value: unknown): value is ContentBlock[] {
  * unrelated object.
  */
 function hasLegacyPartKey(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    'text' in value ||
-    'thought' in value ||
-    'inlineData' in value ||
-    'fileData' in value ||
-    'functionCall' in value ||
-    'functionResponse' in value
-  );
+  return isRecord(value) && LEGACY_PART_KEYS.some((key) => key in value);
 }
 
 function isLegacyPartArray(value: unknown): value is unknown[] {
@@ -162,6 +158,115 @@ class UnsupportedLegacyPartError extends Error {
   }
 }
 
+function mapTextPart(p: Record<string, unknown>): ContentBlock {
+  return { type: 'text', text: readString(p, 'text') };
+}
+
+function mapThoughtPart(p: Record<string, unknown>): ContentBlock {
+  const block: ThinkingBlock = {
+    type: 'thinking',
+    thought: readString(p, 'thought'),
+    sourceField: 'thought',
+  };
+  const sig = readString(p, 'thoughtSignature');
+  if (sig.length > 0) {
+    block.signature = sig;
+  }
+  return block;
+}
+
+function mapInlineDataPart(p: Record<string, unknown>): ContentBlock {
+  const inline = p.inlineData;
+  if (
+    isRecord(inline) &&
+    typeof inline.mimeType === 'string' &&
+    typeof inline.data === 'string'
+  ) {
+    return {
+      type: 'media',
+      mimeType: inline.mimeType,
+      data: inline.data,
+      encoding: 'base64',
+    };
+  }
+  throw new UnsupportedLegacyPartError(
+    'unsupported legacy part: malformed inlineData',
+  );
+}
+
+function mapFileDataPart(p: Record<string, unknown>): ContentBlock {
+  const fd = p.fileData;
+  if (
+    isRecord(fd) &&
+    typeof fd.mimeType === 'string' &&
+    typeof fd.fileUri === 'string'
+  ) {
+    return {
+      type: 'media',
+      mimeType: fd.mimeType,
+      data: fd.fileUri,
+      encoding: 'url',
+    };
+  }
+  throw new UnsupportedLegacyPartError(
+    'unsupported legacy part: malformed fileData',
+  );
+}
+
+function mapFunctionCallPart(p: Record<string, unknown>): ContentBlock {
+  const fc = p.functionCall;
+  if (
+    isRecord(fc) &&
+    typeof fc.name === 'string' &&
+    (typeof fc.id === 'string' || fc.id === undefined)
+  ) {
+    return {
+      type: 'tool_call',
+      id: typeof fc.id === 'string' ? fc.id : '',
+      name: fc.name,
+      parameters: fc.args,
+    };
+  }
+  throw new UnsupportedLegacyPartError(
+    'unsupported legacy part: malformed functionCall',
+  );
+}
+
+function mapFunctionResponsePart(p: Record<string, unknown>): ContentBlock {
+  const fr = p.functionResponse;
+  if (
+    isRecord(fr) &&
+    typeof fr.name === 'string' &&
+    (typeof fr.id === 'string' || fr.id === undefined)
+  ) {
+    return {
+      type: 'tool_response',
+      callId: typeof fr.id === 'string' ? fr.id : '',
+      toolName: fr.name,
+      result: fr.response,
+    };
+  }
+  throw new UnsupportedLegacyPartError(
+    'unsupported legacy part: malformed functionResponse',
+  );
+}
+
+function mapSingleLegacyPart(p: unknown): ContentBlock {
+  if (!isRecord(p)) {
+    throw new UnsupportedLegacyPartError(
+      'unsupported legacy part: not a record',
+    );
+  }
+  if (hasText(p)) return mapTextPart(p);
+  if (hasThought(p)) return mapThoughtPart(p);
+  if (hasInlineData(p)) return mapInlineDataPart(p);
+  if (hasFileData(p)) return mapFileDataPart(p);
+  if (hasFunctionCall(p)) return mapFunctionCallPart(p);
+  if (hasFunctionResponse(p)) return mapFunctionResponsePart(p);
+  // ES-2: never silent stringify/drop unsupported legacy input.
+  throw new UnsupportedLegacyPartError('unsupported legacy part shape');
+}
+
 /**
  * Map an array of legacy Google `Part`-like objects to neutral `ContentBlock[]`.
  * Preserves thoughtSignature (BR-5), media, tool responses, and tool-call IDs.
@@ -173,110 +278,7 @@ class UnsupportedLegacyPartError extends Error {
  * @pseudocode lines 28-38
  */
 function mapLegacyParts(parts: unknown[]): ContentBlock[] {
-  const result: ContentBlock[] = [];
-  for (const p of parts) {
-    if (!isRecord(p)) {
-      throw new UnsupportedLegacyPartError(
-        'unsupported legacy part: not a record',
-      );
-    }
-    if (hasText(p)) {
-      const block: TextBlock = { type: 'text', text: readString(p, 'text') };
-      result.push(block);
-    } else if (hasThought(p)) {
-      // BR-5: preserve thoughtSignature losslessly.
-      const block: ThinkingBlock = {
-        type: 'thinking',
-        thought: readString(p, 'thought'),
-        sourceField: 'thought',
-      };
-      const sig = readString(p, 'thoughtSignature');
-      if (sig.length > 0) {
-        block.signature = sig;
-      }
-      result.push(block);
-    } else if (hasInlineData(p)) {
-      const inline = p.inlineData;
-      if (
-        isRecord(inline) &&
-        typeof inline.mimeType === 'string' &&
-        typeof inline.data === 'string'
-      ) {
-        const block: MediaBlock = {
-          type: 'media',
-          mimeType: inline.mimeType,
-          data: inline.data,
-          encoding: 'base64',
-        };
-        result.push(block);
-      } else {
-        throw new UnsupportedLegacyPartError(
-          'unsupported legacy part: malformed inlineData',
-        );
-      }
-    } else if (hasFileData(p)) {
-      const fd = p.fileData;
-      if (
-        isRecord(fd) &&
-        typeof fd.mimeType === 'string' &&
-        typeof fd.fileUri === 'string'
-      ) {
-        const block: MediaBlock = {
-          type: 'media',
-          mimeType: fd.mimeType,
-          data: fd.fileUri,
-          encoding: 'url',
-        };
-        result.push(block);
-      } else {
-        throw new UnsupportedLegacyPartError(
-          'unsupported legacy part: malformed fileData',
-        );
-      }
-    } else if (hasFunctionCall(p)) {
-      const fc = p.functionCall;
-      if (
-        isRecord(fc) &&
-        typeof fc.name === 'string' &&
-        (typeof fc.id === 'string' || fc.id === undefined)
-      ) {
-        const block: ToolCallBlock = {
-          type: 'tool_call',
-          id: typeof fc.id === 'string' ? fc.id : '',
-          name: fc.name,
-          parameters: fc.args,
-        };
-        result.push(block);
-      } else {
-        throw new UnsupportedLegacyPartError(
-          'unsupported legacy part: malformed functionCall',
-        );
-      }
-    } else if (hasFunctionResponse(p)) {
-      const fr = p.functionResponse;
-      if (
-        isRecord(fr) &&
-        typeof fr.name === 'string' &&
-        (typeof fr.id === 'string' || fr.id === undefined)
-      ) {
-        const block: ToolResponseBlock = {
-          type: 'tool_response',
-          callId: typeof fr.id === 'string' ? fr.id : '',
-          toolName: fr.name,
-          result: fr.response,
-        };
-        result.push(block);
-      } else {
-        throw new UnsupportedLegacyPartError(
-          'unsupported legacy part: malformed functionResponse',
-        );
-      }
-    } else {
-      // ES-2: never silent stringify/drop unsupported legacy input.
-      throw new UnsupportedLegacyPartError('unsupported legacy part shape');
-    }
-  }
-  return result;
+  return parts.map(mapSingleLegacyPart);
 }
 
 // --- field detectors (structural, no casts) ---
@@ -434,17 +436,18 @@ export function iContentFromLegacyInput(
  * @requirement:REQ-001.2
  * @pseudocode lines 39-41
  */
+function roleToSpeaker(role: string): IContent['speaker'] {
+  if (role === 'model') return 'ai';
+  if (role === 'function' || role === 'tool') return 'tool';
+  return 'human';
+}
+
 function legacyContentToIContent(c: {
   role?: string;
   parts?: unknown[];
 }): IContent {
   const role = typeof c.role === 'string' ? c.role : '';
-  const speaker: IContent['speaker'] =
-    role === 'model'
-      ? 'ai'
-      : role === 'function' || role === 'tool'
-        ? 'tool'
-        : 'human';
+  const speaker = roleToSpeaker(role);
   const parts = Array.isArray(c.parts) ? c.parts : [];
   return { speaker, blocks: mapLegacyParts(parts) };
 }

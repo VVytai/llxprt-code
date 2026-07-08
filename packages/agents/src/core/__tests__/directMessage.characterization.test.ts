@@ -20,8 +20,8 @@
  * @requirement:REQ-INT-001.3
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import type { GenerateContentConfig, Tool } from '@google/genai';
+import { describe, it, expect, vi, type Mock } from 'vitest';
+import type { Tool } from '@google/genai';
 import * as fc from 'fast-check';
 
 import { ChatSession } from '../chatSession.js';
@@ -47,7 +47,6 @@ import {
   AfterModelHookOutput,
   BeforeModelHookOutput,
 } from '@vybestack/llxprt-code-core/hooks/types.js';
-import type { ConfigParameters } from '@vybestack/llxprt-code-core/config/config.js';
 import { createConfigParams } from '../chatSession-runtime-helpers.js';
 
 import {
@@ -274,7 +273,7 @@ describe('P12: blocking BeforeModel hook (characterization)', () => {
     expect(visibleText(result)).toBe(blockReason);
     // committedHistory is the neutral HistoryService snapshot (the direct
     // path does not append model turns today; this pins that observable).
-    expect(committedHistory(historyService)).toEqual([]);
+    expect(committedHistory(historyService)).toStrictEqual([]);
   });
 
   // PROPERTY: for any non-empty blocking reason string, visible text === reason

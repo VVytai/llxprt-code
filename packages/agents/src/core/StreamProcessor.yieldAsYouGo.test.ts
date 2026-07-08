@@ -186,7 +186,7 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     // Build a synthetic GenerateContentResponse with a blocked tool call,
     // then use the legacy compat to stamp restrictions (it still works
     // with GenerateContentResponse at this boundary).
-    const blockedToolChunk = attachHookRestrictedAllowedTools(
+    const _blockedToolChunk = attachHookRestrictedAllowedTools(
       {
         candidates: [
           {

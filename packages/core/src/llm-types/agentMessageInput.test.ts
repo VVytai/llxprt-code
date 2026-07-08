@@ -134,12 +134,7 @@ describe('iContentFromAgentMessageInput property-based', () => {
     (text) => {
       const result = iContentFromAgentMessageInput(text);
       if (!Array.isArray(result)) return false;
-      return result.every(
-        (item) =>
-          item.speaker !== undefined &&
-          item.blocks !== undefined &&
-          hasNoGoogleKeys(item),
-      );
+      return result.every((item) => hasNoGoogleKeys(item));
     },
   );
 });
@@ -152,8 +147,8 @@ describe('iContentFromLegacyInput', () => {
   it('legacy {text} part → TextBlock', () => {
     const result = iContentFromLegacyInput({ text: 'hello' });
     expect(result.ok).toBe(true);
-    if (result.ok && result.value) {
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+    if (result.ok) {
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       expect(blocks).toContainEqual(textBlock('hello'));
     }
@@ -165,8 +160,8 @@ describe('iContentFromLegacyInput', () => {
       thoughtSignature: 'sig-abc-123',
     });
     expect(result.ok).toBe(true);
-    if (result.ok && result.value) {
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+    if (result.ok) {
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       const thinking = blocks.find(
         (b): b is ThinkingBlock => b.type === 'thinking',
@@ -182,8 +177,8 @@ describe('iContentFromLegacyInput', () => {
       inlineData: { mimeType: 'image/png', data: 'base64data==' },
     });
     expect(result.ok).toBe(true);
-    if (result.ok && result.value) {
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+    if (result.ok) {
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       const media = blocks.find((b): b is MediaBlock => b.type === 'media');
       expect(media).toBeDefined();
@@ -202,8 +197,8 @@ describe('iContentFromLegacyInput', () => {
       },
     });
     expect(result.ok).toBe(true);
-    if (result.ok && result.value) {
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+    if (result.ok) {
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       const tc = blocks.find((b): b is ToolCallBlock => b.type === 'tool_call');
       expect(tc).toBeDefined();
@@ -222,8 +217,8 @@ describe('iContentFromLegacyInput', () => {
       },
     });
     expect(result.ok).toBe(true);
-    if (result.ok && result.value) {
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+    if (result.ok) {
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       const tr = blocks.find(
         (b): b is ToolResponseBlock => b.type === 'tool_response',
@@ -245,8 +240,8 @@ describe('iContentFromLegacyInput', () => {
   it('string legacy input → human TextBlock', () => {
     const result = iContentFromLegacyInput('just text');
     expect(result.ok).toBe(true);
-    if (result.ok && result.value) {
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+    if (result.ok) {
+      const items = result.value;
       expect(items[0].speaker).toBe('human');
       expect(items[0].blocks[0].type).toBe('text');
     }
@@ -269,12 +264,12 @@ describe('iContentFromLegacyInput property-based', () => {
     'for ANY array of {text} parts, blocks length === parts length and texts preserved in order',
     (parts) => {
       const result = iContentFromLegacyInput(parts);
-      if (!result.ok || !result.value) return false;
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+      if (!result.ok) return false;
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       if (blocks.length !== parts.length) return false;
       return blocks.every(
-        (b, i) => b.type === 'text' && (b as TextBlock).text === parts[i].text,
+        (b, i) => b.type === 'text' && b.text === parts[i].text,
       );
     },
   );
@@ -288,8 +283,8 @@ describe('iContentFromLegacyInput property-based', () => {
     '{thought, thoughtSignature} ALWAYS yields a ThinkingBlock whose signature === input (BR-5)',
     ({ thought, thoughtSignature }) => {
       const result = iContentFromLegacyInput({ thought, thoughtSignature });
-      if (!result.ok || !result.value) return false;
-      const items = Array.isArray(result.value) ? result.value : [result.value];
+      if (!result.ok) return false;
+      const items = result.value;
       const blocks = items.flatMap((i) => i.blocks);
       const thinking = blocks.find(
         (b): b is ThinkingBlock => b.type === 'thinking',
