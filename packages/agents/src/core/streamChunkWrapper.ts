@@ -16,6 +16,7 @@
  */
 
 import type { GenerateContentResponse } from '@google/genai';
+import type { GenerateContentResponseUsageMetadata } from '@google/genai';
 import type {
   ModelStreamChunk,
   HookRestrictions,
@@ -35,7 +36,17 @@ import {
   classifyMixedParts,
   convertBlocksToParts,
 } from './MessageConverter.js';
-import type { UsageMetadataWithCache } from './googlePartHelpers.js';
+
+/**
+ * Usage metadata with cache extensions used by the Gemini SDK.
+ * Moved here from the former googlePartHelpers.ts so that file can be
+ * zero-@google/genai.
+ */
+type UsageMetadataWithCache = GenerateContentResponseUsageMetadata & {
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+  toolUsePromptTokenCount?: number;
+};
 
 /**
  * Converts usage metadata from Google shape to neutral UsageStats.

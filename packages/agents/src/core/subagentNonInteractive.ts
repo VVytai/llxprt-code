@@ -38,9 +38,9 @@ import {
   filterHookRestrictedParts,
   filterHookRestrictedFunctionCalls,
   getHookRestrictedFunctionCallsFromParts,
+  getFunctionCallsFromParts,
   mergeHookRestrictedFunctionCalls,
 } from './hookRestrictionsLegacyCompat.js';
-import { getFunctionCallsFromParts } from './googlePartHelpers.js';
 import { chunkToParts } from './streamChunkWrapper.js';
 import type { ToolExecutionConfig } from './nonInteractiveToolExecutor.js';
 import type { MessageBus } from '@vybestack/llxprt-code-core/confirmation-bus/message-bus.js';

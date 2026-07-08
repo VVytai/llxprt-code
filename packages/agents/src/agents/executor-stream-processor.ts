@@ -19,7 +19,7 @@ import {
   mergeHookRestrictedFunctionCalls,
 } from '../core/hookRestrictionsLegacyCompat.js';
 import { chunkToParts } from '../core/streamChunkWrapper.js';
-import { getFunctionCallsFromParts } from '../core/googlePartHelpers.js';
+import { getFunctionCallsFromParts } from '../core/hookRestrictionsLegacyCompat.js';
 import { parseThought } from '@vybestack/llxprt-code-core/utils/thoughtUtils.js';
 import {
   nextStreamEventWithIdleTimeout,

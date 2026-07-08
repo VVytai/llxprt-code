@@ -24,8 +24,24 @@ import type {
   GenerateContentResponse,
   Part,
 } from '@google/genai';
-import { getFunctionCallsFromParts } from './googlePartHelpers.js';
 import { canonicalizeToolName } from './toolGovernance.js';
+
+/**
+ * Extracts function calls from Google Part[]. Local to this legacy compat
+ * module (formerly from googlePartHelpers.ts) so that file can be
+ * zero-@google/genai.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P17
+ * @requirement:REQ-011.1
+ */
+export function getFunctionCallsFromParts(
+  parts: readonly Part[],
+): FunctionCall[] | undefined {
+  const functionCallParts = parts
+    .filter((part) => part.functionCall !== undefined)
+    .map((part) => part.functionCall as FunctionCall);
+  return functionCallParts.length > 0 ? functionCallParts : undefined;
+}
 
 const responseRestrictions = new WeakMap<GenerateContentResponse, string[]>();
 const responseFilteredRestrictedCalls = new WeakMap<

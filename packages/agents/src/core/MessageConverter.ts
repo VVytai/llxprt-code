@@ -18,7 +18,27 @@ import type {
   ThinkingBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { iContentFromLegacyInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import { type ThoughtPart, isThoughtPart } from './googlePartHelpers.js';
+
+/**
+ * Thought-bearing Part shape used internally by MessageConverter for
+ * Google Part ↔ ThinkingBlock conversion. Moved here from the former
+ * googlePartHelpers.ts so that file can be zero-@google/genai.
+ */
+type ThoughtPart = Part & {
+  thought: true;
+  text?: string;
+  thoughtSignature?: string;
+  llxprtSourceField?: ThinkingBlock['sourceField'];
+};
+
+function isThoughtPart(part: Part | undefined): part is ThoughtPart {
+  return Boolean(
+    part &&
+      typeof part === 'object' &&
+      'thought' in part &&
+      part.thought === true,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Boundary-validation helpers (typed `unknown` so guards are necessary)

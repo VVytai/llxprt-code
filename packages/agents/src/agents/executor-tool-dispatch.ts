@@ -16,11 +16,10 @@
  * project line budget while preserving exact behavior.
  */
 
-import { Type } from '@google/genai';
 import type { Content, Part, FunctionCall } from '@google/genai';
 import { type z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import type { Schema, FunctionDeclaration } from '@google/genai';
+import type { FunctionDeclaration } from '@google/genai';
 import { executeToolCall } from '../core/nonInteractiveToolExecutor.js';
 import { convertBlocksToParts } from '../core/MessageConverter.js';
 import type { ToolRegistry } from '@vybestack/llxprt-code-tools';
@@ -67,16 +66,18 @@ type OutputConfig = NonNullable<AgentDefinition<z.ZodTypeAny>['outputConfig']>;
 export function buildCompleteTaskDeclaration(
   outputConfig: OutputConfig | undefined,
 ): FunctionDeclaration {
+  const parametersJsonSchema: Record<string, unknown> = {
+    type: 'OBJECT',
+    properties: {},
+    required: [],
+  };
+
   const completeTool: FunctionDeclaration = {
     name: TASK_COMPLETE_TOOL_NAME,
     description: outputConfig
       ? 'Call this tool to submit your final answer and complete the task. This is the ONLY way to finish.'
       : 'Call this tool to signal that you have completed your task. This is the ONLY way to finish.',
-    parameters: {
-      type: Type.OBJECT,
-      properties: {},
-      required: [],
-    },
+    parametersJsonSchema,
   };
 
   if (outputConfig) {
@@ -86,9 +87,14 @@ export function buildCompleteTaskDeclaration(
       definitions: _definitions,
       ...schema
     } = jsonSchema;
-    completeTool.parameters!.properties![outputConfig.outputName] =
-      schema as Schema;
-    completeTool.parameters!.required!.push(outputConfig.outputName);
+    parametersJsonSchema.properties = {
+      ...(parametersJsonSchema.properties as Record<string, unknown>),
+      [outputConfig.outputName]: schema,
+    };
+    parametersJsonSchema.required = [
+      ...(parametersJsonSchema.required as string[]),
+      outputConfig.outputName,
+    ];
   }
 
   return completeTool;

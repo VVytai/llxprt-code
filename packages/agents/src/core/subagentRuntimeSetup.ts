@@ -26,7 +26,6 @@ import {
   type Content,
   type FunctionDeclaration,
   type GenerateContentConfig,
-  Type,
 } from '@google/genai';
 import { ChatSession } from './chatSession.js';
 import type {
@@ -130,7 +129,7 @@ export function convertMetadataToFunctionDeclaration(
   const properties =
     (rawSchema.properties as Record<string, unknown> | undefined) ?? {};
 
-  const parameterType = (rawSchema.type as Type | undefined) ?? Type.OBJECT;
+  const parameterType = (rawSchema.type as string | undefined) ?? 'OBJECT';
   const parameterProperties = { ...properties };
   const parametersJsonSchema: Record<string, unknown> = {
     ...rawSchema,
@@ -531,15 +530,15 @@ export function getScopeLocalFuncDefs(
     description: `* This tool emits A SINGLE return value from this execution, such that it can be collected and presented to the calling function.
         * You can only emit ONE VALUE each time you call this tool. You are expected to call this tool MULTIPLE TIMES if you have MULTIPLE OUTPUTS.`,
     parametersJsonSchema: {
-      type: Type.OBJECT,
+      type: 'OBJECT',
       properties: {
         emit_variable_name: {
           description: 'This is the name of the variable to be returned.',
-          type: Type.STRING,
+          type: 'STRING',
         },
         emit_variable_value: {
           description: 'This is the _value_ to be returned for this variable.',
-          type: Type.STRING,
+          type: 'STRING',
         },
       },
       required: ['emit_variable_name', 'emit_variable_value'],
