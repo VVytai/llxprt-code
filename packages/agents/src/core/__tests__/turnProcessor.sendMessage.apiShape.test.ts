@@ -24,9 +24,7 @@ import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js
  * If sendMessage returns Promise<GenerateContentResponse> this line fails
  * typecheck because GenerateContentResponse is not assignable to ModelOutput.
  */
-type SendMessageResult = Awaited<
-  ReturnType<TurnProcessor['sendMessage']>
->;
+type SendMessageResult = Awaited<ReturnType<TurnProcessor['sendMessage']>>;
 
 const _isModelOutput: SendMessageResult extends ModelOutput ? true : false =
   true;
