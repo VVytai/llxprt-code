@@ -105,11 +105,12 @@ export function createUserContentWithFunctionResponseFix(
     const allBlocks = result.value.flatMap((c) => c.blocks);
     return { speaker: 'human', blocks: allBlocks };
   }
-  // Fallback: treat as plain text
-  return {
-    speaker: 'human',
-    blocks: [{ type: 'text', text: String(message) }],
-  };
+  // Fallback: convert to text only if it's a string; otherwise use the error.
+  const fallbackText =
+    typeof message === 'string'
+      ? message
+      : `unsupported legacy input: ${result.error}`;
+  return { speaker: 'human', blocks: [{ type: 'text', text: fallbackText }] };
 }
 
 /**

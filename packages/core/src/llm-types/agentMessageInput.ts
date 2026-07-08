@@ -130,7 +130,11 @@ function hasLegacyPartKey(value: unknown): boolean {
 }
 
 function isLegacyPartArray(value: unknown): value is unknown[] {
-  return Array.isArray(value) && value.every((item) => hasLegacyPartKey(item));
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => hasLegacyPartKey(item))
+  );
 }
 
 function isLegacyContent(value: unknown): value is {
@@ -413,11 +417,25 @@ export function iContentFromLegacyInput(
   }
 
   if (isLegacyContent(input)) {
-    return okResult([legacyContentToIContent(input)]);
+    try {
+      return okResult([legacyContentToIContent(input)]);
+    } catch (e) {
+      if (e instanceof UnsupportedLegacyPartError) {
+        return errResult(e.message);
+      }
+      throw e;
+    }
   }
 
   if (isLegacyContentArray(input)) {
-    return okResult(input.map((item) => legacyContentToIContent(item)));
+    try {
+      return okResult(input.map((item) => legacyContentToIContent(item)));
+    } catch (e) {
+      if (e instanceof UnsupportedLegacyPartError) {
+        return errResult(e.message);
+      }
+      throw e;
+    }
   }
 
   return errResult('unsupported legacy input shape');
