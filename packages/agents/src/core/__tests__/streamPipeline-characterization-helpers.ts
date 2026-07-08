@@ -18,7 +18,7 @@
  */
 
 import type { Tool } from '@google/genai';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { ChatSession } from '../chatSession.js';
 import { Turn, AgentEventType, DEFAULT_AGENT_ID } from '../turn.js';
 import type {
@@ -132,12 +132,12 @@ export interface FullLoopHarness {
   turn: Turn;
   historyService: HistoryService;
   provider: IProvider;
-  generateChatCompletionMock: ReturnType<typeof vi.fn>;
+  generateChatCompletionMock: Mock;
   config: Config;
 }
 
 export function createFullLoopHarness(
-  generateChatCompletionMock: ReturnType<typeof vi.fn>,
+  generateChatCompletionMock: Mock,
   options?: {
     tools?: Tool[];
     hookConfig?: Config;
