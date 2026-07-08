@@ -60,6 +60,7 @@ import {
   applyRequestModifications,
   resolveUserMemory,
   logOutgoingRequest,
+  extractSystemInstructionText,
   type ToolGroupArray,
   type ToolSelectionHookResult,
 } from './streamRequestHelpers.js';
@@ -459,6 +460,9 @@ export class StreamProcessor {
           abortSignal: params.config?.abortSignal,
         },
         userMemory,
+        systemInstruction: extractSystemInstructionText(
+          this.generationConfig.systemInstruction,
+        ),
       } as GenerateChatOptions);
 
       return await this._consumeFirstChunkAndReturn(
