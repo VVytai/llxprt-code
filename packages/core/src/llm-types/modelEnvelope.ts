@@ -56,6 +56,16 @@ export interface ModelOutput {
   responseId?: string;
   hookRestrictions?: HookRestrictions;
   providerMetadata?: Record<string, unknown>;
+  /**
+   * Neutral automatic-function-calling history — a sequence of IContent
+   * turns produced by automatic tool invocation during a single generation.
+   * Carried as neutral IContent[] (never a provider-specific shape).
+   *
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P03
+   * @requirement:REQ-001.4
+   * @pseudocode line 50
+   */
+  afcHistory?: IContent[];
 }
 
 /**
@@ -146,6 +156,13 @@ export function accumulateModelStreamChunk(
     };
   }
 
+  // afcHistory: last-write-wins (chunk overrides acc when present). Carried
+  // as neutral IContent[] (REQ-001.4).
+  const afcHistory = chunk.afcHistory ?? acc.afcHistory;
+  if (afcHistory !== undefined) {
+    result.afcHistory = afcHistory;
+  }
+
   return result;
 }
 
@@ -181,9 +198,15 @@ export function getToolCalls(output: ModelOutput): ToolCallRequest[] {
  * Maps streamed IContent metadata (stopReason/finishReason/usage/id) into a
  * neutral {@link ModelStreamChunk}. stopReason is preferred (provider-native).
  *
+ * Preserves response-level provider metadata (responseId, providerMetadata
+ * under `gemini.*` keys) per OQ-16 — NOT silently dropped. Block-level
+ * providerMetadata already lives on each `ContentBlock` inside
+ * `icontent.blocks` and is carried by reference (no extra work; NOT stripped).
+ *
  * @plan PLAN-20260702-LLMTYPES.P04
- * @requirement REQ-005.5
- * @pseudocode lines 38-48
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P05
+ * @requirement REQ-005.5, REQ-001.5
+ * @pseudocode lines 38-48 (P04), lines 52-66 (P05)
  */
 export function toModelStreamChunk(icontent: IContent): ModelStreamChunk {
   const meta = icontent.metadata;
@@ -205,6 +228,12 @@ export function toModelStreamChunk(icontent: IContent): ModelStreamChunk {
 
   if (meta?.id) {
     result.responseId = meta.id;
+  }
+
+  // OQ-16: preserve response-level provider metadata onto the chunk. Shallow
+  // copy; gemini.* keys pass through untouched.
+  if (meta?.providerMetadata) {
+    result.providerMetadata = { ...meta.providerMetadata };
   }
 
   return result;

@@ -31,6 +31,7 @@ export * from './jsonSchema.js';
 export * from './toolDeclaration.js';
 export * from './toolCall.js';
 export * from './modelEnvelope.js';
+export * from './agentMessageInput.js';
 export * from './modelRequest.js';
 export * from './providerApiError.js';
 export * from './tokensAndEmbeddings.js';
