@@ -364,7 +364,7 @@ describe('subagent.ts', () => {
         overrides,
       );
 
-      // Simulate error completed calls with functionCall in responseParts
+      // Simulate error completed calls with tool_call in responseParts
       // (this is what coreToolScheduler's createErrorResponse produces)
       const completedCalls = [
         {
@@ -378,18 +378,16 @@ describe('subagent.ts', () => {
             callId: 'call-err',
             responseParts: [
               {
-                functionCall: {
-                  id: 'call-err',
-                  name: 'failing_tool',
-                  args: { path: '/test' },
-                },
+                type: 'tool_call',
+                callId: 'call-err',
+                toolName: 'failing_tool',
+                args: { path: '/test' },
               },
               {
-                functionResponse: {
-                  id: 'call-err',
-                  name: 'failing_tool',
-                  response: { error: 'Tool execution failed' },
-                },
+                type: 'tool_response',
+                callId: 'call-err',
+                toolName: 'failing_tool',
+                result: { error: 'Tool execution failed' },
               },
             ],
             resultDisplay: 'Tool execution failed',
@@ -407,16 +405,18 @@ describe('subagent.ts', () => {
         },
       );
 
-      // CRITICAL: No part should contain functionCall - only functionResponse
-      // functionCall in user-role message causes Anthropic invalid_request_error
+      // CRITICAL: No part should be a tool_call - only tool_response
+      // tool_call in user-role message causes Anthropic invalid_request_error
       for (const part of parts) {
-        expect(part).not.toHaveProperty('functionCall');
+        expect(part).not.toHaveProperty('type', 'tool_call');
       }
-      // Should still have a functionResponse
-      const hasFunctionResponse = parts.some(
-        (p: Part) => 'functionResponse' in p,
+      // Should still have a tool_response
+      const hasToolResponse = parts.some(
+        (p: Part) =>
+          'type' in p &&
+          (p as Record<string, unknown>).type === 'tool_response',
       );
-      expect(hasFunctionResponse).toBe(true);
+      expect(hasToolResponse).toBe(true);
     });
 
     /**
@@ -457,11 +457,10 @@ describe('subagent.ts', () => {
             callId: 'call-ok',
             responseParts: [
               {
-                functionResponse: {
-                  id: 'call-ok',
-                  name: 'read_file',
-                  response: { output: 'file contents' },
-                },
+                type: 'tool_response',
+                callId: 'call-ok',
+                toolName: 'read_file',
+                result: { output: 'file contents' },
               },
             ],
             resultDisplay: 'file contents',
@@ -478,18 +477,16 @@ describe('subagent.ts', () => {
             callId: 'call-err',
             responseParts: [
               {
-                functionCall: {
-                  id: 'call-err',
-                  name: 'write_file',
-                  args: { path: '/out.txt', content: 'data' },
-                },
+                type: 'tool_call',
+                callId: 'call-err',
+                toolName: 'write_file',
+                args: { path: '/out.txt', content: 'data' },
               },
               {
-                functionResponse: {
-                  id: 'call-err',
-                  name: 'write_file',
-                  response: { error: 'Permission denied' },
-                },
+                type: 'tool_response',
+                callId: 'call-err',
+                toolName: 'write_file',
+                result: { error: 'Permission denied' },
               },
             ],
             resultDisplay: 'Permission denied',
@@ -507,16 +504,18 @@ describe('subagent.ts', () => {
         },
       );
 
-      // No part should contain functionCall
+      // No part should be a tool_call
       for (const part of parts) {
-        expect(part).not.toHaveProperty('functionCall');
+        expect(part).not.toHaveProperty('type', 'tool_call');
       }
 
-      // Should have functionResponse for both tool calls
-      const functionResponses = parts.filter(
-        (p: Part) => 'functionResponse' in p,
+      // Should have tool_response for both tool calls
+      const toolResponses = parts.filter(
+        (p: Part) =>
+          'type' in p &&
+          (p as Record<string, unknown>).type === 'tool_response',
       );
-      expect(functionResponses.length).toBe(2);
+      expect(toolResponses.length).toBe(2);
     });
 
     it('should handle calls where tool is undefined gracefully', async () => {

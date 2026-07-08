@@ -169,6 +169,7 @@ describe('subagent.ts', () => {
       expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
       expect(mockSendMessageStream.mock.calls[0][0].message).toStrictEqual([
         {
+          type: 'text',
           text: 'Follow the task directives provided in the system prompt.',
         },
       ]);
@@ -264,11 +265,11 @@ describe('subagent.ts', () => {
 
       const secondCallArgs = mockSendMessageStream.mock.calls[1][0];
       expect(secondCallArgs.message).toHaveLength(1);
-      expect(secondCallArgs.message[0]).toHaveProperty('functionResponse');
-      expect(secondCallArgs.message[0].functionResponse.name).toBe(
-        'self_emitvalue',
-      );
-      expect(secondCallArgs.message[0].functionResponse.response.message).toBe(
+      expect(secondCallArgs.message[0]).toMatchObject({
+        type: 'tool_response',
+      });
+      expect(secondCallArgs.message[0].toolName).toBe('self_emitvalue');
+      expect(secondCallArgs.message[0].result.message).toBe(
         'Emitted variable result successfully',
       );
     });
@@ -354,7 +355,7 @@ describe('subagent.ts', () => {
 
       const secondCallArgs = mockSendMessageStream.mock.calls[1][0];
       expect(secondCallArgs.message).toStrictEqual([
-        { text: 'file1.txt\nfile2.ts' },
+        { type: 'text', text: 'file1.txt\nfile2.ts' },
       ]);
 
       expect(historyAddSpy).not.toHaveBeenCalled();
@@ -422,6 +423,7 @@ describe('subagent.ts', () => {
       const secondCallArgs = mockSendMessageStream.mock.calls[1][0];
       expect(secondCallArgs.message).toStrictEqual([
         {
+          type: 'text',
           text: 'ERROR: Tool failed catastrophically',
         },
       ]);
@@ -492,12 +494,14 @@ describe('subagent.ts', () => {
 
       const secondCallArgs = mockSendMessageStream.mock.calls[1][0];
       for (const part of secondCallArgs.message) {
-        expect(part).not.toHaveProperty('functionCall');
+        expect(part).not.toMatchObject({ type: 'tool_call' });
       }
-      const hasFR = secondCallArgs.message.some(
-        (p: Part) => 'functionResponse' in p,
+      const hasToolResponse = secondCallArgs.message.some(
+        (p: Part) =>
+          'type' in p &&
+          (p as Record<string, unknown>).type === 'tool_response',
       );
-      expect(hasFR).toBe(true);
+      expect(hasToolResponse).toBe(true);
     });
 
     it('fails fast when a tool is disabled in the current profile', async () => {
