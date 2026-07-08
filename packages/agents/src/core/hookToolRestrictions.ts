@@ -10,6 +10,7 @@ import type {
   GenerateContentResponse,
   Part,
 } from '@google/genai';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { getFunctionCallsFromParts } from './googlePartHelpers.js';
 import { canonicalizeToolName } from './toolGovernance.js';
 
@@ -303,5 +304,35 @@ export function filterHookRestrictedFunctionCalls(
   return calls.filter((call) => {
     setHookRestrictedAllowedToolsOnFunctionCall(call, allowedTools);
     return !isHookRestrictedToolCall(call, allowedTools);
+  });
+}
+
+/**
+ * Filters ContentBlocks by hook-restricted allowed tool names.
+ * Tool-call and tool-response blocks are kept only if their tool name is in
+ * the allowed set; other block types (text, thinking, media, code) always pass.
+ *
+ * Block-based equivalent of {@link filterHookRestrictedParts} for the
+ * neutral IContent pipeline.
+ *
+ * @issue #2349 — replaces the Part[]-based filterHookRestrictedParts for the
+ * block-shaped StreamProcessor pipeline.
+ */
+export function filterHookRestrictedBlocks(
+  blocks: readonly ContentBlock[],
+  allowedTools: readonly string[] | undefined,
+): ContentBlock[] {
+  if (allowedTools === undefined) {
+    return [...blocks];
+  }
+  const allowed = new Set(allowedTools.map(canonicalizeToolName));
+  return blocks.filter((block) => {
+    if (block.type === 'tool_call') {
+      return allowed.has(canonicalizeToolName(block.name));
+    }
+    if (block.type === 'tool_response') {
+      return allowed.has(canonicalizeToolName(block.toolName));
+    }
+    return true;
   });
 }

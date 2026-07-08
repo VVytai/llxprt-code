@@ -135,7 +135,7 @@ export class StreamProcessor {
   async makeApiCallAndProcessStream(
     params: SendMessageParameters,
     promptId: string,
-    userContent: Content | Content[],
+    userContent: IContent,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
     const provider = this.providerResolver('stream');
 
@@ -170,7 +170,7 @@ export class StreamProcessor {
 
   private _createCancellableStream(
     streamResponse: AsyncGenerator<ModelStreamChunk>,
-    userContent: Content | Content[],
+    userContent: IContent,
   ): AsyncGenerator<ModelStreamChunk> {
     let processedStream: AsyncGenerator<ModelStreamChunk> | undefined;
     const ensureProcessedStream = (): AsyncGenerator<ModelStreamChunk> => {
@@ -237,7 +237,7 @@ export class StreamProcessor {
   private async _executeStreamApiCall(
     params: SendMessageParameters,
     promptId: string,
-    userContent: Content | Content[],
+    userContent: IContent,
     provider: IProvider,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
     const apiCall = () =>
@@ -254,7 +254,7 @@ export class StreamProcessor {
   private async _buildAndSendStreamRequest(
     params: SendMessageParameters,
     promptId: string,
-    userContent: Content | Content[],
+    userContent: IContent,
     provider: IProvider,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
     const { contents: requestContents, pending: pendingUserIContents } =
@@ -584,7 +584,7 @@ export class StreamProcessor {
     return { tools: toolsFromConfig, allowedFunctionNames: undefined };
   }
 
-  private _buildRequestContents(userContent: Content | Content[]): {
+  private _buildRequestContents(userContent: IContent): {
     contents: IContent[];
     pending: IContent[];
   } {
@@ -800,7 +800,7 @@ export class StreamProcessor {
    */
   async *processStreamResponse(
     streamResponse: AsyncGenerator<ModelStreamChunk>,
-    userInput: Content | Content[],
+    userInput: IContent,
   ): AsyncGenerator<ModelStreamChunk> {
     let acc = emptyModelOutput();
     const includeThoughts =
@@ -828,7 +828,7 @@ export class StreamProcessor {
 
   private async _finalizeStreamProcessing(
     acc: ModelOutput,
-    userInput: Content | Content[],
+    userInput: IContent,
     includeThoughts: boolean,
   ): Promise<void> {
     // Extract response metadata from accumulated output
@@ -899,16 +899,14 @@ export class StreamProcessor {
   }
 
   private _validateStreamCompletion(
-    userInput: Content | Content[],
+    userInput: IContent,
     outcome: ResponseOutcome,
     finishReason: string | undefined,
     responseText: string,
   ): void {
-    const isToolContinuationInput = Array.isArray(userInput)
-      ? userInput.some((c) =>
-          c.parts?.some((p) => p.functionResponse !== undefined),
-        )
-      : userInput.parts?.some((p) => p.functionResponse !== undefined);
+    const isToolContinuationInput = userInput.blocks.some(
+      (b) => b.type === 'tool_response',
+    );
 
     const hasMissingFinishAndNoText =
       isMissingFinishReason(finishReason) && !outcome.hasVisibleText;
@@ -977,7 +975,7 @@ export class StreamProcessor {
   }
 
   private async _recordHistoryWithUsage(
-    userInput: Content | Content[],
+    userInput: IContent,
     acc: ModelOutput,
   ): Promise<void> {
     const includeThoughts =

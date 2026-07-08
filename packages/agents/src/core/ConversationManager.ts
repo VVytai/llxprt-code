@@ -146,17 +146,23 @@ export class ConversationManager {
    * @param usageMetadata - Optional usage statistics
    */
   recordHistory(
-    userInput: Content | Content[],
+    userInput: IContent | Content | Content[],
     modelOutput: Content[],
     automaticFunctionCallingHistory?: Content[],
     usageMetadata?: UsageStats | null,
   ): void {
     const newHistoryEntries: IContent[] = [];
 
+    // Normalize neutral IContent to Gemini Content for legacy paths (P15 full retype)
+    const userContent: Content | Content[] =
+      !Array.isArray(userInput) && 'speaker' in userInput && 'blocks' in userInput
+        ? ContentConverters.toGeminiContent(userInput)
+        : userInput;
+
     // Capture user input characteristics for model turn logic
-    const userInputWasArray = Array.isArray(userInput);
+    const userInputWasArray = Array.isArray(userContent);
     const userInputWasFunctionResponse =
-      !userInputWasArray && isFunctionResponse(userInput);
+      !userInputWasArray && isFunctionResponse(userContent);
     const hasAfc = !!(
       automaticFunctionCallingHistory &&
       automaticFunctionCallingHistory.length > 0
@@ -164,7 +170,7 @@ export class ConversationManager {
 
     // Record user turn
     this._recordUserTurn(
-      userInput,
+      userContent,
       automaticFunctionCallingHistory,
       newHistoryEntries,
     );

@@ -204,7 +204,7 @@ export class TurnProcessor {
   private async *_createStreamGenerator(
     params: SendMessageParameters,
     prompt_id: string,
-    userContent: Content | Content[],
+    userContent: IContent,
     onDone: () => void,
   ): AsyncGenerator<StreamEvent> {
     try {
@@ -245,7 +245,7 @@ export class TurnProcessor {
   private async *_runStreamAttempt(
     params: SendMessageParameters,
     prompt_id: string,
-    userContent: Content | Content[],
+    userContent: IContent,
     attempt: number,
   ): AsyncGenerator<StreamEvent, { error: unknown; action: 'retry' | 'stop' }> {
     if (attempt > 0) {
@@ -313,18 +313,20 @@ export class TurnProcessor {
 
   private _normalizeUserContent(
     params: SendMessageParameters,
-  ): Content | Content[] {
+  ): IContent {
     return normalizeToolInteractionInput(params.message);
   }
 
-  private _convertToIContents(userContent: Content | Content[]): IContent[] {
-    const contents = Array.isArray(userContent) ? userContent : [userContent];
-    const matcher = this.makePositionMatcher();
-    return contents.map((content) => {
-      const turnKey = this.historyService.generateTurnKey();
-      const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-      return ContentConverters.toIContent(content, idGen, matcher, turnKey);
-    });
+  private _convertToIContents(userContent: IContent): IContent[] {
+    const idGen = this.historyService.getIdGeneratorCallback();
+    const stamped: IContent = {
+      ...userContent,
+      metadata: {
+        ...userContent.metadata,
+        id: idGen(),
+      },
+    };
+    return [stamped];
   }
 
   /**
@@ -351,7 +353,7 @@ export class TurnProcessor {
    * Prepares user message: validates and converts input before provider enforcement.
    */
   private _prepareSendMessage(params: SendMessageParameters): {
-    userContent: Content | Content[];
+    userContent: IContent;
     userIContents: IContent[];
   } {
     const userContent = this._normalizeUserContent(params);
@@ -723,7 +725,7 @@ export class TurnProcessor {
    */
   private async _commitSendResult(
     response: GenerateContentResponse,
-    userContent: Content | Content[],
+    userContent: IContent,
     _params: SendMessageParameters,
     _prompt_id: string,
   ): Promise<void> {
@@ -772,7 +774,7 @@ export class TurnProcessor {
   }
 
   private _recordUserContent(
-    userContent: Content | Content[],
+    userContent: IContent,
     currentModel: string | undefined,
   ): void {
     const contents = Array.isArray(userContent) ? userContent : [userContent];

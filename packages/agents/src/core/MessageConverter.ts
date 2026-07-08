@@ -13,7 +13,6 @@ import type { GenerateContentResponse } from '@google/genai';
 import {
   type Content,
   type Part,
-  createUserContent,
   type PartListUnion,
   FinishReason,
 } from '@google/genai';
@@ -24,6 +23,7 @@ import type {
   ToolResponseBlock,
   ThinkingBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import { iContentFromLegacyInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import {
   type ThoughtPart,
@@ -112,123 +112,44 @@ export function aggregateTextWithSpacing(
 }
 
 /**
- * Pushes mixed content items into a parts array, flattening nested arrays.
- */
-function pushMixedContentParts(
-  message: Array<Part | string>,
-  parts: Part[],
-): void {
-  for (const item of message) {
-    if (typeof item === 'string') {
-      parts.push({ text: item });
-    } else if (Array.isArray(item)) {
-      for (const subItem of item) {
-        parts.push(subItem);
-      }
-    } else if (isNonNullObject(item)) {
-      parts.push(item);
-    }
-  }
-}
-
-/**
- * Custom createUserContent that properly handles function response arrays.
- * Each response must be a separate Part in the same Content, not nested arrays.
+ * Builds an IContent{speaker:'human'} from legacy PartListUnion input,
+ * properly handling function response arrays (each response as a separate
+ * ToolResponseBlock in the same IContent).
  *
- * Issue #2410: When `message` is an empty array, this returns a zero-part
- * `{ role: 'user', parts: [] }`. Callers MUST check `result.parts.length`
- * before forwarding to a provider — a zero-part Content will be rejected by
- * strict endpoints (e.g. z.ai error 1213). `HistoryService.addInternal`
- * already drops zero-block turns derived from this.
+ * Replaces the old createUserContent + {role:'user',parts} construction.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P09
+ * @requirement:REQ-002.4
+ * @requirement:REQ-006.4
+ * @pseudocode lines 20-31
  */
 export function createUserContentWithFunctionResponseFix(
   message: PartListUnion,
-): Content {
-  if (typeof message === 'string') {
-    return createUserContent(message);
+): IContent {
+  const result = iContentFromLegacyInput(message);
+  if (result.ok) {
+    // Merge all IContent[] entries into a single human-speaker IContent.
+    const allBlocks = result.value.flatMap((c) => c.blocks);
+    return { speaker: 'human', blocks: allBlocks };
   }
-
-  // Handle array of parts or nested function response arrays
-  const parts: Part[] = [];
-
-  // If the message is an array, process each element
-  if (Array.isArray(message)) {
-    // An empty message array must not produce a fabricated user turn with
-    // function-response semantics — `[].every(...)` is vacuously true and
-    // would create spurious function-response parts. Return a zero-part
-    // user Content so callers (and HistoryService) can detect and drop it
-    // (issue #2410).
-    if (message.length === 0) {
-      return { role: 'user' as const, parts };
-    }
-
-    // First check if this is an array of functionResponse Parts
-    // This happens when multiple tool responses are sent together
-    const allFunctionResponses = message.every((item) =>
-      isFunctionResponsePart(item),
-    );
-
-    if (allFunctionResponses) {
-      // This is already a properly formatted array of function response Parts
-      // Just use them directly without any wrapping
-      // Cast is safe here because we've checked all items are objects with functionResponse
-      parts.push(...(message as Part[]));
-    } else {
-      // Process mixed content
-      pushMixedContentParts(message, parts);
-    }
-  } else {
-    // Not an array, pass through to original createUserContent
-    return createUserContent(message);
-  }
-
-  return {
-    role: 'user' as const,
-    parts,
-  };
+  // Fallback: treat as plain text
+  return { speaker: 'human', blocks: [{ type: 'text', text: String(message) }] };
 }
 
 /**
  * Normalizes tool interaction input for the provider.
- * Packages tool responses as user messages.
+ * Packages tool responses as human-speaker IContent.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P09
+ * @requirement:REQ-002.4
+ * @pseudocode lines 20-31
  */
 export function normalizeToolInteractionInput(
   message: PartListUnion,
-): Content | Content[] {
-  // Handle simple string input
-  if (typeof message === 'string') {
-    return createUserContent(message);
-  }
-
-  // Handle single Part (not an array)
-  if (!Array.isArray(message)) {
-    return createUserContentWithFunctionResponseFix(message);
-  }
-
-  // An empty array must not be normalized into a fake user message —
-  // `[].every(...)` is vacuously true, producing `{role:'user', parts:[]}`
-  // which providers like z.ai reject with HTTP 400 error 1213 (issue #2410).
-  // Return an empty Content array so callers can skip it without inventing
-  // a zero-block turn.
-  if (message.length === 0) {
-    return [];
-  }
-
-  // Now we have an array of parts - check if it contains tool interactions
-  const parts = message as Part[];
-
-  // Detect if this is a tool response sequence (functionResponse parts only)
-  const hasFunctionResponses = parts.some((part) =>
-    isFunctionResponsePart(part),
-  );
-
-  // If no function responses, fall back to original behavior
-  if (!hasFunctionResponses) {
-    return createUserContentWithFunctionResponseFix(message);
-  }
-
-  // Tool responses go in a user message
-  return createUserContentWithFunctionResponseFix(parts);
+): IContent {
+  // All input shapes route through the neutral converter which handles
+  // string, Part, Part[], and tool-response packaging.
+  return createUserContentWithFunctionResponseFix(message);
 }
 
 /**
@@ -377,22 +298,8 @@ export function convertPartListUnionToIContent(input: PartListUnion): IContent {
 
 /**
  * Converts mixed Parts (function calls, responses, text, thoughts) to IContent.
- *
- * Issue #2410: When `parts` is empty, this returns a zero-block
- * `{ speaker: 'human', blocks: [] }`. Callers MUST check `result.blocks.length`
- * before forwarding to a provider. `HistoryService.addInternal` already drops
- * zero-block turns, and `ContentConverters.toIContent` logs a warning when it
- * encounters one.
  */
 export function convertMixedPartsToIContent(parts: Part[]): IContent {
-  // An empty parts array would make `[].every(isFunctionResponsePart)`
-  // vacuously true, producing a fabricated tool message from no content
-  // (issue #2410). Return a zero-block human turn so callers (and
-  // HistoryService) can detect and drop it.
-  if (parts.length === 0) {
-    return { speaker: 'human', blocks: [] };
-  }
-
   // Fast path: all function responses → tool message
   const allFunctionResponses = parts.every((part) =>
     isFunctionResponsePart(part),

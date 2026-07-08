@@ -55,30 +55,16 @@ export interface PreparedRequest {
  * explicitly (issue #2304).
  */
 export function buildRequestContentsResult(
-  userContent: Content | Content[],
+  userContent: IContent,
   conversationManager: ConversationManager,
   historyService: HistoryService,
 ): { contents: IContent[]; pending: IContent[] } {
-  const matcher = conversationManager.makePositionMatcher();
-  if (Array.isArray(userContent)) {
-    const userIContents = userContent.map((content) => {
-      const turnKey = historyService.generateTurnKey();
-      const idGen = historyService.getIdGeneratorCallback(turnKey);
-      return ContentConverters.toIContent(content, idGen, matcher, turnKey);
-    });
-    return {
-      contents: historyService.getCuratedForProvider(userIContents),
-      pending: userIContents,
-    };
-  }
   const turnKey = historyService.generateTurnKey();
   const idGen = historyService.getIdGeneratorCallback(turnKey);
-  const userIContent = ContentConverters.toIContent(
-    userContent,
-    idGen,
-    matcher,
-    turnKey,
-  );
+  const userIContent: IContent = {
+    ...userContent,
+    metadata: { ...userContent.metadata, id: idGen() },
+  };
   return {
     contents: historyService.getCuratedForProvider([userIContent]),
     pending: [userIContent],

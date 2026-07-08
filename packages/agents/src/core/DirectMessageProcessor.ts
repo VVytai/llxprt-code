@@ -154,7 +154,7 @@ export class DirectMessageProcessor {
     private readonly generationConfig: GenerateContentConfig,
 
     private readonly historyService: HistoryService,
-    private readonly makePositionMatcher: () =>
+    _makePositionMatcher: () =>
       | (() => { historyId: string; toolName?: string })
       | undefined,
   ) {}
@@ -226,27 +226,15 @@ export class DirectMessageProcessor {
    */
   private _convertUserInput(message: PartListUnion): IContent[] {
     const userContent = normalizeToolInteractionInput(message);
-    const matcher = this.makePositionMatcher();
-    const userIContents: IContent[] = Array.isArray(userContent)
-      ? userContent.map((content) => {
-          const turnKey = this.historyService.generateTurnKey();
-          const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-          return ContentConverters.toIContent(content, idGen, matcher, turnKey);
-        })
-      : [
-          (() => {
-            const turnKey = this.historyService.generateTurnKey();
-            const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-            return ContentConverters.toIContent(
-              userContent,
-              idGen,
-              matcher,
-              turnKey,
-            );
-          })(),
-        ];
-
-    return userIContents;
+    const idGen = this.historyService.getIdGeneratorCallback();
+    const stamped: IContent = {
+      ...userContent,
+      metadata: {
+        ...userContent.metadata,
+        id: idGen(),
+      },
+    };
+    return [stamped];
   }
 
   /**
