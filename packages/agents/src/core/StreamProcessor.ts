@@ -3,7 +3,6 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import type { GenerateContentResponse } from '@google/genai';
 import type { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
 import {
   type SendMessageParameters,
@@ -18,9 +17,7 @@ import {
   accumulateModelStreamChunk,
   toModelStreamChunk,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import type {
-  IContent,
-} from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   isRetryableError,
   retryWithBackoff,
@@ -39,11 +36,8 @@ import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { ConversationManager } from './ConversationManager.js';
 import type { CompressionHandler } from '../compression/CompressionHandler.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import { convertIContentToResponse } from './MessageConverter.js';
 import { logApiResponse, logApiError } from './turnLogging.js';
-import {
-  EmptyStreamError,
-} from '@vybestack/llxprt-code-core/core/chatSessionTypes.js';
+import { EmptyStreamError } from '@vybestack/llxprt-code-core/core/chatSessionTypes.js';
 import {
   extractResponseTextFromBlocks,
   analyzeBlocksOutcome,
@@ -54,17 +48,13 @@ import {
   AgentExecutionStoppedError,
   AgentExecutionBlockedError,
 } from './chatSession.js';
-import {
-  filterHookRestrictedBlocks,
-} from './hookToolRestrictions.js';
-import { attachHookRestrictedAllowedToolsToBlockingResponse as attachHookRestrictedAllowedTools } from './beforeModelBlockingCompat.js';
+import { filterHookRestrictedBlocks } from './hookToolRestrictions.js';
 import { canonicalizeToolName } from './toolGovernance.js';
 import {
   buildRequestContentsResult,
   selectRequestTools,
   prepareRequestPayload,
   buildRuntimeContext,
-  patchMissingFinishReason,
   applyRequestModifications,
   resolveUserMemory,
   logOutgoingRequest,
@@ -84,6 +74,7 @@ import {
 } from './streamResponseHelpers.js';
 import {
   afterModelModifiedToChunk,
+  afterModelBlockingToModelOutput,
 } from './hookWireAdapter.js';
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
@@ -179,14 +170,10 @@ export class StreamProcessor {
     };
 
     const cancellableStream = {
-      async next(
-        value?: unknown,
-      ): Promise<IteratorResult<ModelStreamChunk>> {
+      async next(value?: unknown): Promise<IteratorResult<ModelStreamChunk>> {
         return ensureProcessedStream().next(value);
       },
-      async return(
-        value?: unknown,
-      ): Promise<IteratorResult<ModelStreamChunk>> {
+      async return(value?: unknown): Promise<IteratorResult<ModelStreamChunk>> {
         if (processedStream) {
           return typeof processedStream.return === 'function'
             ? processedStream.return(value)
@@ -199,9 +186,7 @@ export class StreamProcessor {
 
         return { done: true, value: undefined };
       },
-      async throw(
-        error?: unknown,
-      ): Promise<IteratorResult<ModelStreamChunk>> {
+      async throw(error?: unknown): Promise<IteratorResult<ModelStreamChunk>> {
         if (processedStream) {
           if (typeof processedStream.throw === 'function') {
             return processedStream.throw(error);
@@ -370,7 +355,6 @@ export class StreamProcessor {
     enforceBeforeModelHookDecision(
       beforeModelResult,
       hookRestrictedAllowedTools,
-      (resp, candidate) => this._patchMissingFinishReason(resp, candidate),
     );
 
     const contents = this._applyRequestModifications(
@@ -378,13 +362,6 @@ export class StreamProcessor {
       requestContents,
     );
     return { contents, hookOutput: beforeModelResult ?? undefined, snapshot };
-  }
-
-  private _patchMissingFinishReason(
-    syntheticResponse: GenerateContentResponse,
-    candidate: NonNullable<GenerateContentResponse['candidates']>[0],
-  ): GenerateContentResponse {
-    return patchMissingFinishReason(syntheticResponse, candidate);
   }
 
   private _applyRequestModifications(
@@ -677,10 +654,8 @@ export class StreamProcessor {
    * Throws AgentExecutionStoppedError / AgentExecutionBlockedError on
    * stop/block decisions.
    *
-   * C3 constraint: the BLOCK branch still carries a Google-shaped
-   * GenerateContentResponse via AgentExecutionBlockedError.syntheticResponse
-   * (shared error transport until P13). The MODIFY branch returns a neutral
-   * ModelStreamChunk via hookWireAdapter.afterModelModifiedToChunk.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-002.6
    */
   private async _processAfterModelHook(
     iContent: IContent,
@@ -730,26 +705,30 @@ export class StreamProcessor {
     }
 
     if (afterModelResult?.isBlockingDecision() === true) {
-      // C3: BLOCK branch keeps Google-shaped syntheticResponse until P13.
-      const modifiedResponse = afterModelResult.getModifiedResponse() as
-        | GenerateContentResponse
-        | undefined;
-      const syntheticResponse = attachHookRestrictedAllowedTools(
-        modifiedResponse ??
-          convertIContentToResponse(iContent),
-        hookRestrictedAllowedTools,
-      );
       const effectiveReason = afterModelResult.getEffectiveReason() as
         | string
         | undefined;
+      // P13: BLOCK branch now neutral — build a ModelOutput from the
+      // hook-modified response or the current chunk, carrying the block
+      // reason text. No synthetic GenerateContentResponse.
+      const modifiedResponse = afterModelResult.getModifiedResponse();
+      const blockedOutput: ModelOutput = modifiedResponse
+        ? (afterModelModifiedToChunk(modifiedResponse, chunk) ?? { ...chunk })
+        : { ...chunk };
+      // P13: Use the neutral blocking adapter for the block reason text.
+      const finalBlockedOutput = afterModelBlockingToModelOutput(
+        effectiveReason,
+        blockedOutput,
+        afterModelResult.systemMessage,
+      );
       throw new AgentExecutionBlockedError(
         effectiveReason ?? 'Execution blocked by AfterModel hook',
-        syntheticResponse,
+        finalBlockedOutput,
         afterModelResult.systemMessage,
       );
     }
 
-    // MODIFY branch: convert hook's Google-shaped response to neutral chunk.
+    // MODIFY branch: convert hook's response to neutral chunk.
     const modifiedResponse = afterModelResult?.getModifiedResponse();
     if (modifiedResponse) {
       return afterModelModifiedToChunk(modifiedResponse, chunk);
@@ -773,12 +752,15 @@ export class StreamProcessor {
         durationMs,
         usage
           ? {
-              promptTokenCount: usage.promptTokens,
-              candidatesTokenCount: usage.completionTokens,
-              totalTokenCount: usage.totalTokens,
-              cachedContentTokenCount: usage.cachedTokens,
-              thoughtsTokenCount: usage.reasoningTokens,
-              toolUsePromptTokenCount: usage.toolTokens,
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+              totalTokens: usage.totalTokens,
+              ...(usage.cachedTokens !== undefined
+                ? { cachedTokens: usage.cachedTokens }
+                : {}),
+              ...(usage.reasoningTokens !== undefined
+                ? { reasoningTokens: usage.reasoningTokens }
+                : {}),
             }
           : undefined,
         JSON.stringify(lastIContent),
@@ -868,5 +850,4 @@ export class StreamProcessor {
       acc,
     );
   }
-
 }

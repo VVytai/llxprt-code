@@ -12,12 +12,8 @@
  * params (no shared mutable state) so they can be unit-tested in isolation.
  */
 
-import type {
-  Content,
-  GenerateContentResponse,
-  SendMessageParameters,
-} from '@google/genai';
-import { FinishReason, type GenerateContentConfig } from '@google/genai';
+import type { Content, SendMessageParameters } from '@google/genai';
+import { type GenerateContentConfig } from '@google/genai';
 import type { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
 import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -143,19 +139,6 @@ export function prepareRequestPayload(
 }
 
 /**
- * Patch a synthetic response that is missing a finishReason.
- */
-export function patchMissingFinishReason(
-  syntheticResponse: GenerateContentResponse,
-  candidate: NonNullable<GenerateContentResponse['candidates']>[0],
-): GenerateContentResponse {
-  return {
-    ...syntheticResponse,
-    candidates: [{ ...candidate, finishReason: FinishReason.STOP }],
-  } as GenerateContentResponse;
-}
-
-/**
  * Type guard: true when a value is a non-null object record.
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -264,7 +247,7 @@ export function logOutgoingRequest(
   logApiRequest(
     runtimeContext,
     runtimeContext.state,
-    ContentConverters.toGeminiContents(requestPayload.contents),
+    requestPayload.contents,
     modelName,
     promptId,
   );

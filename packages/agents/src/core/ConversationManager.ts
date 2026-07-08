@@ -155,7 +155,9 @@ export class ConversationManager {
 
     // Normalize neutral IContent to Gemini Content for legacy paths (P15 full retype)
     const userContent: Content | Content[] =
-      !Array.isArray(userInput) && 'speaker' in userInput && 'blocks' in userInput
+      !Array.isArray(userInput) &&
+      'speaker' in userInput &&
+      'blocks' in userInput
         ? ContentConverters.toGeminiContent(userInput)
         : userInput;
 

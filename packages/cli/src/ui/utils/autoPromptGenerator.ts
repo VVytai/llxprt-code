@@ -51,8 +51,20 @@ async function requestFromClient(
   requestPayload: ContractSendMessageParameters,
   options?: { useRuntimeScope?: boolean },
 ): Promise<{ text?: string }> {
-  const executeRequest = () =>
-    targetClient.generateDirectMessage(requestPayload, 'subagent-auto-prompt');
+  const executeRequest = async (): Promise<{ text?: string }> => {
+    const output = await targetClient.generateDirectMessage(
+      requestPayload,
+      'subagent-auto-prompt',
+    );
+    const text = output.content.blocks
+      .filter(
+        (block): block is { type: 'text'; text: string } =>
+          block.type === 'text',
+      )
+      .map((block) => block.text)
+      .join('');
+    return { text };
+  };
   if (options?.useRuntimeScope === false) {
     return executeRequest();
   }

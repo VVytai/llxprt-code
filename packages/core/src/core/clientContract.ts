@@ -37,6 +37,7 @@ import type { AgentRuntimeState } from '../runtime/AgentRuntimeState.js';
 import type { ContentGenerator } from './contentGenerator.js';
 import type { ToolSchedulerFactory } from './toolSchedulerContract.js';
 import type { TaskToolRegistration } from '../config/toolRegistryFactory.js';
+import type { ModelOutput } from '../llm-types/modelEnvelope.js';
 
 /**
  * Structural shapes matching the portions of the @google/genai SDK types used
@@ -125,10 +126,18 @@ export interface ContractSendMessageParameters {
 }
 
 export interface AgentChatContract {
+  sendMessage(
+    params: ContractSendMessageParameters,
+    prompt_id: string,
+  ): Promise<ModelOutput>;
   sendMessageStream(
     params: ContractSendMessageParameters,
     prompt_id: string,
   ): Promise<AsyncGenerator<StreamEvent>>;
+  generateDirectMessage(
+    params: ContractSendMessageParameters,
+    prompt_id: string,
+  ): Promise<ModelOutput>;
   getHistory(): ContractContent[];
   setHistory(history: ContractContent[]): void;
   clearHistory(): void;
@@ -172,7 +181,7 @@ export interface AgentClientContract {
   generateDirectMessage(
     params: ContractSendMessageParameters,
     promptId: string,
-  ): Promise<ContractGenerateContentResponse>;
+  ): Promise<ModelOutput>;
   generateJson(
     contents: ContractContent[],
     schema: Record<string, unknown>,
@@ -185,7 +194,7 @@ export interface AgentClientContract {
     generationConfig: ContractGenerateContentConfig,
     abortSignal: AbortSignal,
     model: string,
-  ): Promise<ContractGenerateContentResponse>;
+  ): Promise<ModelOutput>;
   generateEmbedding(texts: string[]): Promise<number[][]>;
   sendMessageStream(
     initialRequest: ContractPartListUnion,

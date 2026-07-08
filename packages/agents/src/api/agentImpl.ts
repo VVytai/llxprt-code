@@ -18,7 +18,7 @@ import type { AgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/Agen
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { AgentClientContract } from '@vybestack/llxprt-code-core/core/clientContract.js';
 import { PerformCompressionResult } from '@vybestack/llxprt-code-core/core/turn.js';
-import { getResponseText } from '@vybestack/llxprt-code-core';
+import { getResponseTextFromBlocks } from '@vybestack/llxprt-code-core';
 import { uiTelemetryService } from '@vybestack/llxprt-code-core/telemetry/uiTelemetry.js';
 import type {
   ApprovalMode,
@@ -991,7 +991,7 @@ export class AgentImpl implements Agent {
     const message = toPartListUnion(input);
     const promptId = opts?.promptId ?? `generate-${Date.now()}`;
     const response = await client.generateDirectMessage({ message }, promptId);
-    return getResponseText(response) ?? '';
+    return getResponseTextFromBlocks(response.content.blocks) ?? '';
   }
 
   /**

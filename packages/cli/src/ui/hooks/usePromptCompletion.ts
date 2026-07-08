@@ -9,14 +9,13 @@ import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 
 import {
   DEFAULT_GEMINI_FLASH_LITE_MODEL,
-  getResponseText,
   debugLogger,
 } from '@vybestack/llxprt-code-core';
 import type {
   ContractContent,
   ContractGenerateContentConfig,
-  ContractGenerateContentResponse,
 } from '@vybestack/llxprt-code-core';
+import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
 import type { TextBuffer } from '../components/shared/text-buffer.js';
 import { isSlashCommand } from '../utils/commandUtils.js';
 import type { AgentClientSource } from '../cliUiRuntime.js';
@@ -107,10 +106,15 @@ function buildPromptCompletionRequest(trimmedText: string): {
 }
 
 function deriveSuggestionText(
-  response: ContractGenerateContentResponse,
+  response: ModelOutput,
   trimmedText: string,
 ): string {
-  const responseText = getResponseText(response);
+  const responseText = response.content.blocks
+    .filter(
+      (block): block is { type: 'text'; text: string } => block.type === 'text',
+    )
+    .map((block) => block.text)
+    .join('');
   if (!responseText) return '';
 
   const suggestionText = responseText.trim();

@@ -6,35 +6,39 @@
 
 /**
  * Phase-local observer helpers for the direct-message characterization
- * tests (P12). This module is the SINGLE sanctioned boundary that reads
- * the CURRENT `GenerateContentResponse` surface — the characterization
- * tests read observable values ONLY through these helpers so that
- * candidate/part/usageMetadata indexing never leaks into the test files.
+ * tests (P12/P13). This module is the SINGLE sanctioned boundary that reads
+ * the neutral `ModelOutput` surface — the characterization tests read
+ * observable values ONLY through these helpers so that block/usage indexing
+ * never leaks into the test files.
  *
- * When P13 flips the return type to `ModelOutput`, ONLY this helper file
- * changes; the tests stay green because they assert observable values
- * (visible text, committed history, usage counts), never the envelope
- * shape.
+ * P13 flipped `generateDirectMessage` to return `ModelOutput`; these helpers
+ * read `content.blocks` (text blocks) and the neutral `usage` field. The
+ * tests stay green because they assert observable values (visible text,
+ * committed history, usage counts), never the envelope shape.
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P12
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
  * @requirement:REQ-INT-001.3
  */
 
-import type { GenerateContentResponse } from '@google/genai';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type {
+  IContent,
+  ContentBlock,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
-interface CandidateLike {
-  content?: { parts?: Array<{ text?: unknown }> };
+interface ModelOutputLike {
+  content?: { blocks?: ContentBlock[] };
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    reasoningTokens?: number;
+  };
 }
 
-interface ResponseLike {
-  candidates?: CandidateLike[];
-  usageMetadata?: Record<string, unknown>;
-  text?: unknown;
-}
-
-function isResponseLike(result: unknown): result is ResponseLike {
+function isModelOutputLike(result: unknown): result is ModelOutputLike {
   return result !== null && typeof result === 'object';
 }
 
@@ -45,35 +49,26 @@ function readNumber(value: unknown): number | undefined {
 }
 
 /**
- * The model's visible text via the current `.text` accessor, with a
- * fallback to the first candidate's first text part (BeforeModel blocking
- * fabricator constructs a plain object without a `.text` getter).
+ * The model's visible text extracted from the neutral `content.blocks`
+ * text blocks (concatenation of all text-type block text).
  */
 export function visibleText(result: unknown): string {
-  if (!isResponseLike(result)) {
+  if (!isModelOutputLike(result)) {
     return '';
   }
-
-  // Try `.text` getter (normal path)
-  const textVal = result.text;
-  if (typeof textVal === 'string') {
-    return textVal;
+  const blocks = result.content?.blocks;
+  if (!Array.isArray(blocks)) {
+    return '';
   }
-
-  // Fallback: read from candidate parts
-  const candidates = result.candidates;
-  if (Array.isArray(candidates) && candidates.length > 0) {
-    const candidate = candidates[0];
-    const parts = candidate?.content?.parts;
-    if (Array.isArray(parts)) {
-      const textPart = parts.find((p) => typeof p.text === 'string');
-      if (textPart !== undefined && typeof textPart.text === 'string') {
-        return textPart.text;
-      }
-    }
-  }
-
-  return '';
+  return blocks
+    .filter(
+      (block) =>
+        block.type === 'text' &&
+        typeof block.text === 'string' &&
+        block.text !== '',
+    )
+    .map((block) => (block as { text: string }).text)
+    .join('');
 }
 
 /**
@@ -92,29 +87,26 @@ export interface NeutralUsageCounts {
 }
 
 /**
- * Neutral usage numbers mapped from the current `usageMetadata` shape to
- * NEUTRAL names.
+ * Neutral usage numbers read from the `ModelOutput.usage` field.
  */
 export function usageCounts(result: unknown): NeutralUsageCounts {
-  if (!isResponseLike(result) || result.usageMetadata === undefined) {
+  if (!isModelOutputLike(result) || result.usage === undefined) {
     return {};
   }
-  const meta = result.usageMetadata;
+  const usage = result.usage;
   return {
-    promptTokens: readNumber(meta.promptTokenCount),
-    completionTokens: readNumber(meta.candidatesTokenCount),
-    totalTokens: readNumber(meta.totalTokenCount),
-    reasoningTokens: readNumber(meta.thoughtsTokenCount),
+    promptTokens: readNumber(usage.promptTokens),
+    completionTokens: readNumber(usage.completionTokens),
+    totalTokens: readNumber(usage.totalTokens),
+    reasoningTokens: readNumber(usage.reasoningTokens),
   };
 }
 
 /**
  * The public `ServerAgentStreamEvent` `type` sequence.
  */
-export function eventSequence(
-  events: Array<{ type: string }>,
-): string[] {
+export function eventSequence(events: Array<{ type: string }>): string[] {
   return events.map((event) => event.type);
 }
 
-export type { GenerateContentResponse };
+export type { ModelOutput };

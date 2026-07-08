@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 Vybestack LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,18 +9,19 @@
  * Extracted from chatSession.ts Phase 05.
  */
 
-import type {
-  Content,
-  GenerateContentConfig,
-  GenerateContentResponseUsageMetadata,
-} from '@google/genai';
+import type { GenerateContentConfig } from '@google/genai';
 import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import type { AgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type { UsageStats } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
 /**
- * Extract request text from contents for logging
+ * Extract request text from neutral contents for logging.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement:REQ-008
  */
-export function getRequestTextFromContents(contents: Content[]): string {
+export function getRequestTextFromContents(contents: IContent[]): string {
   return JSON.stringify(contents);
 }
 
@@ -58,12 +59,15 @@ export function extractDirectGeminiOverrides(config?: GenerateContentConfig):
 }
 
 /**
- * Log API request to telemetry
+ * Log API request to telemetry.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement:REQ-008
  */
 export function logApiRequest(
   runtimeContext: AgentRuntimeContext,
   runtimeState: AgentRuntimeState,
-  contents: Content[],
+  contents: IContent[],
   model: string,
   promptId: string,
 ): void {
@@ -80,7 +84,14 @@ export function logApiRequest(
 }
 
 /**
- * Log API response to telemetry
+ * Log API response to telemetry.
+ *
+ * Accepts neutral UsageStats; the telemetry sink still receives a
+ * spread record, maintaining wire compatibility for downstream consumers.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement:REQ-007
+ * @requirement:REQ-008
  */
 export function logApiResponse(
   runtimeContext: AgentRuntimeContext,
@@ -88,7 +99,7 @@ export function logApiResponse(
   model: string,
   promptId: string,
   durationMs: number,
-  usageMetadata?: GenerateContentResponseUsageMetadata,
+  usage?: UsageStats,
   responseText?: string,
 ): void {
   runtimeContext.telemetry.logApiResponse({
@@ -99,7 +110,16 @@ export function logApiResponse(
     runtimeId: runtimeState.runtimeId,
     provider: runtimeState.provider,
     usageMetadata:
-      usageMetadata === undefined ? undefined : { ...usageMetadata },
+      usage === undefined
+        ? undefined
+        : {
+            promptTokenCount: usage.promptTokens,
+            candidatesTokenCount: usage.completionTokens,
+            totalTokenCount: usage.totalTokens,
+            ...(usage.cachedTokens !== undefined
+              ? { cachedContentTokenCount: usage.cachedTokens }
+              : {}),
+          },
     responseText,
   });
 }

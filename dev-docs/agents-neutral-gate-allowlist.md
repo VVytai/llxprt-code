@@ -37,24 +37,30 @@ Each entry is a markdown table row:
 
 ## Entries
 
-### P11 — Temporary before-model blocking compat (DELETE in P13)
+### P13 — Named hook-wire boundary exports in hookWireAdapter.ts (AST-context-keyed)
 
-| File | Subkind | Context Pattern | Justification |
-| --- | --- | --- | --- |
-| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `A-raw-genai-import` | `import type { GenerateContentResponse }` | Temporary before-model blocking GenerateContentResponse compat; deleted in P13 with the C3 error retype |
-| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F3-role-parts` | `candidate.content.parts` | Temporary before-model blocking compat; filters parts on the synthetic response; deleted in P13 |
-| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F5-parts-access` | `candidate.content` | Temporary before-model blocking compat; reads parts for tool filtering; deleted in P13 |
-| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F5-parts-access` | `...content` | Temporary before-model blocking compat; reads parts for AFC history filtering; deleted in P13 |
-| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F1-candidates-content` | `candidates: [` | Temporary before-model blocking compat; constructs candidates envelope; deleted in P13 |
+<!-- @plan:PLAN-20260707-AGENTNEUTRAL.P13 -->
+<!-- @requirement:REQ-012.2 -->
+
+| File                                             | Subkind                 | Context Pattern                        | Justification                                                                                                                                                              |
+| ------------------------------------------------ | ----------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F1-candidates-content` | `afterModelModifiedToChunk`            | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral ModelStreamChunk; P07 boundary, AST-context-keyed                                            |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F1-candidates-content` | `afterModelModifiedToModelOutput`      | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral ModelOutput; P13 direct-path boundary, AST-context-keyed                                     |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F1-candidates-content` | `beforeModelBlockingToModelOutput`     | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral blocking ModelOutput; P13 before-model boundary, AST-context-keyed                           |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F1-candidates-content` | `afterModelBlockingToModelOutput`      | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral blocking ModelOutput; P13 streaming AfterModel BLOCK boundary, AST-context-keyed             |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F5-parts-access`       | `afterModelModifiedToChunk`            | Named external-wire mapping: reads hook JSON-wire parts to produce neutral ModelStreamChunk; P07 boundary, AST-context-keyed                                                |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F5-parts-access`       | `afterModelModifiedToModelOutput`      | Named external-wire mapping: reads hook JSON-wire parts to produce neutral ModelOutput; P13 direct-path boundary, AST-context-keyed                                         |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F5-parts-access`       | `beforeModelBlockingToModelOutput`     | Named external-wire mapping: reads hook JSON-wire parts to produce neutral blocking ModelOutput; P13 before-model boundary, AST-context-keyed                               |
+| `packages/agents/src/core/hookWireAdapter.ts`    | `F5-parts-access`       | `afterModelBlockingToModelOutput`      | Named external-wire mapping: reads hook JSON-wire parts to produce neutral blocking ModelOutput; P13 streaming AfterModel BLOCK boundary, AST-context-keyed                 |
 
 ### P11 — Legacy hook restrictions compat (DELETE in P25)
 
-| File | Subkind | Context Pattern | Justification |
-| --- | --- | --- | --- |
+| File                                                       | Subkind              | Context Pattern                                                        | Justification                                                                                                                                                                                       |
+| ---------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `A-raw-genai-import` | `import type { Content, FunctionCall, GenerateContentResponse, Part }` | Legacy WeakMap/Part[]/FunctionCall restriction helpers for not-yet-migrated consumers (streamChunkWrapper, streamResponseHelpers, subagent*, executor*); deleted in P25 when last consumer migrates |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F3-role-parts` | `content.parts` | Legacy Part[]-based filtering; deleted in P25 |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access` | `candidate.content` | Legacy Part[]-based access; deleted in P25 |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access` | `...content` | Legacy Part[]-based access for content filtering; deleted in P25 |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F3-role-parts`      | `content.parts`                                                        | Legacy Part[]-based filtering; deleted in P25                                                                                                                                                       |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access`    | `candidate.content`                                                    | Legacy Part[]-based access; deleted in P25                                                                                                                                                          |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access`    | `...content`                                                           | Legacy Part[]-based access for content filtering; deleted in P25                                                                                                                                    |
 
 ### Expected entries at target state (added by migration slices)
 

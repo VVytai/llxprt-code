@@ -44,6 +44,7 @@ import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { Content, Part, PartListUnion } from '@google/genai';
 import type { ToolRegistry } from '@vybestack/llxprt-code-tools';
 import type { CompletedToolCall } from '@vybestack/llxprt-code-core/scheduler/types.js';
+import { emptyModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 /**
  * A single model turn script: a list of ServerAgentStreamEvents the fake
  * provider emits for that turn.
@@ -74,10 +75,12 @@ interface ScriptedClientState {
 function buildScriptedChat(state: ScriptedClientState): AgentChatContract {
   const { history, recordedToolCalls } = state;
   return {
+    sendMessage: async () => emptyModelOutput(),
     sendMessageStream: async () => {
       async function* emptyStream() {}
       return emptyStream();
     },
+    generateDirectMessage: async () => emptyModelOutput(),
     getHistory: () => history,
     setHistory: (nextHistory: Content[]) => {
       history.splice(0, history.length, ...nextHistory);

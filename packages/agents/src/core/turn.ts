@@ -60,7 +60,6 @@ import {
   type StructuredError,
 } from '@vybestack/llxprt-code-core/core/turn.js';
 
-
 /**
  * Transitional turn-request type — avoids importing @google/genai PartListUnion.
  * Accepts strings and arrays of part-shaped objects that the chatSession's
@@ -816,7 +815,9 @@ export class Turn {
     // normalizeToolInteractionInput handles any shape at runtime.
     const responseStream = await this.chat.sendMessageStream(
       {
-        message: req as Parameters<typeof this.chat.sendMessageStream>[0]['message'],
+        message: req as Parameters<
+          typeof this.chat.sendMessageStream
+        >[0]['message'],
         config: {
           abortSignal: timeoutSignal,
         },

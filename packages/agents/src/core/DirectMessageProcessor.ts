@@ -4,14 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentResponse } from '@google/genai';
-import {
-  type Content,
-  type GenerateContentConfig,
-  type SendMessageParameters,
-  type PartListUnion,
-  ApiError,
-} from '@google/genai';
+import type {
+  ContractSendMessageParameters as SendMessageParameters,
+  ContractGenerateContentConfig,
+} from '@vybestack/llxprt-code-core/core/clientContract.js';
 import { retryWithBackoff } from '@vybestack/llxprt-code-core/utils/retry.js';
 import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -23,10 +19,12 @@ import type {
 import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import type { ProviderRuntimeContext } from '@vybestack/llxprt-code-core/runtime/providerRuntimeContext.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { isProviderApiError } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
   normalizeToolInteractionInput,
-  convertIContentToResponse,
   aggregateTextWithSpacing,
 } from './MessageConverter.js';
 import {
@@ -39,7 +37,6 @@ import {
   nextStreamEventWithIdleTimeout,
   resolveStreamIdleTimeoutMs,
 } from '@vybestack/llxprt-code-core/utils/streamIdleTimeout.js';
-import { getResponseTextFromParts } from './googlePartHelpers.js';
 import type { HookSystem } from '@vybestack/llxprt-code-core/hooks/hookSystem.js';
 import type { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
 
@@ -60,15 +57,14 @@ import { logApiRequest, logApiResponse, logApiError } from './turnLogging.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import {
-  attachHookRestrictedAllowedTools,
-  filterHookRestrictedContent,
-  filterHookRestrictedContents,
-} from './hookRestrictionsLegacyCompat.js';
+  filterHookRestrictedBlocks,
+  filterAfcByHookRestrictions,
+} from './hookToolRestrictions.js';
+import {
+  afterModelModifiedToModelOutput,
+  beforeModelBlockingToModelOutput,
+} from './hookWireAdapter.js';
 import { canonicalizeToolName } from './toolGovernance.js';
-
-function isContentArray(value: unknown): value is Content[] {
-  return Array.isArray(value);
-}
 
 /**
  * Reads the next chunk from the stream iterator, applying idle-timeout
@@ -97,18 +93,13 @@ async function readNextStreamChunk(
   });
 }
 
-function getIContentAutomaticFunctionCallingHistory(
-  content: IContent,
-): Content[] | undefined {
-  const topLevelValue = (content as unknown as Record<string, unknown>)[
-    'automaticFunctionCallingHistory'
-  ];
-  if (isContentArray(topLevelValue)) {
-    return topLevelValue;
-  }
+function getIContentAfcHistory(content: IContent): IContent[] | undefined {
   const metadataValue =
     content.metadata?.providerMetadata?.['automaticFunctionCallingHistory'];
-  return isContentArray(metadataValue) ? metadataValue : undefined;
+  if (Array.isArray(metadataValue)) {
+    return metadataValue as IContent[];
+  }
+  return undefined;
 }
 
 /**
@@ -138,8 +129,32 @@ function resolveHookSystem(config: Config | undefined): HookSystem | undefined {
 }
 
 /**
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement:REQ-004.1
+ * @pseudocode lines 20-22
+ */
+function buildBlockingModelOutput(
+  beforeModelResult: BeforeModelHookOutput,
+): ModelOutput {
+  const reason =
+    beforeModelResult.getEffectiveReason() ||
+    'Request blocked by BeforeModel hook';
+  return {
+    content: {
+      speaker: 'ai',
+      blocks: [{ type: 'text', text: reason }],
+    },
+    finishReason: 'stop',
+    rawStopReason: beforeModelResult.getEffectiveReason() || undefined,
+  };
+}
+
+/**
  * Handles non-streaming direct message generation.
  * Extracted from ChatSession to separate concerns.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement:REQ-004.1
  */
 export class DirectMessageProcessor {
   private logger = new DebugLogger('llxprt:direct-message-processor');
@@ -151,7 +166,7 @@ export class DirectMessageProcessor {
       source: string,
       extras?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
-    private readonly generationConfig: GenerateContentConfig,
+    private readonly generationConfig: ContractGenerateContentConfig,
 
     private readonly historyService: HistoryService,
     _makePositionMatcher: () =>
@@ -160,28 +175,26 @@ export class DirectMessageProcessor {
   ) {}
 
   /**
-   * Generates a direct (non-streaming) message response.
-   * Handles user input conversion, pre-send hooks, provider calls with retry,
-   * and post-response processing.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
+   * @pseudocode lines 10-19
    */
   async generateDirectMessage(
     params: SendMessageParameters,
     prompt_id: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     const provider = this.providerResolver('DirectMessageProcessor');
-    // Widen to unknown for defensive runtime check (providerResolver may return null/undefined at runtime)
     const providerRuntime: unknown = provider;
     if (providerRuntime === undefined || providerRuntime === null) {
       throw new Error('No active provider configured');
     }
 
     const userIContents = this._convertUserInput(params.message);
-    const requestContents = ContentConverters.toGeminiContents(userIContents);
 
     logApiRequest(
       this.runtimeContext,
       this.runtimeContext.state,
-      requestContents,
+      userIContents,
       this.runtimeContext.state.model,
       prompt_id,
     );
@@ -202,7 +215,7 @@ export class DirectMessageProcessor {
         this.runtimeContext.state.model,
         prompt_id,
         durationMs,
-        response.usageMetadata,
+        response.usage,
         JSON.stringify(response),
       );
 
@@ -224,7 +237,9 @@ export class DirectMessageProcessor {
   /**
    * Converts user input message to IContent array.
    */
-  private _convertUserInput(message: PartListUnion): IContent[] {
+  private _convertUserInput(
+    message: SendMessageParameters['message'],
+  ): IContent[] {
     const userContent = normalizeToolInteractionInput(message);
     const idGen = this.historyService.getIdGeneratorCallback();
     const stamped: IContent = {
@@ -238,23 +253,25 @@ export class DirectMessageProcessor {
   }
 
   /**
-   * Executes the provider call with retry logic.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
    */
   private async _executeWithRetry(
     provider: IProvider,
     params: SendMessageParameters,
     userIContents: IContent[],
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     return retryWithBackoff(
       async () =>
         this._executeDirectProviderCall(provider, params, userIContents),
       {
         shouldRetryOnError: (error: unknown) => {
-          if (error instanceof ApiError && error.message) {
-            if (error.status === 400) return false;
+          if (isProviderApiError(error)) {
+            const status = error.status ?? 0;
+            if (status === 400) return false;
             if (isSchemaDepthError(error.message)) return false;
-            if (error.status === 429) return true;
-            if (error.status >= 500 && error.status < 600) return true;
+            if (status === 429) return true;
+            if (status >= 500 && status < 600) return true;
           }
           return false;
         },
@@ -345,21 +362,29 @@ export class DirectMessageProcessor {
     };
   }
 
+  /**
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
+   */
   private _filterStreamedIContent(
     iContent: IContent,
     allowedFunctionNames: string[] | undefined,
   ): { filteredIContent: IContent; response: IContent } {
-    const filteredResponse = attachHookRestrictedAllowedTools(
-      convertIContentToResponse(iContent),
+    const filteredBlocks = filterHookRestrictedBlocks(
+      iContent.blocks,
       allowedFunctionNames,
     );
-    const filteredIContent = ContentConverters.toIContent(
-      filteredResponse.candidates?.[0]?.content ?? {
-        role: 'model',
-        parts: [],
-      },
-    );
-    const afcHistory = getIContentAutomaticFunctionCallingHistory(iContent);
+    const filteredIContent: IContent = {
+      ...iContent,
+      blocks: filteredBlocks,
+    };
+
+    const afcHistory = getIContentAfcHistory(iContent);
+    const filteredAfc =
+      afcHistory !== undefined
+        ? filterAfcByHookRestrictions(afcHistory, allowedFunctionNames)
+        : undefined;
+
     const response: IContent = {
       ...filteredIContent,
       metadata: {
@@ -367,13 +392,9 @@ export class DirectMessageProcessor {
         ...iContent.metadata,
         providerMetadata: {
           ...filteredIContent.metadata?.providerMetadata,
-          automaticFunctionCallingHistory:
-            afcHistory !== undefined
-              ? filterHookRestrictedContents(
-                  afcHistory,
-                  allowedFunctionNames,
-                ).filter((content) => (content.parts?.length ?? 0) > 0)
-              : filteredResponse.automaticFunctionCallingHistory,
+          ...(filteredAfc !== undefined
+            ? { automaticFunctionCallingHistory: filteredAfc }
+            : {}),
         },
       },
     };
@@ -381,25 +402,24 @@ export class DirectMessageProcessor {
   }
 
   /**
-   * Executes the direct provider call after applying pre-send hooks.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
+   * @pseudocode lines 10-19
    */
   private async _executeDirectProviderCall(
     provider: IProvider,
     params: SendMessageParameters,
     userIContents: IContent[],
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     const {
       effectiveToolsFromConfig,
       contentsForApi,
-      syntheticResponse,
+      blockedOutput,
       allowedFunctionNames,
     } = await this._applyPreSendHooks(params, userIContents);
 
-    if (syntheticResponse) {
-      return this._applyHookRestrictedAllowedTools(
-        syntheticResponse,
-        allowedFunctionNames,
-      );
+    if (blockedOutput) {
+      return blockedOutput;
     }
 
     const runtimeContext = this.providerRuntimeBuilder(
@@ -501,13 +521,13 @@ export class DirectMessageProcessor {
 
   private _selectRequestTools(
     params: SendMessageParameters,
-  ): GenerateContentConfig['tools'] {
+  ): ContractGenerateContentConfig['tools'] {
     return params.config?.tools ?? this.generationConfig.tools;
   }
 
   /**
-   * Applies pre-send hooks (BeforeToolSelection and BeforeModel).
-   * Returns effective tools, modified contents, and optionally a synthetic response.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
    */
   private async _applyPreSendHooks(
     params: SendMessageParameters,
@@ -515,7 +535,7 @@ export class DirectMessageProcessor {
   ): Promise<{
     effectiveToolsFromConfig: ToolGroupArray | undefined;
     contentsForApi: IContent[];
-    syntheticResponse: GenerateContentResponse | undefined;
+    blockedOutput: ModelOutput | undefined;
     allowedFunctionNames: string[] | undefined;
   }> {
     const requestTools = this._selectRequestTools(params);
@@ -537,11 +557,11 @@ export class DirectMessageProcessor {
         userIContents,
         effectiveToolsFromConfig,
       );
-      if (hookResult.syntheticResponse) {
+      if (hookResult.blockedOutput) {
         return {
           effectiveToolsFromConfig,
           contentsForApi,
-          syntheticResponse: hookResult.syntheticResponse,
+          blockedOutput: hookResult.blockedOutput,
           allowedFunctionNames: toolSelection.allowedFunctionNames,
         };
       }
@@ -553,7 +573,7 @@ export class DirectMessageProcessor {
     return {
       effectiveToolsFromConfig,
       contentsForApi,
-      syntheticResponse: undefined,
+      blockedOutput: undefined,
       allowedFunctionNames: toolSelection.allowedFunctionNames,
     };
   }
@@ -599,7 +619,9 @@ export class DirectMessageProcessor {
   }
 
   /**
-   * Handles BeforeModel hook logic and returns synthetic response if needed.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
+   * @pseudocode lines 20-22
    */
   private async _handleBeforeModelHook(
     configForHooks: Config,
@@ -614,7 +636,7 @@ export class DirectMessageProcessor {
         }>
       | undefined,
   ): Promise<{
-    syntheticResponse?: GenerateContentResponse;
+    blockedOutput?: ModelOutput;
     modifiedContents?: IContent[];
   }> {
     const requestForHook = {
@@ -637,16 +659,18 @@ export class DirectMessageProcessor {
 
     if (beforeModelResult?.isBlockingDecision() === true) {
       return {
-        syntheticResponse:
-          this._buildBlockingSyntheticResponse(beforeModelResult),
+        blockedOutput: buildBlockingModelOutput(beforeModelResult),
       };
     }
 
-    const syntheticResponse = beforeModelResult?.getSyntheticResponse() as
-      | GenerateContentResponse
-      | undefined;
-    if (syntheticResponse) {
-      return { syntheticResponse };
+    const syntheticFromHook = beforeModelResult?.getSyntheticResponse();
+    if (syntheticFromHook) {
+      return {
+        blockedOutput: beforeModelBlockingToModelOutput(
+          beforeModelResult?.getEffectiveReason() ?? undefined,
+          syntheticFromHook,
+        ),
+      };
     }
 
     if (beforeModelResult) {
@@ -663,36 +687,6 @@ export class DirectMessageProcessor {
   }
 
   /**
-   * Build a synthetic response for a blocking BeforeModel hook decision,
-   * preferring the hook's own llm_response when provided.
-   */
-  private _buildBlockingSyntheticResponse(
-    beforeModelResult: BeforeModelHookOutput,
-  ): GenerateContentResponse {
-    return (
-      (beforeModelResult.getSyntheticResponse() as
-        | GenerateContentResponse
-        | undefined) ??
-      ({
-        candidates: [
-          {
-            content: {
-              role: 'model',
-              parts: [
-                {
-                  text:
-                    beforeModelResult.getEffectiveReason() ||
-                    'Request blocked by BeforeModel hook',
-                },
-              ],
-            },
-          },
-        ],
-      } as GenerateContentResponse)
-    );
-  }
-
-  /**
    * Apply hook-supplied llm_request modifications to contents.
    *
    * H2: only round-trip through the translator when the hook actually supplied
@@ -706,10 +700,7 @@ export class DirectMessageProcessor {
    * stream and direct-message paths.
    *
    * Returns the modified IContent[] when the hook changed contents, or
-   * undefined when no content modification occurred. The shared helper returns
-   * the ORIGINAL contents reference when unmodified; this adapter converts
-   * that into undefined to match the DMP "undefined = no modification"
-   * contract.
+   * undefined when no content modification occurred.
    */
   private _applyHookRequestModifications(
     beforeModelResult: BeforeModelHookOutput,
@@ -720,9 +711,6 @@ export class DirectMessageProcessor {
       userIContents,
       this.runtimeContext.state.model || '',
     );
-    // The shared helper returns the original reference when no meaningful
-    // content modification occurred (no messages, messages-less llm_request,
-    // or an empty-messages array). DMP's contract treats that as undefined.
     if (result === userIContents) {
       return undefined;
     }
@@ -730,8 +718,9 @@ export class DirectMessageProcessor {
   }
 
   /**
-   * Processes the direct response after receiving from provider.
-   * Applies AfterModel hook and ensures text property is set.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
+   * @pseudocode lines 25-30
    */
   private async _processDirectResponse(
     lastResponse: IContent,
@@ -739,49 +728,51 @@ export class DirectMessageProcessor {
     config: Config | undefined,
     llmRequest?: Record<string, unknown>,
     allowedFunctionNames?: string[],
-  ): Promise<GenerateContentResponse> {
-    let directResponse = this._applyHookRestrictedAllowedTools(
-      convertIContentToResponse(lastResponse),
-      allowedFunctionNames,
-    );
-    const automaticFunctionCallingHistory =
-      lastResponse.metadata?.providerMetadata?.[
-        'automaticFunctionCallingHistory'
-      ];
-    if (isContentArray(automaticFunctionCallingHistory)) {
-      directResponse.automaticFunctionCallingHistory =
-        filterHookRestrictedContents(
-          automaticFunctionCallingHistory,
+  ): Promise<ModelOutput> {
+    const baseOutput = toModelStreamChunk(lastResponse);
+
+    let directOutput: ModelOutput = {
+      ...baseOutput,
+      content: {
+        ...baseOutput.content,
+        blocks: filterHookRestrictedBlocks(
+          baseOutput.content.blocks,
           allowedFunctionNames,
-        ).filter((content) => (content.parts?.length ?? 0) > 0);
+        ),
+      },
+    };
+
+    const afcHistory = getIContentAfcHistory(lastResponse);
+    if (afcHistory) {
+      directOutput.afcHistory = filterAfcByHookRestrictions(
+        afcHistory,
+        allowedFunctionNames,
+      );
     }
 
     let afterModelModifiedResponse = false;
     let afterModelModifiedText = false;
 
-    // Trigger AfterModel hook
     if (resolveHooksEnabled(config)) {
       const hookSystem = resolveHookSystem(config);
       if (hookSystem) {
         await hookSystem.initialize();
-        const filteredContent = filterHookRestrictedContent(
-          directResponse.candidates?.[0]?.content ?? {
-            role: 'model',
-            parts: [],
-          },
+        const filteredBlocks = filterHookRestrictedBlocks(
+          directOutput.content.blocks,
           allowedFunctionNames,
         );
+        const filteredIContent = iContentFromBlocks(filteredBlocks, 'ai');
         const afterModelResult = await hookSystem.fireAfterModelEvent(
           llmRequest ?? {},
-          ContentConverters.toIContent(filteredContent),
+          filteredIContent,
         );
         if (afterModelResult) {
           const outcome = this._applyAfterModelResult(
             afterModelResult,
-            directResponse,
+            directOutput,
             allowedFunctionNames,
           );
-          directResponse = outcome.directResponse;
+          directOutput = outcome.directOutput;
           afterModelModifiedResponse = outcome.responseModified;
           afterModelModifiedText = outcome.aggregatedText !== undefined;
           aggregatedText = outcome.aggregatedText ?? aggregatedText;
@@ -793,108 +784,111 @@ export class DirectMessageProcessor {
       aggregatedText.trim() !== '' &&
       (!afterModelModifiedResponse || afterModelModifiedText);
 
-    // Ensure text content is included
     if (canAppendAggregatedText) {
-      this._ensureResponseText(directResponse, aggregatedText);
+      this._ensureResponseText(directOutput, aggregatedText);
     }
 
-    return directResponse;
+    return directOutput;
   }
 
   /**
-   * Applies an AfterModel hook result, returning the (possibly modified)
-   * response along with flags indicating whether the response/text changed.
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.1
+   * @pseudocode lines 25-30
    */
   private _applyAfterModelResult(
     afterModelResult: {
       getModifiedResponse(): unknown;
     },
-    currentResponse: GenerateContentResponse,
+    currentOutput: ModelOutput,
     allowedFunctionNames: string[] | undefined,
   ): {
-    directResponse: GenerateContentResponse;
+    directOutput: ModelOutput;
     responseModified: boolean;
     aggregatedText: string | undefined;
   } {
-    const modifiedResponse = afterModelResult.getModifiedResponse() as
-      | GenerateContentResponse
-      | undefined;
-    if (!modifiedResponse) {
+    const modifiedResponse = afterModelResult.getModifiedResponse();
+    if (modifiedResponse === undefined || modifiedResponse === null) {
       return {
-        directResponse: currentResponse,
+        directOutput: currentOutput,
         responseModified: false,
         aggregatedText: undefined,
       };
     }
-    const directResponse = this._applyHookRestrictedAllowedTools(
+    const modifiedOutput = afterModelModifiedToModelOutput(
       modifiedResponse,
-      allowedFunctionNames,
+      currentOutput,
     );
-    // Re-derive aggregatedText from the hook-modified response so the
-    // text getter reflects the hook's intended text rather than the
-    // stale pre-hook provider output (issue #1749).
-    const modifiedText = this._extractResponseText(directResponse);
-    const aggregatedText = modifiedText !== '' ? modifiedText : undefined;
-    return { directResponse, responseModified: true, aggregatedText };
-  }
-
-  /**
-   * Ensures the response exposes the provided text via a candidate part and a
-   * stable `text` getter. Existing non-empty text parts are left untouched.
-   */
-  private _ensureResponseText(
-    response: GenerateContentResponse,
-    text: string,
-  ): void {
-    const candidate = response.candidates?.[0];
-    if (candidate) {
-      const parts = candidate.content?.parts ?? [];
-      const hasText = parts.some(
-        (part) => typeof part.text === 'string' && part.text.trim() !== '',
-      );
-      if (!hasText) {
-        candidate.content = candidate.content ?? {
-          role: 'model',
-          parts: [],
-        };
-        candidate.content.parts = [
-          ...(candidate.content.parts ?? []),
-          { text },
-        ];
-      }
+    if (!modifiedOutput) {
+      return {
+        directOutput: currentOutput,
+        responseModified: false,
+        aggregatedText: undefined,
+      };
     }
-    Object.defineProperty(response, 'text', {
-      configurable: true,
-      get() {
-        return text;
+    const directOutput: ModelOutput = {
+      ...modifiedOutput,
+      content: {
+        ...modifiedOutput.content,
+        blocks: filterHookRestrictedBlocks(
+          modifiedOutput.content.blocks,
+          allowedFunctionNames,
+        ),
       },
-    });
-  }
-
-  private _applyHookRestrictedAllowedTools(
-    response: GenerateContentResponse,
-    allowedFunctionNames: string[] | undefined,
-  ): GenerateContentResponse {
-    return attachHookRestrictedAllowedTools(response, allowedFunctionNames);
+    };
+    const modifiedText = this._extractResponseText(directOutput);
+    const aggregatedText = modifiedText !== '' ? modifiedText : undefined;
+    return { directOutput, responseModified: true, aggregatedText };
   }
 
   /**
-   * Concatenates the visible (non-thought) text from the first candidate's
-   * parts. Delegates to the canonical helper so thinking content is excluded
-   * (see #721, #1730).
+   * Ensures the output's visible text equals the aggregated stream text.
+   *
+   * On the streaming direct path, the last IContent chunk only carries the
+   * final fragment's text blocks. The aggregated text across ALL chunks is
+   * the authoritative visible text (preserves the pre-P13 `.text`-getter
+   * semantics that always returned the full aggregated text). Non-text
+   * blocks (tool calls, thinking) are preserved; text blocks are replaced
+   * with a single block carrying the aggregated text.
+   *
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.2
+   * @pseudocode lines 31-36
    */
-  private _extractResponseText(response: GenerateContentResponse): string {
-    return (
-      getResponseTextFromParts(
-        response.candidates?.[0]?.content?.parts ?? [],
-      ) ?? ''
-    );
+  private _ensureResponseText(output: ModelOutput, text: string): void {
+    const blocks = output.content.blocks;
+    const nonTextBlocks = blocks.filter((block) => block.type !== 'text');
+    output.content.blocks = [...nonTextBlocks, { type: 'text' as const, text }];
+  }
+
+  /**
+   * Concatenates visible (non-thought) text from the output's content
+   * blocks WITHOUT trimming — preserves the pre-P13 getResponseTextFromParts
+   * semantics (exact text join, no whitespace stripping) so hook-modified
+   * text with leading/trailing whitespace survives to the aggregated text.
+   *
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+   * @requirement:REQ-004.2
+   * @pseudocode lines 31-36
+   */
+  private _extractResponseText(output: ModelOutput): string {
+    return output.content.blocks
+      .filter(
+        (block) =>
+          block.type === 'text' &&
+          typeof block.text === 'string' &&
+          block.text !== '',
+      )
+      .map((block) => (block as { text: string }).text)
+      .join('');
   }
 
   /**
    * Extracts direct Gemini overrides from config.
    */
-  private _extractDirectGeminiOverrides(config?: GenerateContentConfig):
+  private _extractDirectGeminiOverrides(
+    config?: ContractGenerateContentConfig,
+  ):
     | {
         serverTools?: unknown;
         toolConfig?: unknown;

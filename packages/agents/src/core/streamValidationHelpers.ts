@@ -79,9 +79,7 @@ export function validateStreamCompletion(
     isMissingFinishReason(finishReason) && !outcome.hasVisibleText;
   const isEmptyResponse = responseText === '';
   const noRelevantContent =
-    !outcome.hasToolCalls &&
-    !isToolContinuationInput &&
-    !outcome.hasThinking;
+    !outcome.hasToolCalls && !isToolContinuationInput && !outcome.hasThinking;
   const isInvalidResponse =
     noRelevantContent && (hasMissingFinishAndNoText || isEmptyResponse);
 

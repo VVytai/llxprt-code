@@ -21,6 +21,7 @@
 
 import { type Content, type Part, type PartListUnion } from '@google/genai';
 import { FakeProvider } from '@vybestack/llxprt-code-providers';
+import { emptyModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
   PerformCompressionResult,
   type ServerAgentStreamEvent,
@@ -102,10 +103,12 @@ function createScriptedAgentClient(scripts: TurnScript[]): ScriptedClient {
   const scriptQueue = [...scripts];
   const history: Content[] = [];
   const chat: AgentChatContract = {
+    sendMessage: async () => emptyModelOutput(),
     sendMessageStream: async () => {
       async function* emptyStream() {}
       return emptyStream();
     },
+    generateDirectMessage: async () => emptyModelOutput(),
     getHistory: () => history,
     setHistory: (nextHistory: Content[]) => {
       history.splice(0, history.length, ...nextHistory);

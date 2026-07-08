@@ -7,10 +7,12 @@ This is a **multi-phase migration plan** (P01-P33). This PR contains the foundat
 ## What this PR does
 
 ### P01: Core Mutation Tooling
+
 - Provisions Stryker mutation testing for `packages/core` (`stryker.conf.json` + `@stryker-mutator/*` devDeps + `test:mutation` script)
 - Enables the 80%+ mutation gate for P05 gap type implementation
 
 ### P02: AST Gate Skeleton (`scripts/agents-neutral-gate.ts`)
+
 - AST-context-aware structural counter with working `--count`/`--by-file` modes
 - Real fail-mode for the cheap #2424 vectors behind `--enforce-imports`:
   - (a) raw `@google/genai` imports
@@ -22,6 +24,7 @@ This is a **multi-phase migration plan** (P01-P33). This PR contains the foundat
 - Fixtures proving green-on-clean, red-on-vectors, and provenance-based checkB
 
 ### P03-P05: Neutral Gap Types (`packages/core/src/llm-types/agentMessageInput.ts`)
+
 - `AgentMessageInput` DTO replacing `PartListUnion` (accepts string/ContentBlock[]/IContent/IContent[])
 - `iContentFromAgentMessageInput` neutral conversion from all input shapes
 - `iContentFromLegacyInput` lossless legacy converter preserving thought signatures, media, tool calls/responses
@@ -33,12 +36,14 @@ This is a **multi-phase migration plan** (P01-P33). This PR contains the foundat
 - Type predicates (NOT `as` casts) for all `unknown` input narrowing
 
 ### P06: Stream-Pipeline Behavioral Characterization
+
 - 6 characterization tests pinning observable agent-loop behavior (event ordering, finished event, tool calls, thoughts, empty stream, pending tool calls)
 - Safety net for the stream pipeline migration in P07-P09
 
 ## How this prevents the #2424 rejection
 
 The rejected PR #2424 was a source-swap that re-pointed imports to aliases while leaving the Google-shaped round-trip intact. This PR AST gate catches that exact pattern:
+
 1. **Structural detection** keys on AST structure (candidates/parts construction), not just type names
 2. **Provenance-based checkB** distinguishes safe neutral identifiers from banned-module bindings
 3. **Central allow-list** is the single authoritative exemption mechanism (inline comments grant nothing)

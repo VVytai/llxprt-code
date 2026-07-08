@@ -8,9 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StreamProcessor } from './StreamProcessor.js';
-import {
-  attachHookRestrictedAllowedTools,
-} from './hookRestrictionsLegacyCompat.js';
+import { attachHookRestrictedAllowedTools } from './hookRestrictionsLegacyCompat.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/DebugLogger.js';
 import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -54,10 +52,7 @@ function makeChunk(text: string): ModelStreamChunk {
   } as IContent);
 }
 
-function makeFinishChunk(
-  text: string,
-  finishReason: string,
-): ModelStreamChunk {
+function makeFinishChunk(text: string, finishReason: string): ModelStreamChunk {
   return toModelStreamChunk({
     speaker: 'ai',
     blocks: [{ type: 'text', text }],
@@ -88,8 +83,9 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     });
 
     // Stub internal methods that processStreamResponse calls post-loop
-    (processor as unknown as Record<string, unknown>)['_finalizeStreamProcessing'] =
-      vi.fn().mockResolvedValue(undefined);
+    (processor as unknown as Record<string, unknown>)[
+      '_finalizeStreamProcessing'
+    ] = vi.fn().mockResolvedValue(undefined);
   });
 
   it('yields each chunk before the source stream ends', async () => {
@@ -170,9 +166,10 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     expect(result1.done).toBe(false);
 
     const chunk = result1.value;
-    const text = chunk.content?.blocks?.[0]?.type === 'text'
-      ? (chunk.content.blocks[0] as { text: string }).text
-      : undefined;
+    const text =
+      chunk.content?.blocks?.[0]?.type === 'text'
+        ? (chunk.content.blocks[0] as { text: string }).text
+        : undefined;
     expect(text).toBe('first chunk');
 
     // Unstall the stream so the test can complete

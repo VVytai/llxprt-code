@@ -4,12 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentResponse } from '@google/genai';
 import {
-  type Content,
   type GenerateContentConfig,
   type SendMessageParameters,
-  ApiError,
 } from '@google/genai';
 import { retryWithBackoff } from '@vybestack/llxprt-code-core/utils/retry.js';
 import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
@@ -30,12 +27,8 @@ import type {
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { CompressionHandler } from '../compression/CompressionHandler.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { StreamProcessor } from './StreamProcessor.js';
-import {
-  normalizeToolInteractionInput,
-  convertIContentToResponse,
-} from './MessageConverter.js';
+import { normalizeToolInteractionInput } from './MessageConverter.js';
 import {
   StreamEventType,
   type StreamEvent,
@@ -43,15 +36,9 @@ import {
   INVALID_CONTENT_RETRY_OPTIONS,
 } from '@vybestack/llxprt-code-core/core/chatSessionTypes.js';
 import {
-  isThoughtPart,
-  type UsageMetadataWithCache,
-} from './googlePartHelpers.js';
-import {
-  filterHookRestrictedContents,
-  filterHookRestrictedContent,
-  getHookRestrictedAllowedTools,
-} from './hookRestrictionsLegacyCompat.js';
-import { attachHookRestrictedAllowedToolsToBlockingResponse as attachHookRestrictedAllowedTools } from './beforeModelBlockingCompat.js';
+  filterHookRestrictedBlocks,
+  filterAfcByHookRestrictions,
+} from './hookToolRestrictions.js';
 import { canonicalizeToolName } from './toolGovernance.js';
 import { shouldRetryStreamAttempt } from './turnAbortHelpers.js';
 import { extractSystemInstructionText } from './streamRequestHelpers.js';
@@ -61,8 +48,15 @@ import {
   AgentExecutionBlockedError,
 } from './chatSession.js';
 import { logApiRequest, logApiResponse, logApiError } from './turnLogging.js';
-import { responseToModelStreamChunk } from './streamChunkWrapper.js';
-import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
+
+import type {
+  ModelStreamChunk,
+  ModelOutput,
+} from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
+import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
+import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/agentMessageInput.js';
+import { isProviderApiError } from '@vybestack/llxprt-code-core/llm-types/providerApiError.js';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { enrichSchemaDepthError } from './schemaDepthErrorEnrichment.js';
 type ToolGroupArray = Array<{
   functionDeclarations: Array<{ name: string }>;
@@ -71,6 +65,37 @@ type ToolGroupArray = Array<{
 interface ToolSelectionHookResult {
   tools: ToolGroupArray | undefined;
   allowedFunctionNames: string[] | undefined;
+}
+
+/**
+ * Extracts neutral AFC history from an IContent's provider metadata.
+ * Shared extraction logic for the non-streaming send path.
+ */
+function getIContentAfcHistory(content: IContent): IContent[] | undefined {
+  const metadataValue =
+    content.metadata?.providerMetadata?.['automaticFunctionCallingHistory'];
+  if (Array.isArray(metadataValue)) {
+    return metadataValue as IContent[];
+  }
+  return undefined;
+}
+
+/**
+ * Wraps a neutral ModelStreamChunk into a CHUNK StreamEvent.
+/**
+ * Strips the raw (unfiltered) AFC from provider metadata so disallowed
+ * tool calls cannot leak through the JSON-serialized response.
+ */
+function stripAfcFromMeta(
+  meta: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (meta === undefined) return undefined;
+  if ('automaticFunctionCallingHistory' in meta) {
+    const { automaticFunctionCallingHistory: _removed, ...rest } = meta;
+    void _removed;
+    return rest;
+  }
+  return meta;
 }
 
 /**
@@ -119,9 +144,6 @@ export class TurnProcessor {
     private readonly generationConfig: GenerateContentConfig,
     private readonly historyService: HistoryService,
     private readonly streamProcessor: StreamProcessor,
-    private readonly makePositionMatcher: () =>
-      | (() => { historyId: string; toolName?: string })
-      | undefined,
     private readonly resolveProviderBaseUrl: (
       provider: IProvider,
     ) => string | undefined,
@@ -134,7 +156,7 @@ export class TurnProcessor {
   async sendMessage(
     params: SendMessageParameters,
     prompt_id: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     await this.sendPromise;
 
     this.lastPromptTokenCount = null;
@@ -281,10 +303,12 @@ export class TurnProcessor {
           systemMessage: error.systemMessage,
           contextCleared: error.contextCleared,
         };
-        if (error.syntheticResponse) {
-          // C3: syntheticResponse is GenerateContentResponse (until P13);
-          // convert to ModelStreamChunk at this boundary.
-          yield wrapChunk(responseToModelStreamChunk(error.syntheticResponse));
+        if (error.blockedOutput) {
+          // P13: blockedOutput is now a neutral ModelOutput (was syntheticResponse).
+          yield {
+            type: StreamEventType.CHUNK,
+            value: error.blockedOutput,
+          };
         }
         return { error: null, action: 'stop' };
       }
@@ -311,9 +335,7 @@ export class TurnProcessor {
     };
   }
 
-  private _normalizeUserContent(
-    params: SendMessageParameters,
-  ): IContent {
+  private _normalizeUserContent(params: SendMessageParameters): IContent {
     return normalizeToolInteractionInput(params.message);
   }
 
@@ -370,7 +392,7 @@ export class TurnProcessor {
     userIContents: IContent[],
     provider: IProvider,
     prompt_id: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     this._validateProvider(provider);
     let providerStartTime = 0;
     let providerRequestStarted = false;
@@ -396,13 +418,11 @@ export class TurnProcessor {
           ),
         {
           shouldRetryOnError: (error: unknown) => {
-            if (error instanceof ApiError && error.message) {
-              if (error.status === 400 || isSchemaDepthError(error.message))
+            if (isProviderApiError(error) && error.message) {
+              const status = error.status ?? 0;
+              if (status === 400 || isSchemaDepthError(error.message))
                 return false;
-              if (
-                error.status === 429 ||
-                (error.status >= 500 && error.status < 600)
-              )
+              if (status === 429 || (status >= 500 && status < 600))
                 return true;
             }
             return false;
@@ -418,7 +438,7 @@ export class TurnProcessor {
         this.runtimeContext.state.model,
         prompt_id,
         durationMs,
-        response.usageMetadata,
+        response.usage,
         JSON.stringify(response),
       );
       return response;
@@ -462,7 +482,7 @@ export class TurnProcessor {
     logApiRequest(
       this.runtimeContext,
       this.runtimeContext.state,
-      ContentConverters.toGeminiContents(iContents),
+      iContents,
       this.runtimeContext.state.model,
       prompt_id,
     );
@@ -494,7 +514,7 @@ export class TurnProcessor {
     params: SendMessageParameters,
     requestContents: IContent[],
     providerBaseUrl: string | undefined,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     const configForHooks = this.runtimeContext.providerRuntime.config;
     const requestTools = this._selectRequestTools(params);
     const toolSelection = await this._applyToolSelectionHook(
@@ -502,6 +522,7 @@ export class TurnProcessor {
       requestTools,
     );
     const tools = toolSelection.tools;
+    const allowedFunctionNames = toolSelection.allowedFunctionNames;
     this._logToolDiagnostics(provider, tools, providerBaseUrl);
 
     const runtimeContext = this.providerRuntimeBuilder(
@@ -530,14 +551,44 @@ export class TurnProcessor {
         timeoutController,
         upstreamAbortSignal,
       );
-      return attachHookRestrictedAllowedTools(
-        convertIContentToResponse(lastResponse),
-        toolSelection.allowedFunctionNames,
-      );
+      const output = toModelStreamChunk(lastResponse);
+      this._applyHookToolFiltering(output, lastResponse, allowedFunctionNames);
+      return output;
     } finally {
       timeoutController.abort();
       upstreamAbortSignal?.removeEventListener('abort', onAbort);
     }
+  }
+
+  private _applyHookToolFiltering(
+    output: ModelStreamChunk,
+    lastResponse: IContent,
+    allowedFunctionNames: string[] | undefined,
+  ): void {
+    if (allowedFunctionNames === undefined) return;
+    output.content = {
+      ...output.content,
+      blocks: filterHookRestrictedBlocks(
+        output.content.blocks,
+        allowedFunctionNames,
+      ),
+    };
+    const rawAfc = getIContentAfcHistory(lastResponse);
+    if (rawAfc === undefined) return;
+    output.afcHistory = filterAfcByHookRestrictions(
+      rawAfc,
+      allowedFunctionNames,
+    );
+    output.providerMetadata = stripAfcFromMeta(output.providerMetadata);
+    output.content = {
+      ...output.content,
+      metadata: {
+        ...output.content.metadata,
+        providerMetadata: stripAfcFromMeta(
+          output.content.metadata?.providerMetadata,
+        ),
+      },
+    };
   }
 
   private _createProviderStream(
@@ -724,20 +775,17 @@ export class TurnProcessor {
    * Commits the send result to history: adds user and model content, syncs tokens.
    */
   private async _commitSendResult(
-    response: GenerateContentResponse,
+    response: ModelOutput,
     userContent: IContent,
     _params: SendMessageParameters,
     _prompt_id: string,
   ): Promise<void> {
     const currentModel = this.runtimeContext.state.model;
-    const afcHistory = response.automaticFunctionCallingHistory;
+    const afcHistory = response.afcHistory;
 
-    const allowedTools = getHookRestrictedAllowedTools(response);
     const filteredAfcHistory =
       afcHistory && afcHistory.length > 0
-        ? filterHookRestrictedContents(afcHistory, allowedTools).filter(
-            (content) => (content.parts?.length ?? 0) > 0,
-          )
+        ? afcHistory.filter((content: IContent) => content.blocks.length > 0)
         : undefined;
     if (filteredAfcHistory && filteredAfcHistory.length > 0) {
       this._recordAfcHistory(filteredAfcHistory, currentModel);
@@ -751,23 +799,17 @@ export class TurnProcessor {
   }
 
   private _recordAfcHistory(
-    afcHistory: Content[],
+    afcHistory: IContent[],
     currentModel: string | undefined,
   ): void {
     const curatedHistory = this.historyService.getCurated();
-    const index = ContentConverters.toGeminiContents(curatedHistory).length;
+    const index = curatedHistory.length;
     const newEntries = afcHistory.slice(index);
-    const matcher = this.makePositionMatcher();
     for (const content of newEntries) {
-      const turnKey = this.historyService.generateTurnKey();
-      const idGen = this.historyService.getIdGeneratorCallback(turnKey);
       // AFC history is mixed user/model; stampAiTurnModel no-ops on non-ai
       // entries, so only freshly generated model turns get the origin stamp.
       this.historyService.add(
-        stampAiTurnModel(
-          ContentConverters.toIContent(content, idGen, matcher, turnKey),
-          currentModel,
-        ),
+        stampAiTurnModel(content, currentModel),
         currentModel,
       );
     }
@@ -778,85 +820,51 @@ export class TurnProcessor {
     currentModel: string | undefined,
   ): void {
     const contents = Array.isArray(userContent) ? userContent : [userContent];
-    const matcher = this.makePositionMatcher();
     for (const content of contents) {
-      const turnKey = this.historyService.generateTurnKey();
-      const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-      this.historyService.add(
-        ContentConverters.toIContent(content, idGen, matcher, turnKey),
-        currentModel,
-      );
+      this.historyService.add(content, currentModel);
     }
   }
 
   private _recordOutputContent(
-    response: GenerateContentResponse,
+    response: ModelOutput,
     currentModel: string | undefined,
-    afcHistory: Content[] | undefined,
+    afcHistory: IContent[] | undefined,
   ): void {
-    const outputContent = response.candidates?.[0]?.content;
-    if (outputContent) {
+    const outputContent = response.content;
+    if (outputContent.blocks.length > 0) {
       const includeThoughts =
         this.runtimeContext.ephemerals.reasoning.includeInContext();
-      const filteredOutputContent = filterHookRestrictedContent(
-        outputContent,
-        getHookRestrictedAllowedTools(response),
-      );
+      const allowedTools = response.hookRestrictions?.allowedToolNames;
+      const blocks = outputContent.blocks;
+      const filteredBlocks = allowedTools
+        ? filterHookRestrictedBlocks(blocks, allowedTools)
+        : blocks;
       const contentForHistory = includeThoughts
-        ? filteredOutputContent
-        : {
-            ...filteredOutputContent,
-            parts: (filteredOutputContent.parts ?? []).filter(
-              (p) => !isThoughtPart(p),
-            ),
-          };
+        ? filteredBlocks
+        : filteredBlocks.filter((b: ContentBlock) => b.type !== 'thinking');
 
-      if ((contentForHistory.parts?.length ?? 0) > 0) {
-        const turnKey = this.historyService.generateTurnKey();
-        const idGen = this.historyService.getIdGeneratorCallback(turnKey);
+      if (contentForHistory.length > 0) {
         this.historyService.add(
           stampAiTurnModel(
-            ContentConverters.toIContent(
-              contentForHistory,
-              idGen,
-              undefined,
-              turnKey,
-            ),
+            iContentFromBlocks(contentForHistory, 'ai'),
             currentModel,
           ),
           currentModel,
         );
       }
-    } else if (
-      (response.candidates?.length ?? 0) > 0 &&
-      (!afcHistory || afcHistory.length === 0)
-    ) {
-      const turnKey = this.historyService.generateTurnKey();
-      const idGen = this.historyService.getIdGeneratorCallback(turnKey);
+    } else if (!afcHistory || afcHistory.length === 0) {
       this.historyService.add(
-        stampAiTurnModel(
-          ContentConverters.toIContent(
-            { role: 'model', parts: [] } as Content,
-            idGen,
-            undefined,
-            turnKey,
-          ),
-          currentModel,
-        ),
+        stampAiTurnModel(iContentFromBlocks([], 'ai'), currentModel),
         currentModel,
       );
     }
   }
 
-  private async _syncTokenCounts(
-    response: GenerateContentResponse,
-  ): Promise<void> {
+  private async _syncTokenCounts(response: ModelOutput): Promise<void> {
     await this.historyService.waitForTokenUpdates();
-    const usageMetadata = response.usageMetadata as
-      | UsageMetadataWithCache
-      | undefined;
-    if (usageMetadata?.promptTokenCount !== undefined) {
-      const combined = usageMetadata.promptTokenCount;
+    const usage = response.usage;
+    if (usage?.promptTokens !== undefined) {
+      const combined = usage.promptTokens;
       if (combined > 0) {
         this.historyService.syncTotalTokens(combined);
         await this.historyService.waitForTokenUpdates();

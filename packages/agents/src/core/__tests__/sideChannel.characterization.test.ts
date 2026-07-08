@@ -14,8 +14,16 @@
  */
 
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import { createFullLoopHarness, runFullLoop, findFinished, extractToolCallRequests } from './streamPipeline-characterization-helpers.js';
-import type { IContent, UsageStats } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import {
+  createFullLoopHarness,
+  runFullLoop,
+  findFinished,
+  extractToolCallRequests,
+} from './streamPipeline-characterization-helpers.js';
+import type {
+  IContent,
+  UsageStats,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import * as fc from 'fast-check';
 
 // ---------------------------------------------------------------------------
@@ -81,9 +89,11 @@ function makeProviderStream(chunks: IContent[]): AsyncGenerator<IContent> {
 
 describe('P10: #2329 stop-reason characterization', () => {
   it('surfaces a refusal stop reason on the Finished event', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      textTerminalIContent('I cannot help with that.', 'refusal'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        textTerminalIContent('I cannot help with that.', 'refusal'),
+      ]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'tell me something harmful');
     const finished = findFinished(events);
@@ -92,9 +102,11 @@ describe('P10: #2329 stop-reason characterization', () => {
   });
 
   it('surfaces an end_turn stop reason on the Finished event', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      textTerminalIContent('Here is your answer.', 'end_turn'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        textTerminalIContent('Here is your answer.', 'end_turn'),
+      ]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'hello');
     const finished = findFinished(events);
@@ -103,9 +115,9 @@ describe('P10: #2329 stop-reason characterization', () => {
   });
 
   it('surfaces a stop stop reason on the Finished event', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      textTerminalIContent('Done.', 'stop'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([textTerminalIContent('Done.', 'stop')]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'hello');
     const finished = findFinished(events);
@@ -114,9 +126,9 @@ describe('P10: #2329 stop-reason characterization', () => {
   });
 
   it('surfaces a max_tokens stop reason on the Finished event', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      textTerminalIContent('partial...', 'max_tokens'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([textTerminalIContent('partial...', 'max_tokens')]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'hello');
     const finished = findFinished(events);
@@ -125,9 +137,15 @@ describe('P10: #2329 stop-reason characterization', () => {
   });
 
   it('surfaces usage stats on the Finished event when provided', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      textTerminalIContent('Done.', 'stop', { promptTokens: 10, completionTokens: 5, totalTokens: 15 }),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        textTerminalIContent('Done.', 'stop', {
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+        }),
+      ]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'hello');
     const finished = findFinished(events);
@@ -139,16 +157,19 @@ describe('P10: #2329 stop-reason characterization', () => {
   // PROPERTY: round-trip fidelity — any non-empty stop-reason string surfaces on Finished
   it('surfaces any arbitrary stop-reason string on Finished (property)', async () => {
     await fc.assert(
-      fc.asyncProperty(fc.string({ minLength: 1 }).filter((s) => s.trim().length > 0), async (stopReason: string) => {
-        const mock = vi.fn(() => makeProviderStream([
-          textTerminalIContent('text', stopReason),
-        ])) as Mock;
-        const harness = createFullLoopHarness(mock);
-        const events = await runFullLoop(harness.turn, 'test');
-        const finished = findFinished(events);
-        expect(finished).toBeDefined();
-        expect(finished!.value.stopReason).toBe(stopReason);
-      }),
+      fc.asyncProperty(
+        fc.string({ minLength: 1 }).filter((s) => s.trim().length > 0),
+        async (stopReason: string) => {
+          const mock = vi.fn(() =>
+            makeProviderStream([textTerminalIContent('text', stopReason)]),
+          ) as Mock;
+          const harness = createFullLoopHarness(mock);
+          const events = await runFullLoop(harness.turn, 'test');
+          const finished = findFinished(events);
+          expect(finished).toBeDefined();
+          expect(finished!.value.stopReason).toBe(stopReason);
+        },
+      ),
     );
   });
 });
@@ -159,10 +180,14 @@ describe('P10: #2329 stop-reason characterization', () => {
 
 describe('P10: hook tool-restriction characterization', () => {
   it('emits allowed tool calls as ToolCallRequest events', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      toolCallWithTextIContent('Calling tool.', 'call-1', 'allowed_tool', { arg: 'value' }),
-      textTerminalIContent('Done.', 'stop'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        toolCallWithTextIContent('Calling tool.', 'call-1', 'allowed_tool', {
+          arg: 'value',
+        }),
+        textTerminalIContent('Done.', 'stop'),
+      ]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'use the tool');
     const toolCalls = extractToolCallRequests(events);
@@ -171,9 +196,9 @@ describe('P10: hook tool-restriction characterization', () => {
   });
 
   it('does NOT emit tool calls when the model produces none', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      textTerminalIContent('No tool call here.', 'stop'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([textTerminalIContent('No tool call here.', 'stop')]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'hello');
     const toolCalls = extractToolCallRequests(events);
@@ -181,11 +206,13 @@ describe('P10: hook tool-restriction characterization', () => {
   });
 
   it('emits multiple tool calls when the model produces multiple', async () => {
-    const mock = vi.fn(() => makeProviderStream([
-      toolCallIContent('call-1', 'tool_a', { x: 1 }),
-      toolCallIContent('call-2', 'tool_b', { y: 2 }),
-      textTerminalIContent('Done.', 'stop'),
-    ])) as Mock;
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        toolCallIContent('call-1', 'tool_a', { x: 1 }),
+        toolCallIContent('call-2', 'tool_b', { y: 2 }),
+        textTerminalIContent('Done.', 'stop'),
+      ]),
+    ) as Mock;
     const harness = createFullLoopHarness(mock);
     const events = await runFullLoop(harness.turn, 'use tools');
     const toolCalls = extractToolCallRequests(events);
@@ -196,13 +223,21 @@ describe('P10: hook tool-restriction characterization', () => {
 
   // PROPERTY: for any valid tool name, emitted tool calls preserve the name
   it('emitted tool calls preserve the tool name (property)', async () => {
-    const toolNameArb = fc.constantFrom('search', 'read_file', 'write_file', 'list_dir', 'execute_tool');
+    const toolNameArb = fc.constantFrom(
+      'search',
+      'read_file',
+      'write_file',
+      'list_dir',
+      'execute_tool',
+    );
     await fc.assert(
       fc.asyncProperty(toolNameArb, async (toolName: string) => {
-        const mock = vi.fn(() => makeProviderStream([
-          toolCallIContent('call-1', toolName, {}),
-          textTerminalIContent('Done.', 'stop'),
-        ])) as Mock;
+        const mock = vi.fn(() =>
+          makeProviderStream([
+            toolCallIContent('call-1', toolName, {}),
+            textTerminalIContent('Done.', 'stop'),
+          ]),
+        ) as Mock;
         const harness = createFullLoopHarness(mock);
         const events = await runFullLoop(harness.turn, 'use tool');
         const toolCalls = extractToolCallRequests(events);

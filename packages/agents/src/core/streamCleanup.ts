@@ -227,11 +227,7 @@ export function withCompressionCallbackCleanup<
       return wrapper as AsyncGenerator<TYield, void, TNext>;
     },
     [Symbol.asyncDispose]: () =>
-      disposeWithCleanup<TYield>(
-        streamAsyncDispose,
-        streamReturn,
-        cleanup,
-      ),
+      disposeWithCleanup<TYield>(streamAsyncDispose, streamReturn, cleanup),
   };
 
   return wrapper as AsyncGenerator<TYield, void, TNext>;

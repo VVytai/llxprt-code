@@ -11,7 +11,8 @@ import type {
   ContractGenerateContentConfig,
 } from '../core/clientContract.js';
 import { DEFAULT_GEMINI_FLASH_LITE_MODEL } from '../config/models.js';
-import { getResponseText, partToString } from './partUtils.js';
+import { partToString } from './partUtils.js';
+import { getResponseTextFromBlocks } from './generateContentResponseUtilities.js';
 import { debugLogger } from './debugLogger.js';
 
 /**
@@ -90,8 +91,10 @@ export async function summarizeToolOutput(
       abortSignal,
       DEFAULT_GEMINI_FLASH_LITE_MODEL,
     );
-    const responseText = getResponseText(parsedResponse);
-    return responseText === null || responseText === ''
+    const responseText = getResponseTextFromBlocks(
+      parsedResponse.content.blocks,
+    );
+    return responseText === undefined || responseText === ''
       ? textToSummarize
       : responseText;
   } catch (error) {

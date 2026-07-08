@@ -9,11 +9,11 @@
 import type {
   Content,
   GenerateContentConfig,
-  GenerateContentResponse,
   SendMessageParameters,
   Tool,
   PartListUnion,
 } from '@google/genai';
+import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { CompletedToolCall } from './coreToolScheduler.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -38,7 +38,6 @@ import { StreamProcessor } from './StreamProcessor.js';
 import { DirectMessageProcessor } from './DirectMessageProcessor.js';
 import {
   convertPartListUnionToIContent,
-  convertIContentToResponse,
   validateHistory,
 } from './MessageConverter.js';
 import { resolveCompressionProvider } from './CompressionProfileResolver.js';
@@ -92,16 +91,19 @@ export class AgentExecutionStoppedError extends Error {
 
 /**
  * Error thrown when agent execution is blocked by a hook.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement:REQ-002.6
  */
 export class AgentExecutionBlockedError extends Error {
   readonly reason: string;
   readonly systemMessage?: string;
-  readonly syntheticResponse?: GenerateContentResponse;
+  readonly blockedOutput?: ModelOutput;
   readonly contextCleared?: boolean;
 
   constructor(
     reason: string,
-    syntheticResponse?: GenerateContentResponse,
+    blockedOutput?: ModelOutput,
     systemMessage?: string,
     contextCleared?: boolean,
   ) {
@@ -112,7 +114,7 @@ export class AgentExecutionBlockedError extends Error {
     this.name = 'AgentExecutionBlockedError';
     this.reason = reason;
     this.systemMessage = systemMessage;
-    this.syntheticResponse = syntheticResponse;
+    this.blockedOutput = blockedOutput;
     this.contextCleared = contextCleared;
   }
 }
@@ -248,7 +250,6 @@ export class ChatSession {
       this.generationConfig,
       this.historyService,
       this.streamProcessor,
-      makePositionMatcher,
       resolveBaseUrl,
     );
 
@@ -457,7 +458,7 @@ export class ChatSession {
   async sendMessage(
     params: SendMessageParameters,
     prompt_id: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     return this.turnProcessor.sendMessage(params, prompt_id);
   }
 
@@ -471,7 +472,7 @@ export class ChatSession {
   async generateDirectMessage(
     params: SendMessageParameters,
     prompt_id: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     return this.directMessageProcessor.generateDirectMessage(params, prompt_id);
   }
 
@@ -555,10 +556,6 @@ export class ChatSession {
   // Public conversion methods — delegated to standalone functions
   convertPartListUnionToIContent(input: PartListUnion): IContent {
     return convertPartListUnionToIContent(input);
-  }
-
-  convertIContentToResponse(input: IContent): GenerateContentResponse {
-    return convertIContentToResponse(input);
   }
 
   async estimatePendingTokens(contents: IContent[]): Promise<number> {

@@ -95,9 +95,7 @@ function textWithUsageIContent(
   };
 }
 
-function makeProviderStream(
-  chunks: IContent[],
-): AsyncGenerator<IContent> {
+function makeProviderStream(chunks: IContent[]): AsyncGenerator<IContent> {
   return (async function* generate(): AsyncGenerator<IContent> {
     for (const chunk of chunks) {
       yield chunk;
@@ -131,13 +129,12 @@ function createDirectHarness(
   settingsService.set('providers.stub.auth-key', 'stub-api-key');
   settingsService.set('providers.stub.model', 'stub-model');
 
-  const providerRuntime: ProviderRuntimeContext =
-    createProviderRuntimeContext({
-      settingsService,
-      config,
-      runtimeId: 'test.runtime',
-      metadata: { source: 'p12.directMessage.characterization' },
-    });
+  const providerRuntime: ProviderRuntimeContext = createProviderRuntimeContext({
+    settingsService,
+    config,
+    runtimeId: 'test.runtime',
+    metadata: { source: 'p12.directMessage.characterization' },
+  });
 
   const manager = new TestRuntimeProviderManager(providerRuntime);
   manager.setConfig(config);
@@ -160,8 +157,7 @@ function createDirectHarness(
     model: config.getModel(),
     sessionId: config.getSessionId(),
   });
-  const historyService =
-    options?.historyService ?? new HistoryService();
+  const historyService = options?.historyService ?? new HistoryService();
   const effectiveConfig = options?.hookConfig ?? config;
   const view = createAgentRuntimeContext({
     state: runtimeState,
@@ -231,9 +227,7 @@ describe('P12: blocking BeforeModel hook (characterization)', () => {
     const mock = vi.fn(() =>
       makeProviderStream([textTerminalIContent('should never be seen')]),
     ) as Mock;
-    const baseConfig = new Config(
-      createConfigParams(new SettingsService()),
-    );
+    const baseConfig = new Config(createConfigParams(new SettingsService()));
     const harness = createDirectHarness(mock, {
       hookConfig: configWithHooks(baseConfig, {
         beforeModel: () =>
@@ -257,9 +251,7 @@ describe('P12: blocking BeforeModel hook (characterization)', () => {
     const mock = vi.fn(() =>
       makeProviderStream([textTerminalIContent('unused')]),
     ) as Mock;
-    const baseConfig = new Config(
-      createConfigParams(new SettingsService()),
-    );
+    const baseConfig = new Config(createConfigParams(new SettingsService()));
     const historyService = new HistoryService();
     const harness = createDirectHarness(mock, {
       historyService,
@@ -368,9 +360,9 @@ describe('P12: normal completion path (characterization)', () => {
 
   // PROPERTY: for any visible model text, it surfaces unchanged
   it('surfaces any arbitrary model text unchanged (property)', async () => {
-    const textArb = fc.string({ minLength: 1 }).filter(
-      (s) => s.trim().length > 0 && !s.includes('\x00'),
-    );
+    const textArb = fc
+      .string({ minLength: 1 })
+      .filter((s) => s.trim().length > 0 && !s.includes('\x00'));
     await fc.assert(
       fc.asyncProperty(textArb, async (modelText: string) => {
         const mock = vi.fn(() =>
@@ -427,9 +419,7 @@ describe('P12: after-model hook filtering (characterization)', () => {
     const mock = vi.fn(() =>
       makeProviderStream([textTerminalIContent('original provider text')]),
     ) as Mock;
-    const baseConfig = new Config(
-      createConfigParams(new SettingsService()),
-    );
+    const baseConfig = new Config(createConfigParams(new SettingsService()));
     const harness = createDirectHarness(mock, {
       hookConfig: configWithHooks(baseConfig, {
         beforeModel: () => new BeforeModelHookOutput({}),
@@ -465,9 +455,7 @@ describe('P12: after-model hook filtering (characterization)', () => {
     const mock = vi.fn(() =>
       makeProviderStream([textTerminalIContent('plain provider text')]),
     ) as Mock;
-    const baseConfig = new Config(
-      createConfigParams(new SettingsService()),
-    );
+    const baseConfig = new Config(createConfigParams(new SettingsService()));
     const harness = createDirectHarness(mock, {
       hookConfig: configWithHooks(baseConfig, {
         beforeModel: () => new BeforeModelHookOutput({}),
@@ -489,45 +477,40 @@ describe('P12: after-model hook filtering (characterization)', () => {
       .string({ minLength: 1 })
       .filter((s) => s.trim().length > 0 && !s.includes('\x00'));
     await fc.assert(
-      fc.asyncProperty(
-        filteredTextArb,
-        async (filteredText: string) => {
-          const mock = vi.fn(() =>
-            makeProviderStream([
-              textTerminalIContent('pre-hook provider text'),
-            ]),
-          ) as Mock;
-          const baseConfig = new Config(
-            createConfigParams(new SettingsService()),
-          );
-          const harness = createDirectHarness(mock, {
-            hookConfig: configWithHooks(baseConfig, {
-              beforeModel: () => new BeforeModelHookOutput({}),
-              afterModel: () =>
-                new AfterModelHookOutput({
-                  hookSpecificOutput: {
-                    llm_response: {
-                      candidates: [
-                        {
-                          content: {
-                            role: 'model',
-                            parts: [filteredText],
-                          },
-                          finishReason: 'STOP',
+      fc.asyncProperty(filteredTextArb, async (filteredText: string) => {
+        const mock = vi.fn(() =>
+          makeProviderStream([textTerminalIContent('pre-hook provider text')]),
+        ) as Mock;
+        const baseConfig = new Config(
+          createConfigParams(new SettingsService()),
+        );
+        const harness = createDirectHarness(mock, {
+          hookConfig: configWithHooks(baseConfig, {
+            beforeModel: () => new BeforeModelHookOutput({}),
+            afterModel: () =>
+              new AfterModelHookOutput({
+                hookSpecificOutput: {
+                  llm_response: {
+                    candidates: [
+                      {
+                        content: {
+                          role: 'model',
+                          parts: [filteredText],
                         },
-                      ],
-                    },
+                        finishReason: 'STOP',
+                      },
+                    ],
                   },
-                }),
-            }),
-          });
-          const result = await harness.chat.generateDirectMessage(
-            { message: 'filter me' },
-            'prompt-p12-after-prop',
-          );
-          expect(visibleText(result)).toBe(filteredText);
-        },
-      ),
+                },
+              }),
+          }),
+        });
+        const result = await harness.chat.generateDirectMessage(
+          { message: 'filter me' },
+          'prompt-p12-after-prop',
+        );
+        expect(visibleText(result)).toBe(filteredText);
+      }),
     );
   });
 });

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentResponse } from '@google/genai';
 import {
   type GenerateContentConfig,
   type PartListUnion,
@@ -12,6 +11,7 @@ import {
   type Tool,
   type SendMessageParameters,
 } from '@google/genai';
+import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
 import {
   getDirectoryContextString,
   getEnvironmentContext,
@@ -672,7 +672,7 @@ export class AgentClient implements AgentClientContract {
   async generateDirectMessage(
     params: SendMessageParameters,
     promptId: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     await this.lazyInitialize();
     this.chat ??= await this.startChat([]);
     return this.getChat().generateDirectMessage(params, promptId);
@@ -764,7 +764,7 @@ export class AgentClient implements AgentClientContract {
     generationConfig: GenerateContentConfig,
     abortSignal: AbortSignal,
     model: string,
-  ): Promise<GenerateContentResponse> {
+  ): Promise<ModelOutput> {
     await this.lazyInitialize();
     const output = await clientLlmGenerateContent(
       this.config,
@@ -776,9 +776,7 @@ export class AgentClient implements AgentClientContract {
       this.lastPromptId ?? this.config.getSessionId(),
       this.generateContentConfig,
     );
-    // Convert neutral ModelOutput back to Google GenerateContentResponse
-    // to preserve the AgentClientContract (migrated fully in #2349).
-    return this.getChat().convertIContentToResponse(output.content);
+    return output;
   }
 
   async generateEmbedding(texts: string[]): Promise<number[][]> {

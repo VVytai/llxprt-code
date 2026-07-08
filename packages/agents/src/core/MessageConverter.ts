@@ -10,12 +10,7 @@
  */
 
 import type { GenerateContentResponse } from '@google/genai';
-import {
-  type Content,
-  type Part,
-  type PartListUnion,
-  FinishReason,
-} from '@google/genai';
+import { type Content, type Part, type PartListUnion } from '@google/genai';
 import type {
   IContent,
   ContentBlock,
@@ -24,16 +19,7 @@ import type {
   ThinkingBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { iContentFromLegacyInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
-import {
-  type ThoughtPart,
-  isThoughtPart,
-  type UsageMetadataWithCache,
-} from './googlePartHelpers.js';
-import { getResponseTextFromParts } from './googlePartHelpers.js';
-import { setProviderStopReason } from './providerStopReason.js';
-
-const logger = new DebugLogger('llxprt:core:message-converter');
+import { type ThoughtPart, isThoughtPart } from './googlePartHelpers.js';
 
 // ---------------------------------------------------------------------------
 // Boundary-validation helpers (typed `unknown` so guards are necessary)
@@ -67,22 +53,9 @@ function isEmptyOrMissingPart(part: unknown): boolean {
   return (
     part === undefined ||
     part === null ||
-    Object.keys(part as Record<string, unknown>).length === 0
+    (typeof part === 'object' &&
+      Object.keys(part as Record<string, unknown>).length === 0)
   );
-}
-
-/**
- * Reads a token count from provider usage metadata, defaulting to 0 when the
- * field is absent. `UsageStats` declares these counts as required numbers, but
- * `usage` is provider/runtime-boundary data that may omit them, so the default
- * (main's `?? 0`) must be preserved via boundary validation. Mirrors `?? 0`
- * exactly: only nullish values default; any present value passes through.
- */
-function usageTokenCount(value: unknown): number {
-  if (value === null || value === undefined) {
-    return 0;
-  }
-  return value as number;
 }
 
 /**
@@ -133,7 +106,10 @@ export function createUserContentWithFunctionResponseFix(
     return { speaker: 'human', blocks: allBlocks };
   }
   // Fallback: treat as plain text
-  return { speaker: 'human', blocks: [{ type: 'text', text: String(message) }] };
+  return {
+    speaker: 'human',
+    blocks: [{ type: 'text', text: String(message) }],
+  };
 }
 
 /**
@@ -455,159 +431,4 @@ export function convertBlocksToParts(blocks: ContentBlock[]): Part[] {
   }
 
   return parts;
-}
-
-/**
- * Convert IContent to GenerateContentResponse for SDK compatibility.
- */
-export function convertIContentToResponse(
-  input: IContent,
-): GenerateContentResponse {
-  const parts = convertBlocksToParts(input.blocks);
-
-  const response = {
-    candidates: [
-      {
-        content: {
-          role: 'model',
-          parts,
-        },
-      },
-    ],
-    get text() {
-      return getResponseTextFromParts(parts) ?? '';
-    },
-    functionCalls: parts
-      .filter((p) => 'functionCall' in p)
-      .map((p) => p.functionCall!),
-    executableCode: undefined,
-    codeExecutionResult: undefined,
-  } as GenerateContentResponse;
-
-  return applyResponseMetadata(response, input, parts);
-}
-
-/**
- * Maps termination reason (stopReason/finishReason) to Gemini FinishReason
- * and applies it to the first candidate. Logs warnings for unmapped or
- * missing-candidate cases.
- */
-function applyFinishReasonMapping(
-  response: GenerateContentResponse,
-  input: IContent,
-): void {
-  const terminationReason =
-    input.metadata?.stopReason ?? input.metadata?.finishReason;
-
-  if (terminationReason && response.candidates?.[0]) {
-    const finishReasonByTerminationReason: Record<string, FinishReason> = {
-      // Anthropic/Gemini-style values
-      end_turn: FinishReason.STOP,
-      max_tokens: FinishReason.MAX_TOKENS,
-      stop_sequence: FinishReason.STOP,
-      tool_use: FinishReason.STOP,
-      pause_turn: FinishReason.STOP,
-      refusal: FinishReason.STOP,
-      model_context_window_exceeded: FinishReason.MAX_TOKENS,
-      // OpenAI Chat Completions-style values
-      stop: FinishReason.STOP,
-      length: FinishReason.MAX_TOKENS,
-      tool_calls: FinishReason.STOP,
-      function_call: FinishReason.STOP,
-      content_filter: FinishReason.SAFETY,
-      // OpenAI Responses API status values
-      completed: FinishReason.STOP,
-      incomplete: FinishReason.MAX_TOKENS,
-      failed: FinishReason.STOP,
-    };
-    const hasMapping = Object.prototype.hasOwnProperty.call(
-      finishReasonByTerminationReason,
-      terminationReason,
-    );
-    // @issue:2329 — always preserve the raw provider stop reason on the
-    // candidate (even when it has no coarse FinishReason mapping) so
-    // downstream consumers (agent loop, CLI) can distinguish e.g. a
-    // safety-classifier refusal from a generic stop. Stored on the
-    // repo-owned providerStopReason field — NOT the SDK's finishMessage,
-    // which is a human-readable description that native responses may set.
-    setProviderStopReason(response.candidates[0], terminationReason);
-    if (hasMapping) {
-      const mappedReason = finishReasonByTerminationReason[terminationReason];
-      response.candidates[0].finishReason = mappedReason;
-      logger.debug(
-        () => `[stream:message-converter] applied terminal metadata`,
-        {
-          speaker: input.speaker,
-          blockCount: input.blocks.length,
-          stopReason: input.metadata?.stopReason,
-          finishReason: input.metadata?.finishReason,
-          terminationReason,
-          mappedFinishReason: mappedReason,
-        },
-      );
-    } else {
-      logger.warn(
-        () =>
-          `[stream:message-converter] terminal metadata did not map to Gemini finishReason`,
-        {
-          speaker: input.speaker,
-          blockCount: input.blocks.length,
-          stopReason: input.metadata?.stopReason,
-          finishReason: input.metadata?.finishReason,
-          terminationReason,
-        },
-      );
-    }
-  } else if (input.metadata?.stopReason || input.metadata?.finishReason) {
-    logger.warn(
-      () =>
-        `[stream:message-converter] terminal metadata present but response candidate missing`,
-      {
-        speaker: input.speaker,
-        blockCount: input.blocks.length,
-        stopReason: input.metadata.stopReason,
-        finishReason: input.metadata.finishReason,
-        hasCandidate: Boolean(response.candidates?.[0]),
-      },
-    );
-  }
-}
-
-/**
- * Adds usage metadata, finish reason, and data property to the response.
- */
-export function applyResponseMetadata(
-  response: GenerateContentResponse,
-  input: IContent,
-  _parts: Part[],
-): GenerateContentResponse {
-  // Add data property that returns self-reference
-  // Make it non-enumerable to avoid circular reference in JSON.stringify
-  Object.defineProperty(response, 'data', {
-    get() {
-      return response;
-    },
-    enumerable: false,
-    configurable: true,
-  });
-
-  // Add usage metadata if present
-  if (input.metadata?.usage) {
-    const usageMetadata: UsageMetadataWithCache = {
-      promptTokenCount: usageTokenCount(input.metadata.usage.promptTokens),
-      candidatesTokenCount: usageTokenCount(
-        input.metadata.usage.completionTokens,
-      ),
-      totalTokenCount: usageTokenCount(input.metadata.usage.totalTokens),
-      cache_read_input_tokens:
-        input.metadata.usage.cache_read_input_tokens ?? 0,
-      cache_creation_input_tokens:
-        input.metadata.usage.cache_creation_input_tokens ?? 0,
-    };
-    response.usageMetadata = usageMetadata;
-  }
-
-  applyFinishReasonMapping(response, input);
-
-  return response;
 }

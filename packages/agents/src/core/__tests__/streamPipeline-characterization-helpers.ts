@@ -21,16 +21,11 @@ import type { Tool } from '@google/genai';
 import { vi, type Mock } from 'vitest';
 import { ChatSession } from '../chatSession.js';
 import { Turn, AgentEventType, DEFAULT_AGENT_ID } from '../turn.js';
-import type {
-  ServerAgentStreamEvent,
-  ServerFinishedEvent,
-} from '../turn.js';
+import type { ServerAgentStreamEvent, ServerFinishedEvent } from '../turn.js';
 import type { RuntimeProvider as IProvider } from '@vybestack/llxprt-code-core/runtime/contracts/RuntimeProvider.js';
 import { TestRuntimeProviderManager } from '../../test-utils/runtimeProviderManager.js';
 import { Config } from '@vybestack/llxprt-code-core/config/config.js';
-import {
-  createProviderRuntimeContext,
-} from '@vybestack/llxprt-code-core/runtime/providerRuntimeContext.js';
+import { createProviderRuntimeContext } from '@vybestack/llxprt-code-core/runtime/providerRuntimeContext.js';
 import { SettingsService } from '@vybestack/llxprt-code-settings';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import { createAgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
