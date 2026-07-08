@@ -30,7 +30,7 @@ import { type ToolCallRequestInfo } from '@vybestack/llxprt-code-core/core/turn.
 import {
   getHookRestrictedAllowedToolsForFunctionCall,
   isHookRestrictedToolCall,
-} from '../core/hookToolRestrictions.js';
+} from '../core/hookRestrictionsLegacyCompat.js';
 import { debugLogger } from '@vybestack/llxprt-code-core/utils/debugLogger.js';
 import { TASK_COMPLETE_TOOL_NAME } from './recovery.js';
 import type { AgentDefinition, SubagentActivityEventType } from './types.js';

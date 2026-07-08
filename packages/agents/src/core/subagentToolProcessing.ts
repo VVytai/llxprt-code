@@ -39,7 +39,7 @@ import { createSchedulerConfig } from './subagentRuntimeSetup.js';
 import {
   getHookRestrictedAllowedToolsForFunctionCall,
   isHookRestrictedToolCall,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
 
 // ---------------------------------------------------------------------------
 // Pure helpers

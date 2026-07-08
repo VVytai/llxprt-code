@@ -37,8 +37,24 @@ Each entry is a markdown table row:
 
 ## Entries
 
-_No entries at P02. Permanent entries (e.g. the G3 hook-wire adapter in
-`streamRequestHelpers.ts`) are added by the migration slices that own them._
+### P11 — Temporary before-model blocking compat (DELETE in P13)
+
+| File | Subkind | Context Pattern | Justification |
+| --- | --- | --- | --- |
+| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `A-raw-genai-import` | `import type { GenerateContentResponse }` | Temporary before-model blocking GenerateContentResponse compat; deleted in P13 with the C3 error retype |
+| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F3-role-parts` | `candidate.content.parts` | Temporary before-model blocking compat; filters parts on the synthetic response; deleted in P13 |
+| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F5-parts-access` | `candidate.content` | Temporary before-model blocking compat; reads parts for tool filtering; deleted in P13 |
+| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F5-parts-access` | `...content` | Temporary before-model blocking compat; reads parts for AFC history filtering; deleted in P13 |
+| `packages/agents/src/core/beforeModelBlockingCompat.ts` | `F1-candidates-content` | `candidates: [` | Temporary before-model blocking compat; constructs candidates envelope; deleted in P13 |
+
+### P11 — Legacy hook restrictions compat (DELETE in P25)
+
+| File | Subkind | Context Pattern | Justification |
+| --- | --- | --- | --- |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `A-raw-genai-import` | `import type { Content, FunctionCall, GenerateContentResponse, Part }` | Legacy WeakMap/Part[]/FunctionCall restriction helpers for not-yet-migrated consumers (streamChunkWrapper, streamResponseHelpers, subagent*, executor*); deleted in P25 when last consumer migrates |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F3-role-parts` | `content.parts` | Legacy Part[]-based filtering; deleted in P25 |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access` | `candidate.content` | Legacy Part[]-based access; deleted in P25 |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access` | `...content` | Legacy Part[]-based access for content filtering; deleted in P25 |
 
 ### Expected entries at target state (added by migration slices)
 

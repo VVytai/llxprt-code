@@ -10,7 +10,7 @@ import {
   AgentExecutionStoppedError,
   AgentExecutionBlockedError,
 } from './chatSession.js';
-import { attachHookRestrictedAllowedTools } from './hookToolRestrictions.js';
+import { attachHookRestrictedAllowedToolsToBlockingResponse as attachHookRestrictedAllowedTools } from './beforeModelBlockingCompat.js';
 import { isMissingFinishReason } from './streamResponseHelpers.js';
 
 /** Callback to patch a missing finish reason on a synthetic response. */

@@ -21,7 +21,7 @@ import {
   type BuildPartsContext,
   type ProcessFunctionCallsContext,
 } from './subagentToolProcessing.js';
-import { setHookRestrictedAllowedToolsOnFunctionCall } from './hookToolRestrictions.js';
+import { setHookRestrictedAllowedToolsOnFunctionCall } from './hookRestrictionsLegacyCompat.js';
 import {
   SubagentTerminateMode,
   type OutputObject,

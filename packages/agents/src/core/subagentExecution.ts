@@ -42,7 +42,7 @@ import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
 import {
   isHookRestrictedToolCall,
   setHookRestrictedAllowedToolsOnFunctionCall,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
 
 // ---------------------------------------------------------------------------
 // Shared execution context — all loop helpers receive this instead of `this`

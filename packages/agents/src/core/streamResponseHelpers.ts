@@ -32,7 +32,7 @@ import {
   filterHookRestrictedFunctionCalls,
   mergeHookRestrictedFunctionCalls,
   getHookRestrictedAllowedTools,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
 import type { ResponseOutcome } from '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js';
 import { analyzeResponseOutcomeFromParts } from './googlePartHelpers.js';
 import { isFunctionResponse } from '@vybestack/llxprt-code-core/utils/messageInspectors.js';

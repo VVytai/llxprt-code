@@ -238,9 +238,9 @@ function parseAllowlistLine(line: string): AllowlistEntry | null {
     .filter((c) => c.length > 0);
   if (cells.length < 4) return null;
   return {
-    file: cells[0],
-    subkind: cells[1],
-    contextPattern: cells[2],
+    file: cells[0].replace(/`/g, ''),
+    subkind: cells[1].replace(/`/g, ''),
+    contextPattern: cells[2].replace(/`/g, ''),
     justification: cells.slice(3).join(' | ').trim(),
   };
 }

@@ -47,11 +47,11 @@ import {
   type UsageMetadataWithCache,
 } from './googlePartHelpers.js';
 import {
-  attachHookRestrictedAllowedTools,
   filterHookRestrictedContents,
   filterHookRestrictedContent,
   getHookRestrictedAllowedTools,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
+import { attachHookRestrictedAllowedToolsToBlockingResponse as attachHookRestrictedAllowedTools } from './beforeModelBlockingCompat.js';
 import { canonicalizeToolName } from './toolGovernance.js';
 import { shouldRetryStreamAttempt } from './turnAbortHelpers.js';
 import { extractSystemInstructionText } from './streamRequestHelpers.js';

@@ -55,9 +55,9 @@ import {
   AgentExecutionBlockedError,
 } from './chatSession.js';
 import {
-  attachHookRestrictedAllowedTools,
   filterHookRestrictedBlocks,
 } from './hookToolRestrictions.js';
+import { attachHookRestrictedAllowedToolsToBlockingResponse as attachHookRestrictedAllowedTools } from './beforeModelBlockingCompat.js';
 import { canonicalizeToolName } from './toolGovernance.js';
 import {
   buildRequestContentsResult,

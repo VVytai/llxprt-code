@@ -22,7 +22,7 @@ import {
 import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { responseToModelStreamChunk } from '../core/streamChunkWrapper.js';
-import { attachHookRestrictedAllowedTools } from '../core/hookToolRestrictions.js';
+import { attachHookRestrictedAllowedTools } from '../core/hookRestrictionsLegacyCompat.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import { MockTool } from '@vybestack/llxprt-code-core/test-utils/mock-tool.js';
 import { z } from 'zod';

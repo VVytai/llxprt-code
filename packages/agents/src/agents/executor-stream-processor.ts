@@ -17,7 +17,7 @@ import {
   filterHookRestrictedParts,
   getHookRestrictedFunctionCallsFromParts,
   mergeHookRestrictedFunctionCalls,
-} from '../core/hookToolRestrictions.js';
+} from '../core/hookRestrictionsLegacyCompat.js';
 import { chunkToParts } from '../core/streamChunkWrapper.js';
 import { getFunctionCallsFromParts } from '../core/googlePartHelpers.js';
 import { parseThought } from '@vybestack/llxprt-code-core/utils/thoughtUtils.js';

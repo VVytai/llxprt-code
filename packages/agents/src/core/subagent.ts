@@ -17,7 +17,7 @@ import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
 import { type Content, type Part } from '@google/genai';
 
 import { type ChatSession } from './chatSession.js';
-import { isHookRestrictedToolCall } from './hookToolRestrictions.js';
+import { isHookRestrictedToolCall } from './hookRestrictionsLegacyCompat.js';
 import type {
   AgentRuntimeContext,
   ToolRegistryView,

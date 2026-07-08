@@ -63,7 +63,7 @@ import {
   attachHookRestrictedAllowedTools,
   filterHookRestrictedContent,
   filterHookRestrictedContents,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
 import { canonicalizeToolName } from './toolGovernance.js';
 
 function isContentArray(value: unknown): value is Content[] {

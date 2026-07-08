@@ -17,7 +17,7 @@ checkH) join the metric at P31 via an EXPLICIT documented re-baseline step.
 
 ## Current Ceiling
 
-count=37 owner=P02
+count=36 owner=P11
 
 Command: `npx tsx scripts/agents-neutral-gate.ts --count`
 

@@ -39,7 +39,7 @@ import {
   filterHookRestrictedFunctionCalls,
   getHookRestrictedFunctionCallsFromParts,
   mergeHookRestrictedFunctionCalls,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
 import { getFunctionCallsFromParts } from './googlePartHelpers.js';
 import { chunkToParts } from './streamChunkWrapper.js';
 import type { ToolExecutionConfig } from './nonInteractiveToolExecutor.js';

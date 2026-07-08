@@ -13,7 +13,7 @@ import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
 import type { Part } from '@google/genai';
 import type { ChatSession } from './chatSession.js';
 import { StreamEventType } from './chatSession.js';
-import { attachHookRestrictedAllowedTools } from './hookToolRestrictions.js';
+import { attachHookRestrictedAllowedTools } from './hookRestrictionsLegacyCompat.js';
 import {
   type MockedChatInstance,
   findFinishedEvent,

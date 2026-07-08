@@ -29,7 +29,7 @@ import { mapGeminiFinishReason } from '@vybestack/llxprt-code-core/llm-types/ind
 import {
   getHookRestrictedAllowedTools,
   hasFilteredHookRestrictedToolCalls,
-} from './hookToolRestrictions.js';
+} from './hookRestrictionsLegacyCompat.js';
 import { getProviderStopReason } from './providerStopReason.js';
 import {
   classifyMixedParts,
