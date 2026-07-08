@@ -855,16 +855,14 @@ export class MessageStreamOrchestrator {
     const model = this._resolveModelForInfo();
     const providerName = this._getProviderName();
     const profileName = this._getProfileName();
-    const hasProfile = typeof profileName === 'string' && profileName !== '';
-    const displayLabel = hasProfile ? profileName : model;
+    const displayLabel =
+      profileName && profileName !== '' ? profileName : model;
     return { model, providerName, profileName, displayLabel };
   }
 
   /**
    * Computes a collision-safe composite identity key from provider, profile,
-   * and model. Uses JSON.stringify to guarantee unambiguous delimiting — a
-   * null-byte-joined approach can still collide when a field value itself
-   * contains a null byte.
+   * and model. Uses JSON.stringify to guarantee unambiguous delimiting.
    */
   private _modelIdentityKey(info: ModelInfo): string {
     return JSON.stringify([
@@ -934,19 +932,18 @@ export class MessageStreamOrchestrator {
   private async _fireAfterHook(
     ctx: StreamContext,
   ): Promise<AfterAgentHookOutput | undefined> {
-    const responseText = ctx.responseChunks.join('');
     return this.deps.agentHookManager.fireAfterAgentHookSafe(
       ctx.prompt_id,
       ctx.promptText,
-      responseText,
+      ctx.responseChunks.join(''),
       false,
     );
   }
 
   /**
    * If the AfterAgent hook requested context clearing, emit an
-   * AgentExecutionStopped event with contextCleared=true so the UI
-   * can react. Returns the hook output for further caller checks.
+   * AgentExecutionStopped event with contextCleared=true so the UI can react.
+   * Returns the hook output for further caller checks.
    */
   private async *_fireAfterHookAndEmitClearContext(
     ctx: StreamContext,

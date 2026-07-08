@@ -9,7 +9,6 @@
  * Extracted from chatSession.ts Phase 05.
  */
 
-import type { GenerateContentConfig } from '@google/genai';
 import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import type { AgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -23,39 +22,6 @@ import type { UsageStats } from '@vybestack/llxprt-code-core/llm-types/index.js'
  */
 export function getRequestTextFromContents(contents: IContent[]): string {
   return JSON.stringify(contents);
-}
-
-/**
- * Extract direct Gemini SDK overrides from generation config
- */
-export function extractDirectGeminiOverrides(config?: GenerateContentConfig):
-  | {
-      serverTools?: unknown;
-      toolConfig?: GenerateContentConfig['toolConfig'];
-    }
-  | undefined {
-  if (!config || typeof config !== 'object') {
-    return undefined;
-  }
-  const overrides: {
-    serverTools?: unknown;
-    toolConfig?: GenerateContentConfig['toolConfig'];
-  } = {};
-  const rawConfig = config as Record<string, unknown>;
-  if (Object.prototype.hasOwnProperty.call(rawConfig, 'serverTools')) {
-    overrides.serverTools = rawConfig.serverTools;
-  }
-  if (config.toolConfig) {
-    overrides.toolConfig = config.toolConfig;
-  }
-
-  if (
-    typeof overrides.serverTools === 'undefined' &&
-    typeof overrides.toolConfig === 'undefined'
-  ) {
-    return undefined;
-  }
-  return overrides;
 }
 
 /**
@@ -86,12 +52,16 @@ export function logApiRequest(
 /**
  * Log API response to telemetry.
  *
- * Accepts neutral UsageStats; the telemetry sink still receives a
- * spread record, maintaining wire compatibility for downstream consumers.
+ * Passes neutral UsageStats via the `usage` field (neutral keys:
+ * inputTokens, outputTokens, totalTokens). The telemetry adapter in core
+ * maps this to the Gemini-named legacy event at the boundary, so NO
+ * Gemini-named keys appear in the agents core loop (OQ-3t).
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P19
  * @requirement:REQ-007
  * @requirement:REQ-008
+ * @requirement:REQ-010.1
  */
 export function logApiResponse(
   runtimeContext: AgentRuntimeContext,
@@ -109,22 +79,13 @@ export function logApiResponse(
     sessionId: runtimeState.sessionId,
     runtimeId: runtimeState.runtimeId,
     provider: runtimeState.provider,
-    usageMetadata:
+    usage:
       usage === undefined
         ? undefined
         : {
-            promptTokenCount: usage.promptTokens,
-            candidatesTokenCount: usage.completionTokens,
-            totalTokenCount: usage.totalTokens,
-            ...(usage.cachedTokens !== undefined
-              ? { cachedContentTokenCount: usage.cachedTokens }
-              : {}),
-            ...(usage.reasoningTokens !== undefined
-              ? { thoughtsTokenCount: usage.reasoningTokens }
-              : {}),
-            ...(usage.toolTokens !== undefined
-              ? { toolUsePromptTokenCount: usage.toolTokens }
-              : {}),
+            inputTokens: usage.promptTokens,
+            outputTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
           },
     responseText,
   });

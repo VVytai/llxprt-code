@@ -16,6 +16,7 @@ import {
   type ServerToolCallConfirmationDetails,
   type StructuredError,
 } from '@vybestack/llxprt-code-core/core/turn.js';
+import type { UsageStats } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { ToolConfirmationOutcome } from '@vybestack/llxprt-code-tools';
 import type {
   ToolCall,
@@ -31,6 +32,7 @@ import type {
   AgentStopInfo,
   DoneReason,
   FinishedValue,
+  UsageMetadataValue,
 } from './event-types.js';
 
 // @pseudocode event-adapter.md steps 10-12: mutable per-stream adapter state.
@@ -209,6 +211,36 @@ function toStopInfo(e: StopEvent): AgentStopInfo {
 }
 
 /**
+ * Maps neutral UsageStats to the Gemini-named public UsageMetadataValue.
+ *
+ * The internal Finished event carries a neutral UsageStats (promptTokens,
+ * completionTokens, totalTokens). The public wire type
+ * (UsageMetadataValue) stays Gemini-named (promptTokenCount, etc.) for
+ * backward compatibility. This mapper is the sole bridge.
+ *
+ * Per OQ-14 PUBLIC-out-of-scope: reasoningTokens / thoughtsTokenCount are
+ * NOT emitted to the public wire.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P19
+ * @requirement:REQ-007.2
+ */
+function usageStatsToPublicUsageMetadata(
+  usage: UsageStats | undefined,
+): UsageMetadataValue | undefined {
+  if (usage === undefined) {
+    return undefined;
+  }
+  return {
+    promptTokenCount: usage.promptTokens,
+    candidatesTokenCount: usage.completionTokens,
+    totalTokenCount: usage.totalTokens,
+    ...(usage.cachedTokens !== undefined
+      ? { cachedContentTokenCount: usage.cachedTokens }
+      : {}),
+  };
+}
+
+/**
  * Maps a Finished value to the public DoneReason. A Finished event represents
  * normal completion; other terminal causes arrive via their own variants. When
  * the raw provider stop reason is `'refusal'` (the model's safety classifier
@@ -316,8 +348,18 @@ function* mapValueEvent(
     }
     // @pseudocode event-adapter.md steps 243-244: Finished
     case AgentEventType.Finished: {
-      const v = e.value as { reason: string; stopReason?: string };
-      state.lastFinished = v;
+      const v = e.value as {
+        reason: string;
+        stopReason?: string;
+        usageMetadata?: UsageStats;
+      };
+      const publicUsage = usageStatsToPublicUsageMetadata(v.usageMetadata);
+      const finishedValue: FinishedValue = {
+        reason: v.reason,
+        ...(publicUsage !== undefined ? { usageMetadata: publicUsage } : {}),
+        ...(v.stopReason !== undefined ? { stopReason: v.stopReason } : {}),
+      };
+      state.lastFinished = finishedValue;
       yield makeDone(state, mapFinishReason(v.stopReason));
       state.emittedDone = true;
       return;
