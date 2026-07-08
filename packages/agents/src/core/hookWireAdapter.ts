@@ -23,7 +23,7 @@ import type { HookGenerateContentResponse } from '@vybestack/llxprt-code-core/ho
 import type {
   ModelStreamChunk,
   ModelOutput,
-} from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type {
   ContentBlock,
   UsageStats,

@@ -15,8 +15,8 @@ import {
 import type {
   ContractContent,
   ContractGenerateContentConfig,
+  ModelOutput,
 } from '@vybestack/llxprt-code-core';
-import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
 import type { TextBuffer } from '../components/shared/text-buffer.js';
 import { isSlashCommand } from '../utils/commandUtils.js';
 import type { AgentClientSource } from '../cliUiRuntime.js';

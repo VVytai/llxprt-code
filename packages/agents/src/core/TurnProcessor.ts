@@ -52,10 +52,10 @@ import { logApiRequest, logApiResponse, logApiError } from './turnLogging.js';
 import type {
   ModelStreamChunk,
   ModelOutput,
-} from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
-import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
-import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/agentMessageInput.js';
-import { isProviderApiError } from '@vybestack/llxprt-code-core/llm-types/providerApiError.js';
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { isProviderApiError } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { enrichSchemaDepthError } from './schemaDepthErrorEnrichment.js';
 type ToolGroupArray = Array<{

@@ -11,7 +11,7 @@ import {
   type Tool,
   type SendMessageParameters,
 } from '@google/genai';
-import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
+import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
   getDirectoryContextString,
   getEnvironmentContext,
