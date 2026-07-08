@@ -42,7 +42,7 @@ import type { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 
 /** Whether a finish reason is missing (null, undefined, or empty string). */
 export function isMissingFinishReason(
-  finishReason: FinishReason | null | undefined | '',
+  finishReason: string | null | undefined | '',
 ): boolean {
   return finishReason == null || finishReason === '';
 }

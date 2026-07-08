@@ -62,6 +62,7 @@ import {
 } from './chatSession.js';
 import { logApiRequest, logApiResponse, logApiError } from './turnLogging.js';
 import { responseToModelStreamChunk } from './streamChunkWrapper.js';
+import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
 import { enrichSchemaDepthError } from './schemaDepthErrorEnrichment.js';
 type ToolGroupArray = Array<{
   functionDeclarations: Array<{ name: string }>;
@@ -73,13 +74,15 @@ interface ToolSelectionHookResult {
 }
 
 /**
- * Wraps a GenerateContentResponse chunk into a CHUNK StreamEvent carrying
- * the neutral ModelStreamChunk at the yield boundary.
+ * Wraps a neutral ModelStreamChunk into a CHUNK StreamEvent.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P08
+ * @requirement:REQ-002.2
  */
-function wrapChunk(resp: GenerateContentResponse): StreamEvent {
+function wrapChunk(chunk: ModelStreamChunk): StreamEvent {
   return {
     type: StreamEventType.CHUNK,
-    value: responseToModelStreamChunk(resp),
+    value: chunk,
   };
 }
 
@@ -279,7 +282,9 @@ export class TurnProcessor {
           contextCleared: error.contextCleared,
         };
         if (error.syntheticResponse) {
-          yield wrapChunk(error.syntheticResponse);
+          // C3: syntheticResponse is GenerateContentResponse (until P13);
+          // convert to ModelStreamChunk at this boundary.
+          yield wrapChunk(responseToModelStreamChunk(error.syntheticResponse));
         }
         return { error: null, action: 'stop' };
       }

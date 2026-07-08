@@ -5,12 +5,13 @@
  */
 
 /**
+
+/**
  * Turn class — extracted from core/turn.ts as part of issue #1592.
  * Protocol types (AgentEventType, ServerAgentStreamEvent, etc.) remain in core.
  */
 
 import { createHash } from 'node:crypto';
-import type { PartListUnion, FunctionCall } from '@google/genai';
 import type {
   ModelStreamChunk,
   CanonicalFinishReason,
@@ -25,14 +26,6 @@ import {
   analyzeResponseOutcome,
   type ResponseOutcome,
 } from '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js';
-import { getFunctionCallsFromParts } from './googlePartHelpers.js';
-import { chunkToParts } from './streamChunkWrapper.js';
-import {
-  filterHookRestrictedParts,
-  filterHookRestrictedFunctionCalls,
-  getHookRestrictedAllowedToolsForFunctionCall,
-  mergeHookRestrictedFunctionCalls,
-} from './hookToolRestrictions.js';
 import { reportError } from '@vybestack/llxprt-code-core/utils/errorReporting.js';
 import {
   getErrorMessage,
@@ -67,6 +60,15 @@ import {
   type StructuredError,
 } from '@vybestack/llxprt-code-core/core/turn.js';
 
+
+/**
+ * Transitional turn-request type — avoids importing @google/genai PartListUnion.
+ * Accepts strings and arrays of part-shaped objects that the chatSession's
+ * normalizeToolInteractionInput can handle. Narrows to AgentMessageInput at P21.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P08
+ */
+type TurnRequest = string | object | readonly unknown[];
 /** @deprecated Use DEFAULT_STREAM_IDLE_TIMEOUT_MS from streamIdleTimeout.js instead */
 export const TURN_STREAM_IDLE_TIMEOUT_MS = DEFAULT_STREAM_IDLE_TIMEOUT_MS;
 
@@ -108,7 +110,7 @@ function filterBlocksByAllowedTools(
 interface EmitFinishReasonOptions {
   finishReason: CanonicalFinishReason;
   allParts: ContentBlock[];
-  functionCalls: FunctionCall[];
+  functionCalls: ToolCallBlock[];
   text: string | undefined;
   usageMetadata: UsageStats | undefined;
   traceId: string | undefined;
@@ -312,7 +314,7 @@ export class Turn {
 
   private logNoFinishReason(
     allParts: ContentBlock[],
-    functionCalls: FunctionCall[],
+    functionCalls: ToolCallBlock[],
     text: string | undefined,
     usageMetadata: UsageStats | undefined,
     traceId: string | undefined,
@@ -344,10 +346,6 @@ export class Turn {
     const allBlocks = chunk.content.blocks;
     const allowedToolNames = chunk.hookRestrictions?.allowedToolNames;
 
-    const allowedParts = filterHookRestrictedParts(
-      chunkToParts(chunk),
-      allowedToolNames,
-    );
     const allowedBlocks = filterBlocksByAllowedTools(
       allBlocks,
       allowedToolNames,
@@ -369,27 +367,11 @@ export class Turn {
     const providerStopReason = chunk.rawStopReason;
     const text = yield* this.emitTextContent(allowedBlocks, traceId);
 
-    const partFunctionCalls = getFunctionCallsFromParts(allowedParts) ?? [];
     const toolCallBlocks: ToolCallBlock[] = allowedBlocks.filter(
       (block): block is ToolCallBlock => block.type === 'tool_call',
     );
-    const blockFunctionCalls: FunctionCall[] = toolCallBlocks.map(
-      (block) =>
-        ({
-          id: block.id,
-          name: block.name,
-          args: block.parameters as Record<string, unknown>,
-        }) as FunctionCall,
-    );
-    const topLevelFunctionCalls = filterHookRestrictedFunctionCalls(
-      partFunctionCalls.length > 0 ? partFunctionCalls : blockFunctionCalls,
-      allowedToolNames,
-    );
-    const functionCalls = mergeHookRestrictedFunctionCalls(
-      partFunctionCalls.length > 0 ? partFunctionCalls : blockFunctionCalls,
-      topLevelFunctionCalls,
-    );
-    for (const [functionCallIndex, fnCall] of functionCalls.entries()) {
+
+    for (const [functionCallIndex, fnCall] of toolCallBlocks.entries()) {
       const event = this.handlePendingFunctionCall(fnCall, functionCallIndex);
       if (event) {
         yield event;
@@ -400,7 +382,7 @@ export class Turn {
       yield* this.emitFinishReason({
         finishReason,
         allParts: allowedBlocks,
-        functionCalls,
+        functionCalls: toolCallBlocks,
         text,
         usageMetadata: chunk.usage,
         traceId,
@@ -410,7 +392,7 @@ export class Turn {
     } else {
       this.logNoFinishReason(
         allowedBlocks,
-        functionCalls,
+        toolCallBlocks,
         text,
         chunk.usage,
         traceId,
@@ -594,7 +576,7 @@ export class Turn {
 
   private async *handleRunError(
     e: unknown,
-    req: PartListUnion,
+    req: TurnRequest,
     signal: AbortSignal,
     idleFlag: { timedOut: boolean },
   ): AsyncGenerator<ServerAgentStreamEvent> {
@@ -643,7 +625,7 @@ export class Turn {
 
   // The run method yields simpler events suitable for server logic
   async *run(
-    req: PartListUnion,
+    req: TurnRequest,
     signal: AbortSignal,
   ): AsyncGenerator<ServerAgentStreamEvent> {
     const idleFlag: { timedOut: boolean } = { timedOut: false };
@@ -721,7 +703,7 @@ export class Turn {
    * loadBalancing/streamTimeout.ts and RetryOrchestrator.ts.
    */
   private async acquireFirstStreamEvent(
-    req: PartListUnion,
+    req: TurnRequest,
     timeoutSignal: AbortSignal,
     timeoutController: AbortController,
     firstResponseTimeoutMs: number,
@@ -826,12 +808,15 @@ export class Turn {
    * defined in exactly one place.
    */
   private async openResponseStreamIterator(
-    req: PartListUnion,
+    req: TurnRequest,
     timeoutSignal: AbortSignal,
   ): Promise<AsyncIterator<StreamEvent>> {
+    // Bridge: chatSession.sendMessageStream still expects Google-shaped
+    // SendMessageParameters (until P21). The value is structurally compatible;
+    // normalizeToolInteractionInput handles any shape at runtime.
     const responseStream = await this.chat.sendMessageStream(
       {
-        message: req,
+        message: req as Parameters<typeof this.chat.sendMessageStream>[0]['message'],
         config: {
           abortSignal: timeoutSignal,
         },
@@ -842,7 +827,7 @@ export class Turn {
   }
 
   private handlePendingFunctionCall(
-    fnCall: FunctionCall,
+    fnCall: ToolCallBlock,
     functionCallIndex: number,
   ): ServerAgentStreamEvent | null {
     const callId =
@@ -850,14 +835,10 @@ export class Turn {
         ? fnCall.id
         : this.createSyntheticFunctionCallId(fnCall, functionCallIndex);
 
-    // REAL FIX: Turn.ts also gets fragmented data - handle properly
     let name = fnCall.name;
     if (!name || name.trim() === '') {
-      // Turn may get incomplete data from fragmented FunctionCalls
-      // Keep undefined_tool_name for proper error detection
       name = 'undefined_tool_name';
     } else {
-      // Apply shared normalization for defined names
       const normalized = normalizeToolName(name);
       if (normalized) {
         name = normalized;
@@ -866,8 +847,11 @@ export class Turn {
       }
     }
 
-    const args = fnCall.args ?? {};
-    const allowedTools = getHookRestrictedAllowedToolsForFunctionCall(fnCall);
+    const params = fnCall.parameters;
+    const args: Record<string, unknown> =
+      typeof params === 'object' && params !== null
+        ? (params as Record<string, unknown>)
+        : {};
 
     const toolCallRequest: ToolCallRequestInfo = {
       callId,
@@ -876,19 +860,15 @@ export class Turn {
       isClientInitiated: false,
       prompt_id: this.prompt_id,
       agentId: (this.agentId as string | undefined) ?? DEFAULT_AGENT_ID,
-      ...(allowedTools !== undefined
-        ? { hookRestrictedAllowedTools: allowedTools }
-        : {}),
     };
 
     this.pendingToolCalls.push(toolCallRequest);
 
-    // Yield a request for the tool call, not the pending/confirming status
     return { type: AgentEventType.ToolCallRequest, value: toolCallRequest };
   }
 
   private createSyntheticFunctionCallId(
-    fnCall: FunctionCall,
+    fnCall: ToolCallBlock,
     functionCallIndex: number,
   ): string {
     const payload = safeJsonStringify({
@@ -896,7 +876,7 @@ export class Turn {
       agentId: this.agentId,
       functionCallIndex,
       name: fnCall.name ?? '',
-      args: fnCall.args ?? {},
+      args: fnCall.parameters ?? {},
     });
     const digest = createHash('sha256')
       .update(payload)
