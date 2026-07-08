@@ -97,4 +97,18 @@ describe('Issue 2329: refusal finish-reason mapping @issue:2329', () => {
     expect(chunk.finishReason).toBe('other');
     expect(chunk.rawStopReason).toBe('some_future_reason');
   });
+
+  it('does not mutate the input IContent metadata when mapping', () => {
+    const icontent: IContent = {
+      speaker: 'ai',
+      blocks: [{ type: 'text', text: 'declined' }],
+      metadata: { stopReason: 'refusal' },
+    };
+
+    const chunk = toModelStreamChunk(icontent);
+
+    expect(chunk.content).toBe(icontent);
+    expect(icontent.metadata?.stopReason).toBe('refusal');
+    expect(chunk.rawStopReason).toBe('refusal');
+  });
 });

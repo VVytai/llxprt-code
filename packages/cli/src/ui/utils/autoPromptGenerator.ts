@@ -9,7 +9,10 @@ import type {
   ContractSendMessageParameters,
   ContractGenerateContentConfig,
 } from '@vybestack/llxprt-code-core';
-import { DebugLogger } from '@vybestack/llxprt-code-core';
+import {
+  DebugLogger,
+  getResponseTextFromBlocks,
+} from '@vybestack/llxprt-code-core';
 import { getRuntimeBridge } from '../contexts/RuntimeContext.js';
 import {
   createDetachedAutoPromptClient,
@@ -56,14 +59,8 @@ async function requestFromClient(
       requestPayload,
       'subagent-auto-prompt',
     );
-    const text = output.content.blocks
-      .filter(
-        (block): block is { type: 'text'; text: string } =>
-          block.type === 'text',
-      )
-      .map((block) => block.text)
-      .join('');
-    return { text };
+    const text = getResponseTextFromBlocks(output.content.blocks);
+    return { text: text ?? '' };
   };
   if (options?.useRuntimeScope === false) {
     return executeRequest();

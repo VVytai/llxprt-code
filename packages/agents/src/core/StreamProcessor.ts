@@ -719,7 +719,6 @@ export class StreamProcessor {
       const finalBlockedOutput = afterModelBlockingToModelOutput(
         effectiveReason,
         blockedOutput,
-        afterModelResult.systemMessage,
       );
       throw new AgentExecutionBlockedError(
         effectiveReason ?? 'Execution blocked by AfterModel hook',
@@ -750,19 +749,7 @@ export class StreamProcessor {
         this.runtimeContext.state.model,
         telemetryContext.promptId,
         durationMs,
-        usage
-          ? {
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-              totalTokens: usage.totalTokens,
-              ...(usage.cachedTokens !== undefined
-                ? { cachedTokens: usage.cachedTokens }
-                : {}),
-              ...(usage.reasoningTokens !== undefined
-                ? { reasoningTokens: usage.reasoningTokens }
-                : {}),
-            }
-          : undefined,
+        usage ? { ...usage } : undefined,
         JSON.stringify(lastIContent),
       );
     }

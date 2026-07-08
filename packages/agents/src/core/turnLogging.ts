@@ -119,6 +119,12 @@ export function logApiResponse(
             ...(usage.cachedTokens !== undefined
               ? { cachedContentTokenCount: usage.cachedTokens }
               : {}),
+            ...(usage.reasoningTokens !== undefined
+              ? { thoughtsTokenCount: usage.reasoningTokens }
+              : {}),
+            ...(usage.toolTokens !== undefined
+              ? { toolUsePromptTokenCount: usage.toolTokens }
+              : {}),
           },
     responseText,
   });

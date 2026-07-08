@@ -20,13 +20,64 @@
  */
 
 import type { HookGenerateContentResponse } from '@vybestack/llxprt-code-core/hooks/hookTranslator.js';
-import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
-import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
 import type {
-  IContent,
+  ModelStreamChunk,
+  ModelOutput,
+} from '@vybestack/llxprt-code-core/llm-types/modelEnvelope.js';
+import type {
   ContentBlock,
+  UsageStats,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+
+/**
+ * Extracts neutral ContentBlock[] from a hook JSON-wire response.
+ *
+ * Shared block-extraction logic: prefers candidate parts, then the top-level
+ * `text` field, falling back to the provided default blocks when neither is
+ * present.
+ */
+function extractBlocksFromHookResponse(
+  response: HookGenerateContentResponse,
+  fallbackBlocks: ContentBlock[],
+): ContentBlock[] {
+  const candidate = response.candidates?.[0];
+  if (candidate?.content?.parts) {
+    const iContent = ContentConverters.toIContent({
+      role: candidate.content.role ?? 'model',
+      parts: candidate.content.parts,
+    });
+    return iContent.blocks;
+  }
+  if (response.text !== undefined) {
+    return [{ type: 'text', text: response.text }];
+  }
+  return fallbackBlocks;
+}
+
+/**
+ * Maps hook JSON-wire usageMetadata to neutral UsageStats.
+ *
+ * Returns undefined when the hook response carries no usageMetadata.
+ */
+function usageFromHookResponse(
+  response: HookGenerateContentResponse,
+): UsageStats | undefined {
+  const u = response.usageMetadata;
+  if (!u) {
+    return undefined;
+  }
+  const usage: UsageStats = {
+    promptTokens: u.promptTokenCount ?? 0,
+    completionTokens: u.candidatesTokenCount ?? 0,
+    totalTokens: u.totalTokenCount ?? 0,
+  };
+  const cached = u.cachedContentTokenCount;
+  if (cached !== undefined && cached !== null && typeof cached === 'number') {
+    usage.cachedTokens = cached;
+  }
+  return usage;
+}
 
 /**
  * Maps a hook-modified JSON-wire response to a neutral ModelStreamChunk.
@@ -52,42 +103,17 @@ export function afterModelModifiedToChunk(
     return undefined;
   }
 
-  const candidate = modified.candidates?.[0];
-  let blocks: ContentBlock[];
-
-  if (candidate?.content?.parts) {
-    const iContent = ContentConverters.toIContent({
-      role: candidate.content.role ?? 'model',
-      parts: candidate.content.parts,
-    });
-    blocks = iContent.blocks;
-  } else if (modified.text !== undefined) {
-    blocks = [{ type: 'text', text: modified.text }];
-  } else {
-    blocks = [...base.content.blocks];
-  }
-
-  const content: IContent = {
-    speaker: base.content.speaker,
-    blocks,
-  };
-
   const result: ModelStreamChunk = {
     ...base,
-    content,
+    content: {
+      speaker: base.content.speaker,
+      blocks: extractBlocksFromHookResponse(modified, base.content.blocks),
+    },
   };
 
-  if (modified.usageMetadata) {
-    const u = modified.usageMetadata;
-    result.usage = {
-      promptTokens: u.promptTokenCount ?? 0,
-      completionTokens: u.candidatesTokenCount ?? 0,
-      totalTokens: u.totalTokenCount ?? 0,
-    };
-    const cached = u.cachedContentTokenCount;
-    if (cached !== undefined && cached !== null && typeof cached === 'number') {
-      result.usage.cachedTokens = cached;
-    }
+  const usage = usageFromHookResponse(modified);
+  if (usage) {
+    result.usage = usage;
   }
 
   return result;
@@ -117,42 +143,17 @@ export function afterModelModifiedToModelOutput(
     return undefined;
   }
 
-  const candidate = modified.candidates?.[0];
-  let blocks: ContentBlock[];
-
-  if (candidate?.content?.parts) {
-    const iContent = ContentConverters.toIContent({
-      role: candidate.content.role ?? 'model',
-      parts: candidate.content.parts,
-    });
-    blocks = iContent.blocks;
-  } else if (modified.text !== undefined) {
-    blocks = [{ type: 'text', text: modified.text }];
-  } else {
-    blocks = [...base.content.blocks];
-  }
-
-  const content: IContent = {
-    speaker: base.content.speaker,
-    blocks,
-  };
-
   const result: ModelOutput = {
     ...base,
-    content,
+    content: {
+      speaker: base.content.speaker,
+      blocks: extractBlocksFromHookResponse(modified, base.content.blocks),
+    },
   };
 
-  if (modified.usageMetadata) {
-    const u = modified.usageMetadata;
-    result.usage = {
-      promptTokens: u.promptTokenCount ?? 0,
-      completionTokens: u.candidatesTokenCount ?? 0,
-      totalTokens: u.totalTokenCount ?? 0,
-    };
-    const cached = u.cachedContentTokenCount;
-    if (cached !== undefined && cached !== null && typeof cached === 'number') {
-      result.usage.cachedTokens = cached;
-    }
+  const usage = usageFromHookResponse(modified);
+  if (usage) {
+    result.usage = usage;
   }
 
   return result;
@@ -178,39 +179,21 @@ export function beforeModelBlockingToModelOutput(
   reason: string | undefined,
   synthetic: HookGenerateContentResponse,
 ): ModelOutput {
-  const candidate = synthetic.candidates?.[0];
-  let blocks: ContentBlock[];
-
-  if (candidate?.content?.parts) {
-    const iContent = ContentConverters.toIContent({
-      role: candidate.content.role ?? 'model',
-      parts: candidate.content.parts,
-    });
-    blocks = iContent.blocks;
-  } else if (synthetic.text !== undefined) {
-    blocks = [{ type: 'text', text: synthetic.text }];
-  } else {
-    blocks = [{ type: 'text', text: reason ?? 'Execution blocked' }];
-  }
-
   const result: ModelOutput = {
     content: {
       speaker: 'ai',
-      blocks,
+      blocks: extractBlocksFromHookResponse(
+        synthetic,
+        reason !== undefined
+          ? [{ type: 'text', text: reason }]
+          : [{ type: 'text', text: 'Execution blocked' }],
+      ),
     },
   };
 
-  if (synthetic.usageMetadata) {
-    const u = synthetic.usageMetadata;
-    result.usage = {
-      promptTokens: u.promptTokenCount ?? 0,
-      completionTokens: u.candidatesTokenCount ?? 0,
-      totalTokens: u.totalTokenCount ?? 0,
-    };
-    const cached = u.cachedContentTokenCount;
-    if (cached !== undefined && cached !== null && typeof cached === 'number') {
-      result.usage.cachedTokens = cached;
-    }
+  const usage = usageFromHookResponse(synthetic);
+  if (usage) {
+    result.usage = usage;
   }
 
   return result;
@@ -229,15 +212,12 @@ export function beforeModelBlockingToModelOutput(
  *
  * @param reason - The effective block reason
  * @param base - The base neutral chunk/output to derive speaker/usage from
- * @param systemMessage - Optional system message from the hook
  * @returns A neutral ModelOutput carrying the block reason
  */
 export function afterModelBlockingToModelOutput(
   reason: string | undefined,
-  base: ModelStreamChunk | ModelOutput,
-  systemMessage?: string,
+  base: ModelOutput,
 ): ModelOutput {
-  void systemMessage;
   return {
     ...base,
     content: {

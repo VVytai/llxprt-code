@@ -81,8 +81,6 @@ function getIContentAfcHistory(content: IContent): IContent[] | undefined {
 }
 
 /**
- * Wraps a neutral ModelStreamChunk into a CHUNK StreamEvent.
-/**
  * Strips the raw (unfiltered) AFC from provider metadata so disallowed
  * tool calls cannot leak through the JSON-serialized response.
  */

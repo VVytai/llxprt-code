@@ -10,6 +10,7 @@ import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import {
   DEFAULT_GEMINI_FLASH_LITE_MODEL,
   debugLogger,
+  getResponseTextFromBlocks,
 } from '@vybestack/llxprt-code-core';
 import type {
   ContractContent,
@@ -109,12 +110,7 @@ function deriveSuggestionText(
   response: ModelOutput,
   trimmedText: string,
 ): string {
-  const responseText = response.content.blocks
-    .filter(
-      (block): block is { type: 'text'; text: string } => block.type === 'text',
-    )
-    .map((block) => block.text)
-    .join('');
+  const responseText = getResponseTextFromBlocks(response.content.blocks);
   if (!responseText) return '';
 
   const suggestionText = responseText.trim();

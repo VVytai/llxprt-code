@@ -33,8 +33,6 @@ function extractText(output: {
 }
 
 describe('Issue 1729: Claude stopping after thinking block', () => {
-  let _chatSession: ChatSession;
-
   beforeEach(() => {
     const settingsService = new SettingsService();
     const config = new Config({
@@ -88,12 +86,7 @@ describe('Issue 1729: Claude stopping after thinking block', () => {
       providerRuntime: { ...providerRuntime },
     });
 
-    _chatSession = new ChatSession(
-      view,
-      {} as unknown as ContentGenerator,
-      {},
-      [],
-    );
+    new ChatSession(view, {} as unknown as ContentGenerator, {}, []);
   });
 
   describe('Phase 1: finishReason propagation from Anthropic', () => {
@@ -239,7 +232,7 @@ describe('Issue 1729: Claude stopping after thinking block', () => {
   });
 
   describe('stopReason mapping completeness', () => {
-    it('should map model_context_window_exceeded to MAX_TOKENS', () => {
+    it('should map model_context_window_exceeded to other (unknown reason)', () => {
       const icontent: IContent = {
         speaker: 'ai',
         blocks: [{ type: 'text', text: 'truncated' }],
@@ -255,7 +248,7 @@ describe('Issue 1729: Claude stopping after thinking block', () => {
       expect(chunk.rawStopReason).toBe('model_context_window_exceeded');
     });
 
-    it('should map pause_turn to STOP', () => {
+    it('should map pause_turn to other (unknown reason)', () => {
       const icontent: IContent = {
         speaker: 'ai',
         blocks: [{ type: 'text', text: 'paused' }],

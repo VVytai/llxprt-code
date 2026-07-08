@@ -14,7 +14,7 @@ import type { IContent } from '@vybestack/llxprt-code-core/services/history/ICon
 import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
 describe('Issue #1837: OpenAI provider stopReason propagation', () => {
-  describe('Streaming: OpenAI stopReason mapped from finish_reason', () => {
+  describe('Streaming: Anthropic-native stopReason mapped to canonical finishReason', () => {
     it('should propagate stop (mapped to end_turn) through to finishReason stop', () => {
       const icontent: IContent = {
         speaker: 'ai',

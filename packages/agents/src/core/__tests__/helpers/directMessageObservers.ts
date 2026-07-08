@@ -35,7 +35,7 @@ interface ModelOutputLike {
     completionTokens?: number;
     totalTokens?: number;
     reasoningTokens?: number;
-  };
+  } | null;
 }
 
 function isModelOutputLike(result: unknown): result is ModelOutputLike {
@@ -90,7 +90,7 @@ export interface NeutralUsageCounts {
  * Neutral usage numbers read from the `ModelOutput.usage` field.
  */
 export function usageCounts(result: unknown): NeutralUsageCounts {
-  if (!isModelOutputLike(result) || result.usage === undefined) {
+  if (!isModelOutputLike(result) || result.usage == null) {
     return {};
   }
   const usage = result.usage;
