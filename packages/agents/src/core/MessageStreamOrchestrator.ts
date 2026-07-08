@@ -21,6 +21,7 @@ import type { TodoContinuationService } from './TodoContinuationService.js';
 import type { IdeContextTracker } from './IdeContextTracker.js';
 import type { AgentHookManager } from './AgentHookManager.js';
 import type { AfterAgentHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
+import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import {
   estimateRequestTokensStructured,
   extractPromptText,
@@ -288,7 +289,7 @@ export class MessageStreamOrchestrator {
     // tokenizer-backed methods (e.g. a minimal test double), or the tokenizer
     // throws (e.g. uninitialized internals during early preflight), fall back
     // to the structured payload-aware estimate so the guard still functions
-    // while counting functionResponse/functionCall JSON payloads.
+    // while counting tool-response/tool-call JSON payloads.
     const { estimatePendingTokens: est, convertPartListUnionToIContent: conv } =
       chat;
     const fallback = estimateRequestTokensStructured(initialRequest);
@@ -322,15 +323,24 @@ export class MessageStreamOrchestrator {
     );
   }
 
+  /**
+   * Pending-tool-call detection on neutral blocks (P15).
+   *
+   * @plan:PLAN-20260707-AGENTNEUTRAL.P15
+   * @requirement:REQ-005.4
+   */
   private async _injectIdeContext(): Promise<void> {
     const { config, ideContextTracker, getChat, getHistory } = this.deps;
     const history = await getHistory();
     const lastMessage =
       history.length > 0 ? history[history.length - 1] : undefined;
+    const lastIContent = lastMessage
+      ? ContentConverters.toIContent(lastMessage)
+      : undefined;
     const hasPendingToolCall =
-      !!lastMessage &&
-      lastMessage.role === 'model' &&
-      (lastMessage.parts?.some((p) => 'functionCall' in p) ?? false);
+      !!lastIContent &&
+      lastIContent.speaker === 'ai' &&
+      lastIContent.blocks.some((b) => b.type === 'tool_call');
 
     if (config.getIdeMode() && !hasPendingToolCall) {
       const { contextParts, newIdeContext } = ideContextTracker.getContextParts(
@@ -723,7 +733,7 @@ export class MessageStreamOrchestrator {
       ? (baseRequest as Part[]).filter(
           (part) =>
             typeof part === 'object' &&
-            !('functionCall' in part) &&
+            'text' in part &&
             !('functionResponse' in part),
         )
       : [];

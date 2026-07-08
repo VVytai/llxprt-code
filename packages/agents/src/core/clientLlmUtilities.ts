@@ -41,6 +41,9 @@ async function buildLightweightSystemPrompt(
 
 /**
  * Generates structured JSON using the BaseLLMClient utility path.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P15
+ * @requirement:REQ-005.2
  */
 export async function generateJson(
   config: Config,
@@ -58,13 +61,17 @@ export async function generateJson(
   try {
     const systemInstruction = await buildLightweightSystemPrompt(config, model);
 
-    const prompt = contents
-      .map(
-        (c) =>
-          c.parts
-            ?.map((p) => ('text' in p ? (p.text ?? '') : ''))
-            .filter((s) => s.length > 0)
-            .join('\n') ?? '',
+    // Convert to neutral IContent[] at the boundary, then read TextBlock.text
+    // (no Google Part access).
+    const iContents = ContentConverters.toIContents(contents);
+
+    const prompt = iContents
+      .map((ic) =>
+        ic.blocks
+          .filter((b) => b.type === 'text')
+          .map((b) => (b as { text: string }).text)
+          .filter((s) => s.length > 0)
+          .join('\n'),
       )
       .filter((s) => s.length > 0)
       .join('\n\n');
@@ -84,11 +91,12 @@ export async function generateJson(
     if (
       typeof result === 'string' &&
       (result === 'user' || result === 'model') &&
-      contents.some(
-        (c) =>
-          c.parts?.some(
-            (p) => 'text' in p && (p.text?.includes('next_speaker') ?? false),
-          ) ?? false,
+      iContents.some((ic) =>
+        ic.blocks.some(
+          (b) =>
+            b.type === 'text' &&
+            (b as { text: string }).text.includes('next_speaker'),
+        ),
       )
     ) {
       logger.warn(

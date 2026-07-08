@@ -9,7 +9,6 @@
  * Handles format conversion, speaker semantics, finish-reason mapping, and validation.
  */
 
-import type { GenerateContentResponse } from '@google/genai';
 import { type Content, type Part, type PartListUnion } from '@google/genai';
 import type {
   IContent,
@@ -142,20 +141,6 @@ export function isValidNonThoughtTextPart(part: Part): boolean {
   // Technically, the model should never generate parts that have text and
   // any of these but we don't trust them so check anyways.
   return hasText && !hasNonTextPayload;
-}
-
-/**
- * Returns true if the response is valid, false otherwise.
- */
-export function isValidResponse(response: GenerateContentResponse): boolean {
-  if (response.candidates === undefined || response.candidates.length === 0) {
-    return false;
-  }
-  const content = response.candidates[0]?.content;
-  if (content === undefined) {
-    return false;
-  }
-  return isValidContent(content);
 }
 
 /**
