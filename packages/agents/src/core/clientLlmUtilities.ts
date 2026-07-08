@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentConfig, Content } from '@google/genai';
+import type { GenerateContentConfig } from '@google/genai';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import {
   getEnabledToolNamesForPrompt,
@@ -17,7 +17,7 @@ import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentG
 import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { BaseLLMClient } from './baseLlmClient.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 
 async function buildLightweightSystemPrompt(
@@ -49,7 +49,7 @@ export async function generateJson(
   config: Config,
   _contentGenerator: ContentGenerator,
   baseLlmClient: BaseLLMClient,
-  contents: Content[],
+  contents: IContent[],
   schema: Record<string, unknown>,
   abortSignal: AbortSignal,
   model: string,
@@ -61,9 +61,8 @@ export async function generateJson(
   try {
     const systemInstruction = await buildLightweightSystemPrompt(config, model);
 
-    // Convert to neutral IContent[] at the boundary, then read TextBlock.text
-    // (no Google Part access).
-    const iContents = ContentConverters.toIContents(contents);
+    // Already neutral IContent[] — read TextBlock.text directly (no Google Part access).
+    const iContents = contents;
 
     const prompt = iContents
       .map((ic) =>
@@ -133,7 +132,7 @@ export async function generateJson(
 export async function generateContent(
   config: Config,
   contentGenerator: ContentGenerator,
-  contents: Content[],
+  contents: IContent[],
   generationConfig: GenerateContentConfig,
   abortSignal: AbortSignal,
   model: string,
@@ -148,7 +147,7 @@ export async function generateContent(
   try {
     const systemInstruction = await buildLightweightSystemPrompt(config, model);
 
-    const icontents = ContentConverters.toIContents(contents);
+    const icontents = contents;
 
     const settings = {
       temperature: configToUse.temperature,

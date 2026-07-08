@@ -31,8 +31,7 @@ import type {
   CompletedToolCall,
   EditorType,
   ToolCall,
-  ContractPartListUnion,
-  ContractPart,
+  AgentRequestInput,
 } from '@vybestack/llxprt-code-core';
 import { DebugLogger } from '@vybestack/llxprt-code-core';
 import type { UseHistoryManagerReturn } from '../useHistoryManager.js';
@@ -88,7 +87,7 @@ export interface UseAgentEventStreamReturn {
    * Continuation is driven by the Agent; the CLI does not re-submit.
    */
   runStream: (
-    message: ContractPartListUnion,
+    message: AgentRequestInput,
     signal: AbortSignal,
     promptId: string,
   ) => Promise<void>;
@@ -190,7 +189,7 @@ export function useAgentEventStream(
 
   const runStream = useCallback(
     async (
-      message: ContractPartListUnion,
+      message: AgentRequestInput,
       signal: AbortSignal,
       promptId: string,
     ): Promise<void> => {
@@ -256,22 +255,21 @@ export function useAgentEventStream(
  * ends or the signal aborts.
  */
 /**
- * Normalizes a ContractPartListUnion to AgentInput without type escapes:
+ * Normalizes an AgentRequestInput to AgentInput without type escapes:
  * - string passes through;
- * - arrays may contain string elements (ContractPartListUnion allows
- *   ContractPart | string), which AgentInput's readonly Part[] does not
+ * - arrays may contain string elements (AgentRequestInput allows
+ *   object | string), which AgentInput's readonly Part[] does not
  *   accept — convert them to text Parts;
- * - a bare single ContractPart is wrapped in an array (AgentInput has no
- *   single-Part variant), fixing a latent type gap for single-Part submissions.
+ * - a bare single object is wrapped in an array (AgentInput has no
+ *   single-object variant), fixing a latent type gap for single-object submissions.
  */
-function toAgentInput(message: ContractPartListUnion): AgentInput {
+function toAgentInput(message: AgentRequestInput): AgentInput {
   if (typeof message === 'string') {
     return message;
   }
   if (Array.isArray(message)) {
-    return message.map(
-      (part): ContractPart =>
-        typeof part === 'string' ? { text: part } : part,
+    return message.map((part): { text: string } =>
+      typeof part === 'string' ? { text: part } : (part as { text: string }),
     );
   }
   return [message];
@@ -279,7 +277,7 @@ function toAgentInput(message: ContractPartListUnion): AgentInput {
 
 function iterateAgentStream(
   agent: Agent,
-  message: ContractPartListUnion,
+  message: AgentRequestInput,
   signal: AbortSignal,
   promptId: string,
   args: UseAgentEventStreamArgs,

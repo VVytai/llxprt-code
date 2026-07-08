@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { unescapePath, type ContractPart } from '@vybestack/llxprt-code-core';
+import { unescapePath } from '@vybestack/llxprt-code-core';
 import type { AgentToolHandle } from '@vybestack/llxprt-code-agents';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import {
@@ -215,7 +215,7 @@ export async function handleAtCommand({
     return handleNoValidPaths(query, initialQueryText, onDebugMessage);
   }
 
-  const processedQueryParts: Array<ContractPart | string> = [
+  const processedQueryParts: Array<{ text: string } | string> = [
     { text: initialQueryText },
   ];
   const resourceResult = await processResourceAttachments({

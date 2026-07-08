@@ -471,21 +471,18 @@ export class ConversationManager {
   }
 
   /**
-   * Gets the conversation history in Gemini Content format.
+   * Gets the conversation history in neutral IContent format.
    * @param curated - If true, returns curated history; otherwise returns all history
    */
-  getHistory(curated: boolean = false): Content[] {
-    // Get history from HistoryService in IContent format
+  getHistory(curated: boolean = false): IContent[] {
+    // Get history from HistoryService in IContent format (already neutral)
     const iContents = curated
       ? this.historyService.getCurated()
       : this.historyService.getAll();
 
-    // Convert to Gemini Content format
-    const contents = ContentConverters.toGeminiContents(iContents);
-
     // Deep copy the history to avoid mutating the history outside of the
     // chat session.
-    return structuredClone(contents);
+    return structuredClone(iContents);
   }
 
   /**
@@ -498,10 +495,10 @@ export class ConversationManager {
   /**
    * Adds a new entry to the chat history.
    */
-  addHistory(content: Content): void {
+  addHistory(content: IContent): void {
     const turnKey = this.historyService.generateTurnKey();
     this.historyService.add(
-      ContentConverters.toIContent(content, undefined, undefined, turnKey),
+      { ...content, metadata: { ...content.metadata, turnId: turnKey } },
       this.model,
     );
   }
@@ -509,12 +506,12 @@ export class ConversationManager {
   /**
    * Sets the full chat history, replacing any existing history.
    */
-  setHistory(history: Content[]): void {
+  setHistory(history: IContent[]): void {
     this.historyService.clear();
     for (const content of history) {
       const turnKey = this.historyService.generateTurnKey();
       this.historyService.add(
-        ContentConverters.toIContent(content, undefined, undefined, turnKey),
+        { ...content, metadata: { ...content.metadata, turnId: turnKey } },
         this.model,
       );
     }

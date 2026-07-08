@@ -30,15 +30,14 @@ import {
   createFullLoopHarness,
   runFullLoop,
 } from '../../core/__tests__/streamPipeline-characterization-helpers.js';
-import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import type { Content } from '@google/genai';
+import type { IContent } from '@vybestack/llxprt-code-core';
 
-function makeUserContent(text: string): Content {
-  return { role: 'user', parts: [{ text }] };
+function makeUserContent(text: string): IContent {
+  return { speaker: 'human', blocks: [{ type: 'text', text }] };
 }
 
-function makeModelContent(text: string): Content {
-  return { role: 'model', parts: [{ text }] };
+function makeModelContent(text: string): IContent {
+  return { speaker: 'ai', blocks: [{ type: 'text', text }] };
 }
 
 const contentArb = fc.array(
@@ -54,7 +53,10 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
     it('returns equivalent content after addHistory → getHistory', () => {
       const harness = createFullLoopHarness(
         vi.fn(async function* () {
-          yield { speaker: 'ai', blocks: [{ type: 'text', text: 'ok' }] } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'ok' }],
+          } satisfies IContent;
         }),
       );
       const { chat } = harness;
@@ -64,14 +66,23 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
       const raw = chat.getHistory();
       const result = historyContent(raw);
       expect(result).toHaveLength(2);
-      expect(result[0].blocks[0]).toMatchObject({ type: 'text', text: 'hello' });
-      expect(result[1].blocks[0]).toMatchObject({ type: 'text', text: 'world' });
+      expect(result[0].blocks[0]).toMatchObject({
+        type: 'text',
+        text: 'hello',
+      });
+      expect(result[1].blocks[0]).toMatchObject({
+        type: 'text',
+        text: 'world',
+      });
     });
 
     it('returns a clone, not a live reference (mutating result does not mutate source)', () => {
       const harness = createFullLoopHarness(
         vi.fn(async function* () {
-          yield { speaker: 'ai', blocks: [{ type: 'text', text: 'ok' }] } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'ok' }],
+          } satisfies IContent;
         }),
       );
       const { chat } = harness;
@@ -95,7 +106,10 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
     it('property: history round-trip preserves block count for ANY history', () => {
       const harness = createFullLoopHarness(
         vi.fn(async function* () {
-          yield { speaker: 'ai', blocks: [{ type: 'text', text: 'ok' }] } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'ok' }],
+          } satisfies IContent;
         }),
       );
       const { chat } = harness;
@@ -117,7 +131,10 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
     it('getHistory awaits idle when the chat is live (behavior preserved)', async () => {
       const harness = createFullLoopHarness(
         vi.fn(async function* () {
-          yield { speaker: 'ai', blocks: [{ type: 'text', text: 'ok' }] } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'ok' }],
+          } satisfies IContent;
         }),
       );
       const history = harness.chat.getHistory();
@@ -132,7 +149,10 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
           yield {
             speaker: 'ai',
             blocks: [{ type: 'text', text: 'Direct reply' }],
-            metadata: { usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }, stopReason: 'stop' },
+            metadata: {
+              usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+              stopReason: 'stop',
+            },
           } satisfies IContent;
         }),
       );
@@ -149,7 +169,14 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
           yield {
             speaker: 'ai',
             blocks: [{ type: 'text', text: 'Usage test' }],
-            metadata: { usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 }, stopReason: 'stop' },
+            metadata: {
+              usage: {
+                promptTokens: 100,
+                completionTokens: 50,
+                totalTokens: 150,
+              },
+              stopReason: 'stop',
+            },
           } satisfies IContent;
         }),
       );
@@ -168,8 +195,15 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
     it('emits Content then Finished for a scripted provider stream', async () => {
       const harness = createFullLoopHarness(
         vi.fn(async function* () {
-          yield { speaker: 'ai', blocks: [{ type: 'text', text: 'Hello' }] } satisfies IContent;
-          yield { speaker: 'ai', blocks: [], metadata: { stopReason: 'stop' } } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'Hello' }],
+          } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [],
+            metadata: { stopReason: 'stop' },
+          } satisfies IContent;
         }),
       );
       const events = await runFullLoop(harness.turn, 'test message');
@@ -183,8 +217,15 @@ describe('clientContract.characterization — @plan:PLAN-20260707-AGENTNEUTRAL.P
       const textArb = fc.string({ minLength: 1, maxLength: 50 });
       const harness = createFullLoopHarness(
         vi.fn(async function* () {
-          yield { speaker: 'ai', blocks: [{ type: 'text', text: 'done' }] } satisfies IContent;
-          yield { speaker: 'ai', blocks: [], metadata: { stopReason: 'stop' } } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'done' }],
+          } satisfies IContent;
+          yield {
+            speaker: 'ai',
+            blocks: [],
+            metadata: { stopReason: 'stop' },
+          } satisfies IContent;
         }),
       );
       await fc.assert(

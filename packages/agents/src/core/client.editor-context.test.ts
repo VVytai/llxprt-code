@@ -455,9 +455,12 @@ describe('Gemini Client (client.ts)', () => {
 
         // Also verify it's the full context, not a delta.
         const call = contextCall![0];
-        const contextText = call.parts[0].text;
+        const textBlock = call.blocks.find(
+          (b: { type: string }) => b.type === 'text',
+        );
+        const contextText = textBlock?.text;
         const contextJson = JSON.parse(
-          contextText.match(/```json\n(.*)\n```/s)![1],
+          contextText!.match(/```json\n(.*)\n```/s)![1],
         );
         expect(contextJson).toHaveProperty('activeFile');
         expect(contextJson.activeFile.path).toBe('/path/to/active/file.ts');

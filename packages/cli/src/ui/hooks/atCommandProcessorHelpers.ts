@@ -12,8 +12,7 @@ import {
   getErrorMessage,
   isNodeError,
   validatePathWithinWorkspace,
-  type ContractPartListUnion,
-  type ContractPart,
+  type AgentRequestInput,
   type DiscoveredMCPResource,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -32,7 +31,7 @@ export interface AtCommandPart {
 }
 
 export interface AtCommandProcessResult {
-  processedQuery: ContractPartListUnion | null;
+  processedQuery: AgentRequestInput | null;
   error?: string;
 }
 
@@ -94,7 +93,7 @@ interface FileReadParams {
   pathSpecsToRead: string[];
   contentLabelsForDisplay: string[];
   absoluteToRelativePathMap: Map<string, string>;
-  processedQueryParts: Array<ContractPart | string>;
+  processedQueryParts: Array<{ text: string } | string>;
   resourceReadDisplays: IndividualToolCallDisplay[];
   readManyFilesTool: NonNullable<MaybeToolHandle>;
   respectFileIgnore: ReturnType<
@@ -616,7 +615,7 @@ function buildReadErrorDisplay(
 
 function appendReadManyFilesContent(
   llmContent: unknown,
-  processedQueryParts: Array<ContractPart | string>,
+  processedQueryParts: Array<{ text: string } | string>,
   absoluteToRelativePathMap: Map<string, string>,
   config: AtCommandHelperRuntime,
   onDebugMessage: (message: string) => void,
@@ -639,12 +638,12 @@ function appendReadManyFilesContent(
 
 function processReadManyFilesPart(
   part: unknown,
-  processedQueryParts: Array<ContractPart | string>,
+  processedQueryParts: Array<{ text: string } | string>,
   absoluteToRelativePathMap: Map<string, string>,
   config: AtCommandHelperRuntime,
 ): void {
   if (typeof part !== 'string') {
-    processedQueryParts.push(part as ContractPart | string);
+    processedQueryParts.push(part as { text: string } | string);
     return;
   }
   const parsed = parseFileContentPart(part, absoluteToRelativePathMap, config);

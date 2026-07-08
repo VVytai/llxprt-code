@@ -5,9 +5,9 @@
  */
 
 import type {
-  ContractSendMessageParameters as SendMessageParameters,
-  ContractGenerateContentConfig,
-} from '@vybestack/llxprt-code-core/core/clientContract.js';
+  SendMessageParameters,
+  GenerateContentConfig,
+} from '@google/genai';
 import { retryWithBackoff } from '@vybestack/llxprt-code-core/utils/retry.js';
 import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -166,7 +166,7 @@ export class DirectMessageProcessor {
       source: string,
       extras?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
-    private readonly generationConfig: ContractGenerateContentConfig,
+    private readonly generationConfig: GenerateContentConfig,
 
     private readonly historyService: HistoryService,
     _makePositionMatcher: () =>
@@ -521,7 +521,7 @@ export class DirectMessageProcessor {
 
   private _selectRequestTools(
     params: SendMessageParameters,
-  ): ContractGenerateContentConfig['tools'] {
+  ): GenerateContentConfig['tools'] {
     return params.config?.tools ?? this.generationConfig.tools;
   }
 
@@ -886,9 +886,7 @@ export class DirectMessageProcessor {
   /**
    * Extracts direct Gemini overrides from config.
    */
-  private _extractDirectGeminiOverrides(
-    config?: ContractGenerateContentConfig,
-  ):
+  private _extractDirectGeminiOverrides(config?: GenerateContentConfig):
     | {
         serverTools?: unknown;
         toolConfig?: unknown;

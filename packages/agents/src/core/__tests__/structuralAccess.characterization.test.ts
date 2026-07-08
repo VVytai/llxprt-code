@@ -403,8 +403,11 @@ describe('REQ-005.2: clientLlmUtilities next_speaker detection', () => {
       next_speaker: 'user',
     });
 
-    const contents: Content[] = [
-      { role: 'user', parts: [{ text: 'determine next_speaker' }] },
+    const contents: IContent[] = [
+      {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'determine next_speaker' }],
+      } as IContent,
     ];
 
     const result = await generateJson(
@@ -429,8 +432,11 @@ describe('REQ-005.2: clientLlmUtilities next_speaker detection', () => {
     const config = makeConfig();
     const baseLlmClient = makeBaseLlmClient('model');
 
-    const contents: Content[] = [
-      { role: 'user', parts: [{ text: 'what is the next_speaker?' }] },
+    const contents: IContent[] = [
+      {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'what is the next_speaker?' }],
+      } as IContent,
     ];
 
     const result = await generateJson(
@@ -457,8 +463,11 @@ describe('REQ-005.2: clientLlmUtilities next_speaker detection', () => {
     // because there's no "next_speaker" keyword in the prompt text.
     const baseLlmClient = makeBaseLlmClient('user');
 
-    const contents: Content[] = [
-      { role: 'user', parts: [{ text: 'just a normal question' }] },
+    const contents: IContent[] = [
+      {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'just a normal question' }],
+      } as IContent,
     ];
 
     const result = await generateJson(
@@ -481,8 +490,11 @@ describe('REQ-005.2: clientLlmUtilities next_speaker detection', () => {
     const config = makeConfig();
     const baseLlmClient = makeBaseLlmClient({ key: 'value' });
 
-    const contents: Content[] = [
-      { role: 'user', parts: [{ text: 'generate some next_speaker JSON' }] },
+    const contents: IContent[] = [
+      {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'generate some next_speaker JSON' }],
+      } as IContent,
     ];
 
     const result = await generateJson(
@@ -516,8 +528,11 @@ describe('REQ-005.2: next_speaker fallback detection (property)', () => {
         const config = makeConfig();
         const baseLlmClient = makeBaseLlmClient(speaker);
 
-        const contents: Content[] = [
-          { role: 'user', parts: [{ text: 'check next_speaker now' }] },
+        const contents: IContent[] = [
+          {
+            speaker: 'human',
+            blocks: [{ type: 'text', text: 'check next_speaker now' }],
+          } as IContent,
         ];
 
         const result = await generateJson(

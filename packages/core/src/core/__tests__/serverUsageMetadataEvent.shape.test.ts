@@ -20,7 +20,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { expectTypeOf } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, type Stats } from 'node:fs';
 import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ServerFinishedEvent, ServerUsageMetadataEvent } from '../turn.js';
@@ -44,6 +44,7 @@ describe('P19: ServerFinishedEvent shape @plan:PLAN-20260707-AGENTNEUTRAL.P19 @r
     expectTypeOf<FinishedValueUsageMetadata>().toEqualTypeOf<
       UsageStats | undefined
     >();
+    expect.hasAssertions();
   });
 
   it('ServerFinishedEvent.value.usageMetadata is NOT a Gemini-named shape', () => {
@@ -58,6 +59,7 @@ describe('P19: ServerFinishedEvent shape @plan:PLAN-20260707-AGENTNEUTRAL.P19 @r
       },
     };
     expectTypeOf(sample.usageMetadata).toEqualTypeOf<UsageStats | undefined>();
+    expect.hasAssertions();
   });
 
   // ── (a) No production file emits ServerUsageMetadataEvent ──────────────
@@ -70,7 +72,7 @@ describe('P19: ServerFinishedEvent shape @plan:PLAN-20260707-AGENTNEUTRAL.P19 @r
     // Only test files and type definition files may reference
     // AgentEventType.UsageMetadata as a runtime constructor. The type
     // definition in turn.ts is a type (not runtime), so it is exempt.
-    expect(offenders).toEqual([]);
+    expect(offenders).toStrictEqual([]);
   });
 
   it('ServerUsageMetadataEvent.value uses Gemini-named keys (public wire boundary)', () => {
@@ -104,43 +106,57 @@ function scanForUsageMetadataEmission(dir: string, offenders: string[]): void {
     return;
   }
   for (const entry of entries) {
-    const fullPath = join(dir, entry);
-    let stat;
-    try {
-      stat = statSync(fullPath);
-    } catch {
-      continue;
-    }
-    if (stat.isDirectory()) {
-      // Skip node_modules, dist, __tests__, and .git
-      if (
-        entry === 'node_modules' ||
-        entry === 'dist' ||
-        entry === '.git' ||
-        entry === '__tests__'
-      ) {
-        continue;
-      }
-      scanForUsageMetadataEmission(fullPath, offenders);
-    } else if (stat.isFile() && extname(entry) === '.ts') {
-      // Skip test files, type declaration files, and the turn.ts type def
-      if (
-        entry.endsWith('.test.ts') ||
-        entry.endsWith('.test-d.ts') ||
-        entry.endsWith('.d.ts') ||
-        entry === 'turn.ts'
-      ) {
-        continue;
-      }
-      let content: string;
-      try {
-        content = readFileSync(fullPath, 'utf-8');
-      } catch {
-        continue;
-      }
-      if (USAGE_METADATA_EMIT_PATTERN.test(content)) {
-        offenders.push(fullPath);
-      }
+    processEntry(dir, entry, offenders);
+  }
+}
+
+function processEntry(dir: string, entry: string, offenders: string[]): void {
+  const fullPath = join(dir, entry);
+  const stat = safeStat(fullPath);
+  if (!stat) return;
+  if (stat.isDirectory()) {
+    if (!isSkipDir(entry)) scanForUsageMetadataEmission(fullPath, offenders);
+    return;
+  }
+  if (stat.isFile() && extname(entry) === '.ts') {
+    if (isSkipFile(entry)) return;
+    const content = safeRead(fullPath);
+    if (content && USAGE_METADATA_EMIT_PATTERN.test(content)) {
+      offenders.push(fullPath);
     }
   }
+}
+
+function safeStat(p: string): Stats | undefined {
+  try {
+    return statSync(p);
+  } catch {
+    return undefined;
+  }
+}
+
+function safeRead(p: string): string | undefined {
+  try {
+    return readFileSync(p, 'utf-8');
+  } catch {
+    return undefined;
+  }
+}
+
+function isSkipDir(entry: string): boolean {
+  return (
+    entry === 'node_modules' ||
+    entry === 'dist' ||
+    entry === '.git' ||
+    entry === '__tests__'
+  );
+}
+
+function isSkipFile(entry: string): boolean {
+  return (
+    entry.endsWith('.test.ts') ||
+    entry.endsWith('.test-d.ts') ||
+    entry.endsWith('.d.ts') ||
+    entry === 'turn.ts'
+  );
 }

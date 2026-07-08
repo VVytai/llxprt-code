@@ -7,9 +7,9 @@
 import { type ToolResult } from '@vybestack/llxprt-code-tools';
 import type {
   AgentClientContract,
-  ContractContent,
-  ContractGenerateContentConfig,
+  AgentClientGenerateConfig,
 } from '../core/clientContract.js';
+import type { IContent } from '../services/history/IContent.js';
 import { DEFAULT_GEMINI_FLASH_LITE_MODEL } from '../config/models.js';
 import { partToString } from './partUtils.js';
 import { getResponseTextFromBlocks } from './generateContentResponseUtilities.js';
@@ -78,10 +78,10 @@ export async function summarizeToolOutput(
     String(maxOutputTokens),
   ).replace('{textToSummarize}', textToSummarize);
 
-  const contents: ContractContent[] = [
-    { role: 'user', parts: [{ text: prompt }] },
+  const contents: IContent[] = [
+    { speaker: 'human', blocks: [{ type: 'text', text: prompt }] },
   ];
-  const toolOutputSummarizerConfig: ContractGenerateContentConfig = {
+  const toolOutputSummarizerConfig: AgentClientGenerateConfig = {
     maxOutputTokens,
   };
   try {

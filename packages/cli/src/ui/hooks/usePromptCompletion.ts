@@ -13,8 +13,8 @@ import {
   getResponseTextFromBlocks,
 } from '@vybestack/llxprt-code-core';
 import type {
-  ContractContent,
-  ContractGenerateContentConfig,
+  IContent,
+  AgentClientGenerateConfig,
   ModelOutput,
 } from '@vybestack/llxprt-code-core';
 import type { TextBuffer } from '../components/shared/text-buffer.js';
@@ -80,17 +80,18 @@ function shouldSkipPromptCompletion(
 }
 
 function buildPromptCompletionRequest(trimmedText: string): {
-  contents: ContractContent[];
-  generationConfig: ContractGenerateContentConfig & {
+  contents: IContent[];
+  generationConfig: AgentClientGenerateConfig & {
     thinkingConfig?: { thinkingBudget?: number };
   };
 } {
   return {
     contents: [
       {
-        role: 'user',
-        parts: [
+        speaker: 'human',
+        blocks: [
           {
+            type: 'text',
             text: `You are a professional prompt engineering assistant. Complete the user's partial prompt with expert precision and clarity. User's input: "${trimmedText}" Continue this prompt by adding specific, actionable details that align with the user's intent. Focus on: clear, precise language; structured requirements; professional terminology; measurable outcomes. Length Guidelines: Keep suggestions concise (ideally 10-20 characters); prioritize brevity while maintaining clarity; use essential keywords only; avoid redundant phrases. Start your response with the exact user text ("${trimmedText}") followed by your completion. Provide practical, implementation-focused suggestions rather than creative interpretations. Format: Plain text only. Single completion. Match the user's language. Emphasize conciseness over elaboration.`,
           },
         ],

@@ -17,6 +17,7 @@ import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentG
 import type { ChatSession } from './chatSession.js';
 import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   getEnabledToolNamesForPrompt,
   shouldIncludeSubagentDelegationForConfig,
@@ -212,18 +213,24 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['chat'] = mockChat as unknown as ChatSession;
 
-      const historyWithThoughts: Content[] = [
+      const historyWithThoughts: IContent[] = [
         {
-          role: 'user',
-          parts: [{ text: 'hello' }],
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'hello' }],
         },
         {
-          role: 'model',
-          parts: [
-            { text: 'thinking...', thoughtSignature: 'thought-123' },
+          speaker: 'ai',
+          blocks: [
             {
-              functionCall: { name: 'test', args: {} },
-              thoughtSignature: 'thought-456',
+              type: 'thinking',
+              thought: 'thinking...',
+              signature: 'thought-123',
+            },
+            {
+              type: 'tool_call',
+              id: '',
+              name: 'test',
+              parameters: {},
             },
           ],
         },
@@ -231,16 +238,16 @@ describe('Gemini Client (client.ts)', () => {
 
       await client.setHistory(historyWithThoughts, { stripThoughts: true });
 
-      const expectedHistory: Content[] = [
+      const expectedHistory: IContent[] = [
         {
-          role: 'user',
-          parts: [{ text: 'hello' }],
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'hello' }],
         },
         {
-          role: 'model',
-          parts: [
-            { text: 'thinking...' },
-            { functionCall: { name: 'test', args: {} } },
+          speaker: 'ai',
+          blocks: [
+            { type: 'thinking', thought: 'thinking...' },
+            { type: 'tool_call', id: '', name: 'test', parameters: {} },
           ],
         },
       ];
@@ -298,6 +305,8 @@ describe('Gemini Client (client.ts)', () => {
         { role: 'user', parts: [{ text: 'remember issue 2049' }] },
         { role: 'model', parts: [{ text: 'we are preserving history' }] },
       ];
+      const expectedIContent: IContent[] =
+        ContentConverters.toIContents(history);
       const historyService = new HistoryService();
       for (const content of history) {
         historyService.add(ContentConverters.toIContent(content), 'test-model');
@@ -307,7 +316,14 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = undefined;
       client.getHistory = AgentClient.prototype.getHistory.bind(client);
 
-      await expect(client.getHistory()).resolves.toStrictEqual(history);
+      const result = await client.getHistory();
+      // Compare block-level content, ignoring metadata (turnId etc.) added by
+      // the HistoryService that are not part of the test's input data.
+      expect(result).toHaveLength(expectedIContent.length);
+      for (let i = 0; i < expectedIContent.length; i++) {
+        expect(result[i].speaker).toBe(expectedIContent[i].speaker);
+        expect(result[i].blocks).toStrictEqual(expectedIContent[i].blocks);
+      }
     });
 
     it('should update chat immediately when chat is initialized', async () => {

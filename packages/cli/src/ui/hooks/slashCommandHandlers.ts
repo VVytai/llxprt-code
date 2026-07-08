@@ -9,7 +9,6 @@ import type {
   RecordingIntegration,
   ToolCallConfirmationDetails,
   DebugLogger,
-  ContractPartListUnion,
 } from '@vybestack/llxprt-code-core';
 import { MCPDiscoveryState } from '@vybestack/llxprt-code-mcp';
 import {
@@ -17,6 +16,7 @@ import {
   logSlashCommand,
   SlashCommandEvent,
   ToolConfirmationOutcome,
+  type AgentRequestInput,
 } from '@vybestack/llxprt-code-core';
 import { join } from 'node:path';
 import { parseSlashCommand } from '../../utils/commands.js';
@@ -76,7 +76,7 @@ interface ParsedCommandState {
 
 export async function processSlashCommand(
   deps: SlashCommandHandlerDeps,
-  rawQuery: ContractPartListUnion,
+  rawQuery: AgentRequestInput,
   oneTimeShellAllowlist?: Set<string>,
   overwriteConfirmed?: boolean,
   addToHistory: boolean = true,
@@ -223,7 +223,7 @@ async function handleActionResult(
     case 'submit_prompt':
       return {
         type: 'submit_prompt',
-        content: stringifyPrompt(result.content as ContractPartListUnion),
+        content: stringifyPrompt(result.content as AgentRequestInput),
       };
     case 'confirm_shell_commands':
       return confirmShellCommands(deps, result);
@@ -379,7 +379,7 @@ function handleLoadHistoryResult(
   return { type: 'handled' };
 }
 
-function stringifyPrompt(content: ContractPartListUnion): string {
+function stringifyPrompt(content: AgentRequestInput): string {
   if (typeof content === 'string') {
     return content;
   }

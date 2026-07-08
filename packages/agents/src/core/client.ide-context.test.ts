@@ -16,6 +16,8 @@ import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentG
 import type { ChatSession } from './chatSession.js';
 import { ideContext } from '@vybestack/llxprt-code-ide-integration';
 import { setupGeminiClient } from './client-test-helpers.js';
+import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 
 // Mock prompts module before imports
 vi.mock('@vybestack/llxprt-code-core/core/prompts.js', () => ({
@@ -240,11 +242,12 @@ describe('Gemini Client (client.ts)', () => {
             parts: [{ functionCall: { name: 'some_tool', args: {} } }],
           },
         ];
-        vi.mocked(mockChat.getHistory!).mockReturnValue(historyWithPendingCall);
-        // Also spy on the client's getHistory to ensure it returns the right value
-        vi.spyOn(client, 'getHistory').mockResolvedValue(
+        const historyIContent: IContent[] = ContentConverters.toIContents(
           historyWithPendingCall,
         );
+        vi.mocked(mockChat.getHistory!).mockReturnValue(historyIContent);
+        // Also spy on the client's getHistory to ensure it returns the right value
+        vi.spyOn(client, 'getHistory').mockResolvedValue(historyIContent);
 
         // Act: Simulate sending the tool's response back
         const stream = client.sendMessageStream(
@@ -277,7 +280,10 @@ describe('Gemini Client (client.ts)', () => {
           { role: 'user', parts: [{ text: 'A normal message.' }] },
           { role: 'model', parts: [{ text: 'A normal response.' }] },
         ];
-        vi.mocked(mockChat.getHistory!).mockReturnValue(normalHistory);
+        const normalHistoryIContent: IContent[] =
+          ContentConverters.toIContents(normalHistory);
+        vi.mocked(mockChat.getHistory!).mockReturnValue(normalHistoryIContent);
+        vi.spyOn(client, 'getHistory').mockResolvedValue(normalHistoryIContent);
 
         // Act
         const stream = client.sendMessageStream(
@@ -308,9 +314,13 @@ describe('Gemini Client (client.ts)', () => {
             parts: [{ functionCall: { name: 'some_tool', args: {} } }],
           },
         ];
-        vi.mocked(mockChat.getHistory!).mockReturnValue(historyWithPendingCall);
+        const historyWithPendingCallIContent: IContent[] =
+          ContentConverters.toIContents(historyWithPendingCall);
+        vi.mocked(mockChat.getHistory!).mockReturnValue(
+          historyWithPendingCallIContent,
+        );
         vi.spyOn(client, 'getHistory').mockResolvedValue(
-          historyWithPendingCall,
+          historyWithPendingCallIContent,
         );
 
         // Arrange: Set the initial IDE context
@@ -363,12 +373,14 @@ describe('Gemini Client (client.ts)', () => {
           },
           { role: 'model', parts: [{ text: 'The tool ran successfully.' }] },
         ];
+        const historyAfterToolResponseIContent: IContent[] =
+          ContentConverters.toIContents(historyAfterToolResponse);
         vi.mocked(mockChat.getHistory!).mockReturnValue(
-          historyAfterToolResponse,
+          historyAfterToolResponseIContent,
         );
         // Also update the client's getHistory spy
         vi.mocked(client.getHistory).mockResolvedValue(
-          historyAfterToolResponse,
+          historyAfterToolResponseIContent,
         );
         vi.mocked(mockChat.addHistory!).mockClear(); // Clear previous calls for the next assertion
 
@@ -449,9 +461,13 @@ describe('Gemini Client (client.ts)', () => {
             parts: [{ functionCall: { name: 'some_tool', args: {} } }],
           },
         ];
-        vi.mocked(mockChat.getHistory!).mockReturnValue(historyWithPendingCall);
+        const historyWithPendingCallIContent: IContent[] =
+          ContentConverters.toIContents(historyWithPendingCall);
+        vi.mocked(mockChat.getHistory!).mockReturnValue(
+          historyWithPendingCallIContent,
+        );
         vi.spyOn(client, 'getHistory').mockResolvedValue(
-          historyWithPendingCall,
+          historyWithPendingCallIContent,
         );
 
         // Arrange: IDE context changes, but this should be skipped
@@ -504,12 +520,14 @@ describe('Gemini Client (client.ts)', () => {
           },
           { role: 'model', parts: [{ text: 'The tool ran successfully.' }] },
         ];
+        const historyAfterToolResponseIContent: IContent[] =
+          ContentConverters.toIContents(historyAfterToolResponse);
         vi.mocked(mockChat.getHistory!).mockReturnValue(
-          historyAfterToolResponse,
+          historyAfterToolResponseIContent,
         );
         // Also update the client's getHistory spy
         vi.mocked(client.getHistory).mockResolvedValue(
-          historyAfterToolResponse,
+          historyAfterToolResponseIContent,
         );
 
         // Arrange: The IDE context has changed again

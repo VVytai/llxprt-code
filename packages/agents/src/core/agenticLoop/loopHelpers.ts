@@ -17,6 +17,8 @@ import type { Part } from '@google/genai';
 import { DEFAULT_AGENT_ID } from '@vybestack/llxprt-code-core/core/turn.js';
 import type { CompletedToolCall } from '@vybestack/llxprt-code-core/scheduler/types.js';
 import type { AgentClientContract } from '@vybestack/llxprt-code-core/core/clientContract.js';
+import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { ToolCallBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { convertBlocksToParts } from '../MessageConverter.js';
 
 function isFunctionCallPart(part: Part): boolean {
@@ -89,10 +91,10 @@ export function buildToolResponses(geminiTools: CompletedToolCall[]): Part[] {
 }
 
 /**
- * Records cancelled tool history via `agentClient.addHistory`, splitting parts
- * by role so functionCalls land under 'model' and functionResponses under
- * 'user'. Used when a turn is cancelled so the model sees a well-formed
- * functionResponse for every functionCall it emitted.
+ * Records cancelled tool history via `agentClient.addHistory`, splitting blocks
+ * by type so tool calls land under speaker 'ai' and tool responses under
+ * speaker 'tool'. Used when a turn is cancelled so the model sees a
+ * well-formed tool response for every tool call it emitted.
  *
  * Awaits both writes so callers that exit the loop immediately afterwards can
  * guarantee the cancelled-tool history is persisted before the turn ends.
@@ -101,19 +103,16 @@ export async function recordCancelledToolHistory(
   tools: CompletedToolCall[],
   agentClient: AgentClientContract,
 ): Promise<void> {
-  const allParts = tools.flatMap((tc) =>
-    convertBlocksToParts(tc.response.responseParts),
+  const allBlocks = tools.flatMap((tc) => tc.response.responseParts);
+  const toolCallBlocks = allBlocks.filter(
+    (b): b is ToolCallBlock => b.type === 'tool_call',
   );
-  const { functionCalls, functionResponses, otherParts } =
-    splitPartsByRole(allParts);
+  const nonToolCallBlocks = allBlocks.filter((b) => b.type !== 'tool_call');
 
-  if (functionCalls.length > 0) {
-    await agentClient.addHistory({ role: 'model', parts: functionCalls });
+  if (toolCallBlocks.length > 0) {
+    await agentClient.addHistory(iContentFromBlocks(toolCallBlocks, 'ai'));
   }
-  if (functionResponses.length > 0 || otherParts.length > 0) {
-    await agentClient.addHistory({
-      role: 'user',
-      parts: [...functionResponses, ...otherParts],
-    });
+  if (nonToolCallBlocks.length > 0) {
+    await agentClient.addHistory(iContentFromBlocks(nonToolCallBlocks, 'tool'));
   }
 }

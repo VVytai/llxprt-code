@@ -42,9 +42,14 @@ import type {
 } from '@vybestack/llxprt-code-core/core/clientContract.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { Content, Part, PartListUnion } from '@google/genai';
+import type {
+  ContentBlock,
+  IContent,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { ToolRegistry } from '@vybestack/llxprt-code-tools';
 import type { CompletedToolCall } from '@vybestack/llxprt-code-core/scheduler/types.js';
 import { emptyModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { convertPartListUnionToIContent } from '../../MessageConverter.js';
 /**
  * A single model turn script: a list of ServerAgentStreamEvents the fake
  * provider emits for that turn.
@@ -65,7 +70,7 @@ export function partListUnionToParts(req: PartListUnion): Part[] {
 /** Shared mutable state for a scripted agent client. */
 interface ScriptedClientState {
   scriptQueue: TurnScript[];
-  history: Content[];
+  history: IContent[];
   turnMessages: PartListUnion[];
   promptIds: string[];
   recordedToolCalls: CompletedToolCall[][];
@@ -82,7 +87,7 @@ function buildScriptedChat(state: ScriptedClientState): AgentChatContract {
     },
     generateDirectMessage: async () => emptyModelOutput(),
     getHistory: () => history,
-    setHistory: (nextHistory: Content[]) => {
+    setHistory: (nextHistory: IContent[]) => {
       history.splice(0, history.length, ...nextHistory);
     },
     clearHistory: () => {
@@ -111,12 +116,12 @@ function buildScriptedClient(state: ScriptedClientState): AgentClientContract {
     },
     getHistoryService: () => null,
     storeHistoryServiceForReuse: () => {},
-    storeHistoryForLaterUse: (h: Content[]) => history.push(...h),
+    storeHistoryForLaterUse: (h: IContent[]) => history.push(...h),
     dispose: () => {},
     setTools: async () => {},
     clearTools: () => {},
     updateSystemInstruction: async () => {},
-    addHistory: async (content: Content) => {
+    addHistory: async (content: IContent) => {
       history.push(content);
     },
     resetChat: async () => {},
@@ -145,7 +150,7 @@ function buildScriptedClient(state: ScriptedClientState): AgentClientContract {
     ): AsyncGenerator<ServerAgentStreamEvent> {
       turnMessages.push(req);
       promptIds.push(promptId);
-      history.push({ role: 'user', parts: partListUnionToParts(req) });
+      history.push(convertPartListUnionToIContent(req));
       const script = scriptQueue.shift();
       if (!script) {
         return;
@@ -171,7 +176,7 @@ function buildScriptedClient(state: ScriptedClientState): AgentClientContract {
  */
 export function createScriptedAgentClient(scripts: TurnScript[]): {
   client: AgentClientContract;
-  history: Content[];
+  history: IContent[];
   turnMessages: PartListUnion[];
   promptIds: string[];
   recordedToolCalls: CompletedToolCall[][];
@@ -388,20 +393,20 @@ export function isAwaitingApproval(
   return e.kind === 'awaiting_approval';
 }
 
-/** Extracts the functionResponse parts from a Content[] history. */
-export function functionResponseParts(history: Content[]): Part[] {
+/** Extracts the tool-response blocks from an IContent[] history. */
+export function functionResponseParts(history: IContent[]): ContentBlock[] {
   return history
-    .filter((h) => h.role === 'user')
-    .flatMap((h) => h.parts)
-    .filter(
-      (p): p is Part & { functionResponse: unknown } =>
-        !!p && 'functionResponse' in p,
-    );
+    .filter((h) => h.speaker === 'tool')
+    .flatMap((h) => h.blocks)
+    .filter((b) => b.type === 'tool_response');
 }
 
-/** True when any part in history is a functionResponse. */
-export function hasFunctionResponse(history: Content[]): boolean {
-  return functionResponseParts(history).length > 0;
+/** True when any block in history is a tool response. */
+export function hasFunctionResponse(history: IContent[]): boolean {
+  return history.some(
+    (h) =>
+      h.speaker === 'tool' && h.blocks.some((b) => b.type === 'tool_response'),
+  );
 }
 
 // Re-export types used by test files for convenience.

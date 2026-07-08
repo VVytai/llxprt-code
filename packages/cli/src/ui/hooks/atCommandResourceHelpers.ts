@@ -8,7 +8,6 @@ import {
   DEFAULT_AGENT_ID,
   debugLogger,
   getErrorMessage,
-  type ContractPart,
   type DiscoveredMCPResource,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -31,7 +30,7 @@ export type McpClientManagerForResources =
 
 export interface ResourceReadParams {
   resourceAttachments: DiscoveredMCPResource[];
-  processedQueryParts: Array<ContractPart | string>;
+  processedQueryParts: Array<{ text: string } | string>;
   addItem: UseHistoryManagerReturn['addItem'];
   userMessageTimestamp: number;
   mcpClientManager: McpClientManagerForResources;
@@ -88,7 +87,7 @@ async function readSingleResource(
   resource: DiscoveredMCPResource,
   uri: string,
   mcpClientManager: McpClientManagerForResources,
-  processedQueryParts: Array<ContractPart | string>,
+  processedQueryParts: Array<{ text: string } | string>,
   index: number,
 ): Promise<IndividualToolCallDisplay> {
   const client = getResourceClient(mcpClientManager, resource.serverName);
@@ -255,8 +254,8 @@ export function addToolGroup(
 
 function convertResourceContentsToParts(
   response: ResourceResponse,
-): Array<ContractPart | string> {
-  const parts: Array<ContractPart | string> = [];
+): Array<{ text: string } | string> {
+  const parts: Array<{ text: string } | string> = [];
   for (const content of response.contents ?? []) {
     const candidate = content.resource ?? content;
     if (candidate.text) {

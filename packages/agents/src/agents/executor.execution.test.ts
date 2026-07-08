@@ -142,7 +142,9 @@ describe('AgentExecutor run (Execution Loop and Logic)', () => {
     const completeToolDef = sentTools.find(
       (t: { name: string }) => t.name === TASK_COMPLETE_TOOL_NAME,
     );
-    expect(completeToolDef?.parameters?.required).toContain('finalResult');
+    expect(completeToolDef?.parametersJsonSchema?.required).toContain(
+      'finalResult',
+    );
 
     expect(output.result).toBe('Found file1.txt');
     expect(output.terminate_reason).toBe(AgentTerminateMode.GOAL);
@@ -221,7 +223,7 @@ describe('AgentExecutor run (Execution Loop and Logic)', () => {
     const completeToolDef = sentTools.find(
       (t: { name: string }) => t.name === TASK_COMPLETE_TOOL_NAME,
     );
-    expect(completeToolDef?.parameters?.required).toStrictEqual([]);
+    expect(completeToolDef?.parametersJsonSchema?.required).toStrictEqual([]);
     expect(completeToolDef?.description).toContain(
       'signal that you have completed',
     );

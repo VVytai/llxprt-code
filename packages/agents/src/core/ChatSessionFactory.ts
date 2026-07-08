@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Content, GenerateContentConfig, Tool } from '@google/genai';
+import type { GenerateContentConfig, Tool } from '@google/genai';
 import { getEnvironmentContext } from '@vybestack/llxprt-code-core/utils/environmentContext.js';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import {
@@ -17,7 +17,7 @@ import { reportError } from '@vybestack/llxprt-code-core/utils/errorReporting.js
 import { ChatSession } from './chatSession.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { ReadonlySettingsSnapshot } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import { createSettingsProviderRuntimeContext } from '@vybestack/llxprt-code-core/runtime/settingsRuntimeAdapter.js';
 import { loadAgentRuntime } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeLoader.js';
@@ -154,7 +154,7 @@ export interface CreateChatSessionDeps {
   contentGenerator: ContentGenerator;
   storedHistoryService: HistoryService | undefined;
   clearStoredHistoryService: () => void;
-  extraHistory?: Content[];
+  extraHistory?: IContent[];
   generateContentConfig: GenerateContentConfig;
   todoContinuationService: TodoContinuationService;
   toolRegistry: ToolRegistry | undefined;
@@ -165,7 +165,7 @@ export interface CreateChatSessionDeps {
  */
 function setupHistoryService(
   storedHistoryService: HistoryService | undefined,
-  extraHistory: Content[] | undefined,
+  extraHistory: IContent[] | undefined,
   runtimeState: AgentRuntimeState,
 ): { historyService: HistoryService; reused: boolean } {
   const logger = new DebugLogger('llxprt:client:start');
@@ -180,7 +180,7 @@ function setupHistoryService(
     for (const content of extraHistory) {
       const turnKey = historyService.generateTurnKey();
       historyService.add(
-        ContentConverters.toIContent(content, undefined, undefined, turnKey),
+        { ...content, metadata: { ...content.metadata, turnId: turnKey } },
         currentModel,
       );
     }

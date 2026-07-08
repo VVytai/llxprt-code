@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { type PartListUnion, type Part, type Content } from '@google/genai';
+import { type PartListUnion, type Part } from '@google/genai';
 import {
   Turn,
   type ServerAgentStreamEvent,
@@ -14,6 +14,8 @@ import {
   type ModelInfo,
 } from './turn.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ChatSession } from './chatSession.js';
 import type { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { LoopDetectionService } from '@vybestack/llxprt-code-core/services/loopDetectionService.js';
@@ -21,7 +23,6 @@ import type { TodoContinuationService } from './TodoContinuationService.js';
 import type { IdeContextTracker } from './IdeContextTracker.js';
 import type { AgentHookManager } from './AgentHookManager.js';
 import type { AfterAgentHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import {
   estimateRequestTokensStructured,
   extractPromptText,
@@ -41,12 +42,12 @@ export interface MessageStreamDeps {
   ideContextTracker: IdeContextTracker;
   agentHookManager: AgentHookManager;
   getEffectiveModel: () => string;
-  getHistory: () => Promise<Content[]>;
+  getHistory: () => Promise<IContent[]>;
   getSessionTurnCount: () => number;
   incrementSessionTurnCount: () => void;
   lazyInitialize: () => Promise<void>;
-  startChat: (extraHistory?: Content[]) => Promise<ChatSession>;
-  getPreviousHistory: () => Content[] | undefined;
+  startChat: (extraHistory?: IContent[]) => Promise<ChatSession>;
+  getPreviousHistory: () => IContent[] | undefined;
   setChat: (chat: ChatSession) => void;
   hasChat: () => boolean;
   complexityAnalyzer: ComplexityAnalyzer;
@@ -334,9 +335,7 @@ export class MessageStreamOrchestrator {
     const history = await getHistory();
     const lastMessage =
       history.length > 0 ? history[history.length - 1] : undefined;
-    const lastIContent = lastMessage
-      ? ContentConverters.toIContent(lastMessage)
-      : undefined;
+    const lastIContent = lastMessage;
     const hasPendingToolCall =
       !!lastIContent &&
       lastIContent.speaker === 'ai' &&
@@ -347,10 +346,12 @@ export class MessageStreamOrchestrator {
         history.length === 0,
       );
       if (contextParts.length > 0) {
-        getChat().addHistory({
-          role: 'user',
-          parts: [{ text: contextParts.join('\n') }],
-        });
+        getChat().addHistory(
+          iContentFromBlocks(
+            [{ type: 'text', text: contextParts.join('\n') }],
+            'human',
+          ),
+        );
       }
       ideContextTracker.recordSentContext(newIdeContext);
     }
@@ -813,57 +814,38 @@ export class MessageStreamOrchestrator {
   }
 
   private _getProviderName(): string {
-    const contentGenConfig = this.deps.config.getContentGeneratorConfig();
-    const providerManager = contentGenConfig?.providerManager;
-    const activeName = providerManager?.getActiveProviderName();
+    const activeName = this.deps.config
+      .getContentGeneratorConfig()
+      ?.providerManager?.getActiveProviderName();
     return activeName && activeName.length > 0 ? activeName : 'backend';
   }
 
-  /**
-   * Resolves the effective model for ModelInfo, preferring the provider
-   * manager's active provider model where available. Falls back to the active
-   * provider's default model before the config-level model so providers that
-   * own a meaningful default (e.g. load-balancer pools) are not masked by a
-   * generic config default.
-   */
   private _resolveModelForInfo(): string {
-    const contentGenConfig = this.deps.config.getContentGeneratorConfig();
-    const providerManager = contentGenConfig?.providerManager;
-    const activeProvider = providerManager?.getActiveProvider();
-
+    const activeProvider = this.deps.config
+      .getContentGeneratorConfig()
+      ?.providerManager?.getActiveProvider();
     if (activeProvider !== undefined) {
-      const activeModel: unknown = activeProvider.getCurrentModel?.();
-      if (typeof activeModel === 'string' && activeModel.trim() !== '') {
+      const activeModel = activeProvider.getCurrentModel?.();
+      if (typeof activeModel === 'string' && activeModel.trim() !== '')
         return activeModel;
-      }
-
-      // getDefaultModel is optional on the core RuntimeProvider contract; the
-      // optional-call operator short-circuits when it is absent. Some wider
-      // structural provider shapes type the return as `string | null |
-      // undefined`, so verify it is a non-empty string before trimming rather
-      // than assuming a bare `string`.
-      const defaultModel: unknown = activeProvider.getDefaultModel?.();
-      if (typeof defaultModel === 'string' && defaultModel.trim() !== '') {
+      const defaultModel = activeProvider.getDefaultModel?.();
+      if (typeof defaultModel === 'string' && defaultModel.trim() !== '')
         return defaultModel;
-      }
     }
-
     return this.deps.getEffectiveModel();
   }
 
   private _buildModelInfo(): ModelInfo {
     const model = this._resolveModelForInfo();
-    const providerName = this._getProviderName();
     const profileName = this._getProfileName();
-    const displayLabel =
-      profileName && profileName !== '' ? profileName : model;
-    return { model, providerName, profileName, displayLabel };
+    return {
+      model,
+      providerName: this._getProviderName(),
+      profileName,
+      displayLabel: profileName && profileName !== '' ? profileName : model,
+    };
   }
 
-  /**
-   * Computes a collision-safe composite identity key from provider, profile,
-   * and model. Uses JSON.stringify to guarantee unambiguous delimiting.
-   */
   private _modelIdentityKey(info: ModelInfo): string {
     return JSON.stringify([
       info.providerName ?? '',
@@ -899,7 +881,7 @@ export class MessageStreamOrchestrator {
 
   private _getProfileName(): string | null {
     try {
-      const settingsService = (
+      const svc = (
         this.deps.config as unknown as {
           getSettingsService?: () => {
             getCurrentProfileName?: () => string | null;
@@ -907,15 +889,13 @@ export class MessageStreamOrchestrator {
           };
         }
       ).getSettingsService?.();
-      if (settingsService?.getCurrentProfileName) {
-        return settingsService.getCurrentProfileName();
-      }
-      if (settingsService?.get) {
-        const profile = settingsService.get('currentProfile');
-        return typeof profile === 'string' ? profile : null;
+      if (svc?.getCurrentProfileName) return svc.getCurrentProfileName();
+      if (svc?.get) {
+        const p = svc.get('currentProfile');
+        return typeof p === 'string' ? p : null;
       }
     } catch {
-      // Settings service unavailable — no profile info
+      /* Settings service unavailable */
     }
     return null;
   }

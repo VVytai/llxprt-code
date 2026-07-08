@@ -39,6 +39,7 @@ import { createHash } from 'node:crypto';
 import type {
   Agent,
   AgentMessage,
+  AgentHistoryItem,
   SessionCheckpoint,
 } from '@vybestack/llxprt-code-agents';
 import { buildAgent } from './helpers/agentHarness.js';
@@ -48,9 +49,23 @@ function textMessage(role: 'user' | 'model', text: string): AgentMessage {
   return { role, parts: [{ text }] };
 }
 
-/** Extracts the concatenated text of a message's parts. */
-function messageText(msg: AgentMessage): string {
-  return msg.parts.map((p) => ('text' in p ? p.text : '')).join('');
+/**
+ * Extracts the concatenated text of a message's blocks (neutral IContent).
+ * Post-P21, getHistory() returns IContent at runtime (typed as AgentMessage).
+ * Reads .blocks (neutral) and falls back to .parts (legacy Content) so the
+ * helper works regardless of which shape the runtime carries.
+ */
+function messageText(msg: AgentMessage | AgentHistoryItem): string {
+  const blocks = (msg as unknown as AgentHistoryItem).blocks;
+  if (Array.isArray(blocks)) {
+    return blocks.map((b) => (b.type === 'text' ? b.text : '')).join('');
+  }
+  // Legacy Content shape fallback
+  const parts = (msg as AgentMessage).parts;
+  if (Array.isArray(parts)) {
+    return parts.map((p) => ('text' in p ? p.text : '')).join('');
+  }
+  return '';
 }
 
 /**

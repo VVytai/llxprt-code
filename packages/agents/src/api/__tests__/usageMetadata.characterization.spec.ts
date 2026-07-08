@@ -34,7 +34,7 @@ import {
   terminalIContent,
   makeProviderStream,
 } from '../../core/__tests__/streamPipeline-characterization-helpers.js';
-import type { UsageStats } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { UsageStats } from '@vybestack/llxprt-code-core';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -10,6 +10,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { CommandContext, SlashCommand } from './types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 import type { AgentClientContract as AgentClient } from '@vybestack/llxprt-code-core/core/clientContract.js';
+import type { IContent } from '@vybestack/llxprt-code-core';
 
 import * as fsPromises from 'fs/promises';
 import { chatCommand } from './chatCommand.js';
@@ -174,7 +175,10 @@ describe('chatCommand', () => {
       });
 
       mockGetHistory.mockReturnValue([
-        { role: 'user', parts: [{ text: 'context for our chat' }] },
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'context for our chat' }],
+        },
       ]);
       result = await saveCommand.action?.(mockContext, tag);
       expect(result).toStrictEqual({
@@ -184,9 +188,15 @@ describe('chatCommand', () => {
       });
 
       mockGetHistory.mockReturnValue([
-        { role: 'user', parts: [{ text: 'context for our chat' }] },
-        { role: 'user', parts: [{ text: 'Hello, how are you?' }] },
-        { role: 'model', parts: [{ text: 'I am doing well!' }] },
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'context for our chat' }],
+        },
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'Hello, how are you?' }],
+        },
+        { speaker: 'ai', blocks: [{ type: 'text', text: 'I am doing well!' }] },
       ]);
       result = await saveCommand.action?.(mockContext, tag);
       expect(result).toStrictEqual({
@@ -217,10 +227,13 @@ describe('chatCommand', () => {
     });
 
     it('should save the conversation if overwrite is confirmed', async () => {
-      const history: Content[] = [
-        { role: 'user', parts: [{ text: 'context for our chat' }] },
-        { role: 'user', parts: [{ text: 'hello' }] },
-        { role: 'model', parts: [{ text: 'Hi there!' }] },
+      const history: IContent[] = [
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'context for our chat' }],
+        },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+        { speaker: 'ai', blocks: [{ type: 'text', text: 'Hi there!' }] },
       ];
       mockGetHistory.mockReturnValue(history);
       mockContext.overwriteConfirmed = true;
@@ -228,7 +241,15 @@ describe('chatCommand', () => {
       const result = await saveCommand.action?.(mockContext, tag);
 
       expect(mockCheckpointExists).not.toHaveBeenCalled(); // Should skip existence check
-      expect(mockSaveCheckpoint).toHaveBeenCalledWith(history, tag);
+      // saveCheckpoint receives CheckpointContent[] (role/parts), converted from IContent
+      expect(mockSaveCheckpoint).toHaveBeenCalledWith(
+        [
+          { role: 'user', parts: [{ text: 'context for our chat' }] },
+          { role: 'user', parts: [{ text: 'hello' }] },
+          { role: 'model', parts: [{ text: 'Hi there!' }] },
+        ],
+        tag,
+      );
       expect(result).toStrictEqual({
         type: 'message',
         messageType: 'info',
@@ -251,7 +272,7 @@ describe('chatCommand', () => {
 
     it('should not save when only initial setup exists (1 message)', async () => {
       mockGetHistory.mockReturnValue([
-        { role: 'user', parts: [{ text: 'system setup' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'system setup' }] },
       ]);
       const result = await saveCommand.action?.(mockContext, tag);
       expect(result).toMatchObject({
@@ -263,9 +284,9 @@ describe('chatCommand', () => {
 
     it('should save when conversation beyond initial setup exists (>1 message)', async () => {
       mockGetHistory.mockReturnValue([
-        { role: 'user', parts: [{ text: 'system setup' }] },
-        { role: 'user', parts: [{ text: 'hello' }] },
-        { role: 'model', parts: [{ text: 'hi' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'system setup' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+        { speaker: 'ai', blocks: [{ type: 'text', text: 'hi' }] },
       ]);
       mockContext.services.logger.checkpointExists = vi
         .fn()
@@ -280,7 +301,7 @@ describe('chatCommand', () => {
 
     it('should not clear when only initial setup exists (1 message)', async () => {
       mockGetHistory.mockReturnValue([
-        { role: 'user', parts: [{ text: 'system setup' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'system setup' }] },
       ]);
       const result = await clearCommand.action?.(mockContext, '');
       expect(result).toMatchObject({
@@ -304,9 +325,9 @@ describe('chatCommand', () => {
         updateHistoryTokenCount: mockUpdateHistoryTokenCount,
       };
       mockGetHistory.mockReturnValue([
-        { role: 'user', parts: [{ text: 'system setup' }] },
-        { role: 'user', parts: [{ text: 'hello' }] },
-        { role: 'model', parts: [{ text: 'hi' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'system setup' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+        { speaker: 'ai', blocks: [{ type: 'text', text: 'hi' }] },
       ]);
       await clearCommand.action?.(mockContext, '');
       expect(mockClearHistory).toHaveBeenCalled();
@@ -346,11 +367,13 @@ describe('chatCommand', () => {
     });
 
     it('should resume a conversation', async () => {
-      const conversation: Content[] = [
+      // Checkpoint files store CheckpointContent (role/parts); resume converts
+      // them to neutral IContent (speaker/blocks).
+      const checkpointHistory = [
         { role: 'user', parts: [{ text: 'hello gemini' }] },
         { role: 'model', parts: [{ text: 'hello world' }] },
       ];
-      mockLoadCheckpoint.mockResolvedValue({ history: conversation });
+      mockLoadCheckpoint.mockResolvedValue({ history: checkpointHistory });
 
       const result = await resumeCommand.action?.(mockContext, goodTag);
 
@@ -361,7 +384,13 @@ describe('chatCommand', () => {
           { type: 'user', text: 'hello gemini' },
           { type: 'gemini', text: 'hello world' },
         ],
-        clientHistory: conversation,
+        clientHistory: [
+          {
+            speaker: 'human',
+            blocks: [{ type: 'text', text: 'hello gemini' }],
+          },
+          { speaker: 'ai', blocks: [{ type: 'text', text: 'hello world' }] },
+        ],
       });
     });
 
@@ -508,9 +537,9 @@ describe('chatCommand', () => {
 
     it('should show chat initialized and history when chat is active', async () => {
       const mockHistory = [
-        { role: 'user', parts: [{ text: 'setup' }] },
-        { role: 'user', parts: [{ text: 'hello' }] },
-        { role: 'model', parts: [{ text: 'hi' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'setup' }] },
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+        { speaker: 'ai', blocks: [{ type: 'text', text: 'hi' }] },
       ];
       mockGetHistory.mockReturnValue(mockHistory);
 

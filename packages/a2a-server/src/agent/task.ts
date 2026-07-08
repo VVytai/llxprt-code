@@ -76,7 +76,6 @@ import {
   createCheckpointsForRestorableTools,
   buildServerAndToolMetadata,
 } from './task-runtime-helpers.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 
 export class Task {
@@ -645,15 +644,9 @@ export class Task {
       (toolCall) => toolCall.response.responseParts,
     );
 
-    const geminiParts =
-      ContentConverters.toGeminiContent({
-        speaker: 'tool',
-        blocks: responsesToAdd,
-      }).parts ?? [];
-
     void this.agentClient.addHistory({
-      role: 'user',
-      parts: geminiParts,
+      speaker: 'tool',
+      blocks: responsesToAdd,
     });
   }
 

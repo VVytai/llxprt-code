@@ -13,7 +13,7 @@ import {
   UnauthorizedError,
   parseAndFormatApiError,
 } from '@vybestack/llxprt-code-core';
-import type { Config, ContractPart } from '@vybestack/llxprt-code-core';
+import type { Config } from '@vybestack/llxprt-code-core';
 import type { LoadedSettings } from '../../../../config/settings.js';
 import { createStreamRuntimeForTest } from './streamRuntimeTestHelper.js';
 import type { HistoryItemWithoutId } from '../../../types.js';
@@ -36,6 +36,9 @@ import {
 import { splitPartsByRole } from '@vybestack/llxprt-code-agents';
 import { getActiveProviderNameForApiError } from '../../../../utils/apiErrorFormatting.js';
 import { testRegex } from '../../../../test-utils/regex.js';
+
+/** Part element type accepted by splitPartsByRole. */
+type TestPart = Parameters<typeof splitPartsByRole>[0][number];
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -64,7 +67,7 @@ describe('mergePartListUnions', () => {
   });
 
   it('merges Part objects directly', () => {
-    const part: ContractPart = { text: 'foo' };
+    const part: TestPart = { text: 'foo' };
     const result = mergePartListUnions([part]);
     expect(result).toStrictEqual([{ text: 'foo' }]);
   });
@@ -174,7 +177,7 @@ describe('mergePendingToolGroupsForDisplay', () => {
 
 describe('splitPartsByRole', () => {
   it('separates functionCall parts into functionCalls array', () => {
-    const parts: ContractPart[] = [
+    const parts: TestPart[] = [
       { functionCall: { name: 'foo', args: {} } },
       { text: 'hello' },
     ];
@@ -186,7 +189,7 @@ describe('splitPartsByRole', () => {
   });
 
   it('separates functionResponse parts into functionResponses array', () => {
-    const parts: ContractPart[] = [
+    const parts: TestPart[] = [
       { functionResponse: { name: 'foo', response: { result: 'ok' } } },
     ];
     const { functionCalls, functionResponses, otherParts } =
@@ -206,7 +209,7 @@ describe('splitPartsByRole', () => {
   });
 
   it('correctly separates mixed content', () => {
-    const parts: ContractPart[] = [
+    const parts: TestPart[] = [
       { functionCall: { name: 'a', args: {} } },
       { functionResponse: { name: 'a', response: {} } },
       { text: 'text' },

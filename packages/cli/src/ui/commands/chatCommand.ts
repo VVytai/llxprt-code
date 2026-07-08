@@ -21,6 +21,8 @@ import {
   type EmojiFilterMode,
   INITIAL_HISTORY_LENGTH,
 } from '@vybestack/llxprt-code-core';
+import type { IContent, TextBlock } from '@vybestack/llxprt-code-core';
+import type { CheckpointContent } from '@vybestack/llxprt-code-core/core/logger.js';
 import path from 'path';
 import type {
   HistoryItemChatList,
@@ -176,10 +178,13 @@ const saveCommand: SlashCommand = {
     const chat = client.getChat();
     const history = chat.getHistory();
     if (history.length > INITIAL_HISTORY_LENGTH) {
-      await logger.saveCheckpoint(
-        history as Parameters<typeof logger.saveCheckpoint>[0],
-        tag,
-      );
+      const checkpointData: CheckpointContent[] = history.map((ic) => ({
+        role: ic.speaker === 'human' ? 'user' : 'model',
+        parts: ic.blocks.map((b) =>
+          b.type === 'text' ? { text: b.text } : { ...b },
+        ),
+      }));
+      await logger.saveCheckpoint(checkpointData, tag);
       return {
         type: 'message',
         messageType: 'info',
@@ -227,23 +232,26 @@ const resumeCommand: SlashCommand = {
         : undefined;
 
     const checkpoint = await logger.loadCheckpoint(tag);
-    let conversation = checkpoint.history;
+    let conversation: IContent[] = checkpoint.history.map((item) => ({
+      speaker: item.role === 'user' ? 'human' : 'ai',
+      blocks: (item.parts ?? []).map((part) => ({
+        type: 'text' as const,
+        text: part.text ?? '',
+      })),
+    }));
 
     // Apply emoji filtering if needed
     if (emojiFilter) {
-      conversation = conversation.map((item) => {
-        const filteredItem = { ...item };
-        if (Array.isArray(filteredItem.parts)) {
-          filteredItem.parts = filteredItem.parts.map((part) => {
-            if (part.text) {
-              const filterResult = emojiFilter.filterText(part.text);
-              return { ...part, text: filterResult.filtered as string };
-            }
-            return part;
-          });
-        }
-        return filteredItem;
-      });
+      conversation = conversation.map((ic) => ({
+        ...ic,
+        blocks: ic.blocks.map((b) => {
+          if (b.type === 'text') {
+            const filterResult = emojiFilter.filterText(b.text);
+            return { ...b, text: filterResult.filtered as string };
+          }
+          return b;
+        }),
+      }));
     }
 
     if (conversation.length === 0) {
@@ -257,9 +265,12 @@ const resumeCommand: SlashCommand = {
     // Convert checkpoint history to UI history items for display
     // Use LoadHistoryActionReturn to properly sync both UI and client history
     const uiHistory: HistoryItemWithoutId[] = conversation.map((content) => {
-      const text = content.parts?.map((part) => part.text ?? '').join('') ?? '';
+      const text = content.blocks
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text)
+        .join('');
       return {
-        type: content.role === 'user' ? MessageType.USER : MessageType.AI,
+        type: content.speaker === 'human' ? MessageType.USER : MessageType.AI,
         text,
       };
     });
@@ -474,9 +485,12 @@ const restoreHistory = async (
 
   // Convert to UI history items for display
   const uiHistory: HistoryItemWithoutId[] = newHistory.map((content) => {
-    const text = content.parts?.map((part) => part.text ?? '').join('') ?? '';
+    const textBlocks = content.blocks.filter(
+      (b): b is TextBlock => b.type === 'text',
+    );
+    const text = textBlocks.map((b) => b.text).join('');
     return {
-      type: content.role === 'user' ? MessageType.USER : MessageType.AI,
+      type: content.speaker === 'human' ? MessageType.USER : MessageType.AI,
       text,
     };
   });

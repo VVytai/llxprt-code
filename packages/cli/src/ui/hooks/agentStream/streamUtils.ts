@@ -25,8 +25,7 @@ import {
   type ToolCallRequestInfo,
   DEFAULT_AGENT_ID,
   type ThinkingBlock,
-  type ContractPart,
-  type ContractPartListUnion,
+  type AgentRequestInput,
 } from '@vybestack/llxprt-code-core';
 import {
   AllBucketsExhaustedError,
@@ -65,26 +64,32 @@ export { REFUSAL_NOTICE_MESSAGE } from '../../../utils/refusalNotice.js';
 // ─── Pure utility functions ───────────────────────────────────────────────────
 
 /**
- * Adds a part (string or ContractPart object) to the result array.
+ * Query part shape used by CLI command processing — a text-bearing object
+ * structurally compatible with AgentRequestInput.
+ */
+type QueryPart = { text: string };
+
+/**
+ * Adds a part (string or query-part object) to the result array.
  */
 function addPartToResult(
-  part: string | ContractPart,
-  resultParts: ContractPart[],
+  part: string | object,
+  resultParts: QueryPart[],
 ): void {
   if (typeof part === 'string') {
     resultParts.push({ text: part });
-  } else {
-    resultParts.push(part);
+  } else if ('text' in part) {
+    resultParts.push({ text: String((part as { text: unknown }).text) });
   }
 }
 
 /**
- * Merges an array of ContractPartListUnions into a single flat ContractPart[].
+ * Merges an array of AgentRequestInputs into a single flat query-part array.
  */
 export function mergePartListUnions(
-  list: ContractPartListUnion[],
-): ContractPartListUnion {
-  const resultParts: ContractPart[] = [];
+  list: AgentRequestInput[],
+): AgentRequestInput {
+  const resultParts: QueryPart[] = [];
   for (const item of list) {
     if (Array.isArray(item)) {
       for (const part of item) {
@@ -398,7 +403,7 @@ export async function processSlashCommandResult(
   prompt_id: string,
   abortSignal: AbortSignal,
 ): Promise<{
-  queryToSend: ContractPartListUnion | null;
+  queryToSend: AgentRequestInput | null;
   shouldProceed: boolean;
 }> {
   switch (result.type) {

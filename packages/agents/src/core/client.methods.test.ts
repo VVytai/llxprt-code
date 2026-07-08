@@ -12,11 +12,11 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
-  Content,
   EmbedContentResponse,
   GenerateContentResponse,
   Part,
 } from '@google/genai';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { AgentClient } from './client.js';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
@@ -508,7 +508,9 @@ sub memory
 
   describe('generateJson', () => {
     it('should call generateContent with the correct parameters', async () => {
-      const contents = [{ role: 'user', parts: [{ text: 'hello' }] }];
+      const contents: IContent[] = [
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+      ];
       const schema = { type: 'string' };
       const abortSignal = new AbortController().signal;
 
@@ -554,8 +556,8 @@ sub memory
     });
 
     it('should allow overriding model and config', async () => {
-      const contents: Content[] = [
-        { role: 'user', parts: [{ text: 'hello' }] },
+      const contents: IContent[] = [
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
       ];
       const schema = { type: 'string' };
       const abortSignal = new AbortController().signal;
@@ -618,7 +620,9 @@ sub memory
         throw error429;
       });
 
-      const contents = [{ role: 'user', parts: [{ text: 'throttle?' }] }];
+      const contents: IContent[] = [
+        { speaker: 'human', blocks: [{ type: 'text', text: 'throttle?' }] },
+      ];
       const schema = { type: 'string' };
       const abortSignal = new AbortController().signal;
 
@@ -661,14 +665,14 @@ sub memory
   describe('resetChat', () => {
     it('should create a new chat session, clearing the old history', async () => {
       // Setup: Mock getHistory to track history state
-      let historyState: Content[] = [];
+      let historyState: IContent[] = [];
       vi.mocked(client.getHistory).mockImplementation(() =>
         Promise.resolve([...historyState]),
       );
 
       // Mock addHistory to update the state
       const mockChat = client['chat'] as ChatSession;
-      mockChat.addHistory.mockImplementation((content: Content) => {
+      mockChat.addHistory.mockImplementation((content: IContent) => {
         historyState.push(content);
         return Promise.resolve();
       });

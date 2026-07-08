@@ -6,8 +6,8 @@
 
 import type {
   AgentClientContract,
-  ContractSendMessageParameters,
-  ContractGenerateContentConfig,
+  AgentClientMessageParams,
+  AgentClientGenerateConfig,
 } from '@vybestack/llxprt-code-core';
 import {
   DebugLogger,
@@ -33,7 +33,7 @@ export interface AutoPromptRuntime extends DetachedAutoPromptClientSource {
 
 function createAutoPromptRequest(
   description: string,
-): ContractSendMessageParameters {
+): AgentClientMessageParams {
   const autoModePrompt = `Generate a detailed system prompt for a subagent with the following purpose:\n\n${description}\n\nRequirements:\n- Create a comprehensive system prompt that defines the subagent's role, capabilities, and behavior\n- Be specific and actionable\n- Use clear, professional language\n- Output ONLY the system prompt text, no explanations or metadata`;
 
   return {
@@ -45,13 +45,13 @@ function createAutoPromptRequest(
         },
       },
       serverTools: [],
-    } as ContractGenerateContentConfig & { serverTools: unknown[] },
+    } as AgentClientGenerateConfig & { serverTools: unknown[] },
   };
 }
 
 async function requestFromClient(
   targetClient: AgentClientContract,
-  requestPayload: ContractSendMessageParameters,
+  requestPayload: AgentClientMessageParams,
   options?: { useRuntimeScope?: boolean },
 ): Promise<{ text?: string }> {
   const executeRequest = async (): Promise<{ text?: string }> => {

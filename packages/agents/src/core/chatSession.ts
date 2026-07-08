@@ -500,7 +500,7 @@ export class ChatSession {
     this.generationConfig.tools = undefined;
   }
 
-  getHistory(curated: boolean = false): Content[] {
+  getHistory(curated: boolean = false): IContent[] {
     return this.conversationManager.getHistory(curated);
   }
 
@@ -508,11 +508,11 @@ export class ChatSession {
     this.conversationManager.clearHistory();
   }
 
-  addHistory(content: Content): void {
+  addHistory(content: IContent): void {
     this.conversationManager.addHistory(content);
   }
 
-  setHistory(history: Content[]): void {
+  setHistory(history: IContent[]): void {
     this.conversationManager.setHistory(history);
   }
 

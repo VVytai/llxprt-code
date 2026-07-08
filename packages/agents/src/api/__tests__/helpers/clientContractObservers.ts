@@ -12,28 +12,22 @@
  * `.candidates`/`.parts`/`.content.parts`/`.usageMetadata` indexing never
  * leaks into the test files.
  *
- * Current state (pre-P21):
+ * Current state (post-P21):
  *  - `generateDirectMessage` returns `ModelOutput` (neutral, post-P13).
  *    `visibleText`/`usageCounts` read `content.blocks` / `usage`.
- *  - `getHistory()` returns `Content[]` (Gemini-shaped, pre-P21).
- *    `historyContent` converts that to neutral `IContent[]` (deep clone)
- *    so the spec asserts content-equivalence and clone-independence
- *    without touching `.parts`/`.role` directly.
+ *  - `getHistory()` returns `IContent[]` (neutral, post-P21).
+ *    `historyContent` returns a deep clone of the neutral history so the
+ *    spec asserts content-equivalence and clone-independence.
  *  - `sendMessageStream` yields `ServerAgentStreamEvent`.
- *
- * When P21 flips `getHistory()` to return `IContent[]` directly, ONLY
- * `historyContent` changes (the conversion becomes a pass-through clone).
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P20
  * @requirement:REQ-INT-001.2
  */
 
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type {
   IContent,
   ContentBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import type { GeminiContent } from '@vybestack/llxprt-code-core/llm-types/geminiContent.js';
 
 // ---------------------------------------------------------------------------
 // Structural local types — the helper never exports a Contract* / candidate
@@ -100,23 +94,18 @@ export function visibleText(directResult: unknown): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Converts the observable history (currently Gemini-shaped `Content[]`
- * from `getHistory()`) to neutral `IContent[]` and returns a DEEP CLONE
- * so callers can freely inspect/mutate without touching the live
- * contract value. When P21 flips `getHistory()` to return `IContent[]`
- * directly, only this helper changes (the conversion becomes a
- * pass-through clone).
+ * Returns a DEEP CLONE of the neutral `IContent[]` history from
+ * `getHistory()` so callers can freely inspect/mutate without touching
+ * the live contract value. Post-P21, `getHistory()` returns `IContent[]`
+ * directly, so this is a pass-through clone (no provider conversion).
  */
 export function historyContent(historyResult: unknown): IContent[] {
   if (!Array.isArray(historyResult)) {
     return [];
   }
-  // The current getHistory() returns Gemini-shaped Content[]; cast through
-  // unknown to the structural GeminiContent[] that ContentConverters expects.
-  // When P21 flips getHistory() to return IContent[] directly, this conversion
-  // becomes a pass-through clone (only this helper changes).
-  const geminiContents = historyResult as unknown as GeminiContent[];
-  const neutral = ContentConverters.toIContents(geminiContents);
+  // Post-P21: getHistory() returns neutral IContent[] directly — no
+  // conversion needed, just a defensive deep clone.
+  const neutral = historyResult as IContent[];
   return neutral.map((entry) => structuredClone(entry));
 }
 

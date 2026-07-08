@@ -7,7 +7,6 @@
 import {
   type GenerateContentConfig,
   type PartListUnion,
-  type Content,
   type Tool,
   type SendMessageParameters,
 } from '@google/genai';
@@ -29,6 +28,7 @@ import type { ChatSession } from './chatSession.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 
+import { type IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   type ContentGenerator,
   type ContentGeneratorConfig,
@@ -36,15 +36,12 @@ import {
 } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 import { LoopDetectionService } from '@vybestack/llxprt-code-core/services/loopDetectionService.js';
-
 import { ComplexityAnalyzer } from '@vybestack/llxprt-code-core/services/complexity-analyzer.js';
 import { TodoReminderService } from '@vybestack/llxprt-code-core/services/todo-reminder-service.js';
 import { uiTelemetryService } from '@vybestack/llxprt-code-core/telemetry/uiTelemetry.js';
 import type { AgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
 import { subscribeToAgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
 import { BaseLLMClient } from './baseLlmClient.js';
-import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 
 import {
   coreEvents,
@@ -86,7 +83,7 @@ export class AgentClient implements AgentClientContract {
   private sessionTurnCount = 0;
   private readonly MAX_TURNS = 100;
   private _pendingConfig?: ContentGeneratorConfig;
-  private _previousHistory?: Content[];
+  private _previousHistory?: IContent[];
   private _storedHistoryService?: HistoryService;
   private currentSequenceModel: string | null = null;
   private activeStreamCount = 0;
@@ -327,7 +324,7 @@ export class AgentClient implements AgentClientContract {
     return this._baseLlmClient;
   }
 
-  async addHistory(content: Content) {
+  async addHistory(content: IContent) {
     // Ensure chat is initialized before adding history
     if (!this.hasChatInitialized()) {
       await this.resetChat();
@@ -400,12 +397,12 @@ export class AgentClient implements AgentClientContract {
     return this.chat !== undefined && this.contentGenerator !== undefined;
   }
 
-  async getHistory(): Promise<Content[]> {
-    // If chat is initialized, get its current history
+  async getHistory(): Promise<IContent[]> {
+    // If chat is initialized, get its current history (already neutral IContent[])
     if (this.hasChatInitialized()) {
       const chat = this.getChat() as unknown as {
         waitForIdle?: () => Promise<void>;
-        getHistory: () => Content[];
+        getHistory: () => IContent[];
       };
       if (typeof chat.waitForIdle === 'function') {
         await chat.waitForIdle();
@@ -418,9 +415,9 @@ export class AgentClient implements AgentClientContract {
     }
 
     if (this._storedHistoryService) {
-      return ContentConverters.toGeminiContents(
-        this._storedHistoryService.getAll(),
-      );
+      // HistoryService stores neutral IContent[] directly — return without
+      // provider conversion (G1 deleted at P21).
+      return this._storedHistoryService.getAll();
     }
 
     // No history available
@@ -428,28 +425,20 @@ export class AgentClient implements AgentClientContract {
   }
 
   async setHistory(
-    history: Content[],
+    history: IContent[],
     { stripThoughts = false }: { stripThoughts?: boolean } = {},
   ): Promise<void> {
     const historyToSet = stripThoughts
       ? history.map((content) => {
           const newContent = { ...content };
-          if (newContent.parts) {
-            newContent.parts = newContent.parts.map((part) => {
-              const candidate = part as unknown;
-              if (
-                candidate != null &&
-                typeof candidate === 'object' &&
-                'thoughtSignature' in candidate
-              ) {
-                const newPart = { ...part };
-                delete (newPart as { thoughtSignature?: string })
-                  .thoughtSignature;
-                return newPart;
-              }
-              return part;
-            });
-          }
+          newContent.blocks = newContent.blocks.map((block) => {
+            if (block.type === 'thinking' && 'signature' in block) {
+              const newBlock = { ...block };
+              delete (newBlock as { signature?: string }).signature;
+              return newBlock;
+            }
+            return block;
+          });
           return newContent;
         })
       : history;
@@ -472,7 +461,7 @@ export class AgentClient implements AgentClientContract {
    * This is used when resuming a chat before authentication.
    * The history will be restored when lazyInitialize() is called.
    */
-  storeHistoryForLaterUse(history: Content[]): void {
+  storeHistoryForLaterUse(history: IContent[]): void {
     this.logger.debug('Storing history for later use', {
       historyLength: history.length,
     });
@@ -576,7 +565,7 @@ export class AgentClient implements AgentClientContract {
     this._previousHistory = [];
   }
 
-  async resumeChat(history: Content[]): Promise<void> {
+  async resumeChat(history: IContent[]): Promise<void> {
     this.chat = await this.startChat(history);
   }
 
@@ -664,8 +653,10 @@ export class AgentClient implements AgentClientContract {
     }
 
     this.getChat().addHistory({
-      role: 'user',
-      parts: [{ text: await getDirectoryContextString(this.config) }],
+      speaker: 'human',
+      blocks: [
+        { type: 'text', text: await getDirectoryContextString(this.config) },
+      ],
     });
   }
 
@@ -678,7 +669,7 @@ export class AgentClient implements AgentClientContract {
     return this.getChat().generateDirectMessage(params, promptId);
   }
 
-  async startChat(extraHistory?: Content[]): Promise<ChatSession> {
+  async startChat(extraHistory?: IContent[]): Promise<ChatSession> {
     this.ideContextTracker.resetContext();
     await this.lazyInitialize();
 
@@ -739,7 +730,7 @@ export class AgentClient implements AgentClientContract {
   }
 
   async generateJson(
-    contents: Content[],
+    contents: IContent[],
     schema: Record<string, unknown>,
     abortSignal: AbortSignal,
     model: string,
@@ -760,7 +751,7 @@ export class AgentClient implements AgentClientContract {
   }
 
   async generateContent(
-    contents: Content[],
+    contents: IContent[],
     generationConfig: GenerateContentConfig,
     abortSignal: AbortSignal,
     model: string,
