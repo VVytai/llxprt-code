@@ -6,7 +6,6 @@
 import type { GenerateContentResponse } from '@google/genai';
 import type { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
 import {
-  type Content,
   type SendMessageParameters,
   type GenerateContentConfig,
 } from '@google/genai';
@@ -21,8 +20,6 @@ import {
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type {
   IContent,
-  ContentBlock,
-  UsageStats,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   isRetryableError,
@@ -43,16 +40,16 @@ import type { ConversationManager } from './ConversationManager.js';
 import type { CompressionHandler } from '../compression/CompressionHandler.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import { convertIContentToResponse } from './MessageConverter.js';
-import { convertBlocksToParts } from './MessageConverter.js';
 import { logApiResponse, logApiError } from './turnLogging.js';
 import {
   EmptyStreamError,
-  isSchemaDepthError,
-  InvalidStreamError,
 } from '@vybestack/llxprt-code-core/core/chatSessionTypes.js';
-import type { ResponseOutcome } from '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js';
-import { hasCycleInSchema } from '@vybestack/llxprt-code-tools';
-import { isStructuredError } from '@vybestack/llxprt-code-core/utils/quotaErrorDetection.js';
+import {
+  extractResponseTextFromBlocks,
+  analyzeBlocksOutcome,
+  validateStreamCompletion,
+  recordHistoryWithUsage,
+} from './streamValidationHelpers.js';
 import {
   AgentExecutionStoppedError,
   AgentExecutionBlockedError,
@@ -739,7 +736,7 @@ export class StreamProcessor {
         | undefined;
       const syntheticResponse = attachHookRestrictedAllowedTools(
         modifiedResponse ??
-          (convertIContentToResponse(iContent) as GenerateContentResponse),
+          convertIContentToResponse(iContent),
         hookRestrictedAllowedTools,
       );
       const effectiveReason = afterModelResult.getEffectiveReason() as
@@ -831,12 +828,9 @@ export class StreamProcessor {
     userInput: IContent,
     includeThoughts: boolean,
   ): Promise<void> {
-    // Extract response metadata from accumulated output
     const finishReason = acc.finishReason;
-    const responseText = this._extractResponseTextFromBlocks(acc.content.blocks);
-
-    // Analyze the accumulated blocks for outcome
-    const outcome = this._analyzeBlocksOutcome(acc.content.blocks, includeThoughts);
+    const responseText = extractResponseTextFromBlocks(acc.content.blocks);
+    const outcome = analyzeBlocksOutcome(acc.content.blocks, includeThoughts);
 
     if (isMissingFinishReason(finishReason)) {
       this.logger.debug(
@@ -856,220 +850,23 @@ export class StreamProcessor {
       );
     }
 
-    this._validateStreamCompletion(
+    validateStreamCompletion(
+      this.logger,
       userInput,
       outcome,
       finishReason,
       responseText,
     );
 
-    await this._recordHistoryWithUsage(userInput, acc);
-  }
-
-  private _extractResponseTextFromBlocks(blocks: ContentBlock[]): string {
-    return blocks
-      .filter((block) => block.type === 'text' && block.text !== '')
-      .map((block) => (block as { text: string }).text)
-      .join('')
-      .trim();
-  }
-
-  private _analyzeBlocksOutcome(
-    blocks: ContentBlock[],
-    includeThoughts: boolean,
-  ): ResponseOutcome {
-    let hasVisibleText = false;
-    let hasThinking = false;
-    let hasToolCalls = false;
-    for (const block of blocks) {
-      if (block.type === 'text' && block.text !== '') {
-        hasVisibleText = true;
-      } else if (block.type === 'thinking' && includeThoughts) {
-        hasThinking = true;
-      } else if (block.type === 'tool_call') {
-        hasToolCalls = true;
-      }
-    }
-    return {
-      hasVisibleText,
-      hasThinking,
-      hasToolCalls,
-      isActionable: hasVisibleText || hasToolCalls,
-    };
-  }
-
-  private _validateStreamCompletion(
-    userInput: IContent,
-    outcome: ResponseOutcome,
-    finishReason: string | undefined,
-    responseText: string,
-  ): void {
-    const isToolContinuationInput = userInput.blocks.some(
-      (b) => b.type === 'tool_response',
-    );
-
-    const hasMissingFinishAndNoText =
-      isMissingFinishReason(finishReason) && !outcome.hasVisibleText;
-    const isEmptyResponse = responseText === '';
-    const noRelevantContent =
-      !outcome.hasToolCalls &&
-      !isToolContinuationInput &&
-      !outcome.hasThinking;
-    const isInvalidResponse =
-      noRelevantContent && (hasMissingFinishAndNoText || isEmptyResponse);
-
-    if (isInvalidResponse) {
-      if (isMissingFinishReason(finishReason) && !outcome.hasVisibleText) {
-        this.logger.warn(
-          () =>
-            `[stream:terminal] validation failed: missing finishReason and text`,
-          {
-            hasToolCall: outcome.hasToolCalls,
-            hasTextResponse: outcome.hasVisibleText,
-            hasThinkingResponse: outcome.hasThinking,
-            finishReason,
-            responseTextLength: responseText.length,
-            isToolContinuationInput,
-          },
-        );
-        throw new InvalidStreamError(
-          'Model stream ended without a finish reason and no text response.',
-          'NO_FINISH_REASON_NO_TEXT',
-        );
-      }
-      this.logger.warn(
-        () => `[stream:terminal] validation failed: empty response text`,
-        {
-          hasToolCall: outcome.hasToolCalls,
-          hasTextResponse: outcome.hasVisibleText,
-          hasThinkingResponse: outcome.hasThinking,
-          finishReason,
-          responseTextLength: responseText.length,
-          isToolContinuationInput,
-        },
-      );
-      throw new InvalidStreamError(
-        'Model stream ended with empty response text.',
-        'NO_RESPONSE_TEXT',
-      );
-    }
-
-    if (finishReason === 'error') {
-      this.logger.warn(
-        () =>
-          `[stream:terminal] validation failed: malformed function call finishReason`,
-        {
-          hasToolCall: outcome.hasToolCalls,
-          hasTextResponse: outcome.hasVisibleText,
-          hasThinkingResponse: outcome.hasThinking,
-          finishReason,
-          responseTextLength: responseText.length,
-          isToolContinuationInput,
-        },
-      );
-      throw new InvalidStreamError(
-        'Model stream ended with malformed function call.',
-        'MALFORMED_FUNCTION_CALL',
-      );
-    }
-  }
-
-  private async _recordHistoryWithUsage(
-    userInput: IContent,
-    acc: ModelOutput,
-  ): Promise<void> {
-    const includeThoughts =
-      this.runtimeContext.ephemerals.reasoning.includeInContext();
-
-    // Build model output Content from accumulated blocks
-    const outputBlocks = includeThoughts
-      ? acc.content.blocks
-      : acc.content.blocks.filter((block) => block.type !== 'thinking');
-
-    // Use convertBlocksToParts to produce the Content shape ConversationManager expects
-    const modelOutput: Content[] = [
-      {
-        role: 'model' as const,
-        parts: convertBlocksToParts(outputBlocks),
-      },
-    ];
-
-    // Convert usage to the UsageStats shape conversationManager expects
-    const streamingUsage: UsageStats | null = acc.usage
-      ? {
-          promptTokens: acc.usage.promptTokens ?? 0,
-          completionTokens: acc.usage.completionTokens ?? 0,
-          totalTokens: acc.usage.totalTokens ?? 0,
-        }
-      : null;
-
-    this.conversationManager.recordHistory(
+    await recordHistoryWithUsage(
+      this.logger,
+      this.conversationManager,
+      this.historyService,
+      this.compressionHandler,
+      this.runtimeContext,
       userInput,
-      modelOutput,
-      undefined,
-      streamingUsage,
-    );
-
-    // Sync token counts
-    await this.historyService.waitForTokenUpdates();
-
-    const promptTokens = streamingUsage?.promptTokens ?? null;
-    if (promptTokens !== null && promptTokens > 0) {
-      this.logger.debug(
-        () =>
-          `[StreamProcessor] Syncing prompt token count to HistoryService: ${promptTokens}`,
-      );
-      this.historyService.syncTotalTokens(promptTokens);
-      await this.historyService.waitForTokenUpdates();
-      return;
-    }
-
-    const fallbackTokens = this.compressionHandler.lastPromptTokenCount;
-    if (fallbackTokens !== null && fallbackTokens > 0) {
-      this.logger.debug(
-        () =>
-          `[StreamProcessor] Syncing prompt token count to HistoryService: ${fallbackTokens}`,
-      );
-      this.historyService.syncTotalTokens(fallbackTokens);
-      await this.historyService.waitForTokenUpdates();
-      return;
-    }
-
-    this.logger.debug(
-      () =>
-        `[StreamProcessor] No token count to sync (lastPromptTokenCount: ${fallbackTokens})`,
+      acc,
     );
   }
 
-  /**
-   * Enrich schema depth errors with diagnostic information.
-   * Adapted from maybeIncludeSchemaDepthContext in chatSession.ts.
-   */
-  _enrichSchemaDepthError(error: unknown): void {
-    // Check for potentially problematic cyclic tools with cyclic schemas
-    // and include a recommendation to remove potentially problematic tools.
-    if (isStructuredError(error) && isSchemaDepthError(error.message)) {
-      const toolNames = this.runtimeContext.tools.listToolNames();
-      const cyclicSchemaTools: string[] = [];
-
-      // Check each tool's metadata for cyclic schemas
-      for (const toolName of toolNames) {
-        const metadata = this.runtimeContext.tools.getToolMetadata(toolName);
-        if (
-          metadata?.parameterSchema &&
-          hasCycleInSchema(metadata.parameterSchema)
-        ) {
-          cyclicSchemaTools.push(toolName);
-        }
-      }
-
-      if (cyclicSchemaTools.length > 0) {
-        const extraDetails =
-          `\n\nThis error was probably caused by cyclic schema references in one of the following tools, try disabling them:\n\n - ` +
-          cyclicSchemaTools.join(`\n - `) +
-          `\n`;
-        error.message += extraDetails;
-      }
-    }
-  }
 }

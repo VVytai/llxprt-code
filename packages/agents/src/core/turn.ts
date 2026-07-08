@@ -831,7 +831,7 @@ export class Turn {
     functionCallIndex: number,
   ): ServerAgentStreamEvent | null {
     const callId =
-      fnCall.id !== undefined && fnCall.id !== ''
+      fnCall.id !== ''
         ? fnCall.id
         : this.createSyntheticFunctionCallId(fnCall, functionCallIndex);
 
@@ -875,14 +875,14 @@ export class Turn {
       promptId: this.prompt_id,
       agentId: this.agentId,
       functionCallIndex,
-      name: fnCall.name ?? '',
-      args: fnCall.parameters ?? {},
+      name: fnCall.name,
+      args: fnCall.parameters,
     });
     const digest = createHash('sha256')
       .update(payload)
       .digest('hex')
       .slice(0, 16);
-    const name = normalizeToolName(fnCall.name ?? '') ?? 'undefined_tool_name';
+    const name = normalizeToolName(fnCall.name) ?? 'undefined_tool_name';
     return `${name}-${functionCallIndex}-${digest}`;
   }
 
