@@ -15,6 +15,11 @@ import {
   type ServerFinishedOutcome,
   type ModelInfo,
 } from './turn.js';
+import {
+  buildModelInfo,
+  modelIdentityKey,
+  resolveProviderName,
+} from './modelInfoHelpers.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
@@ -831,70 +836,33 @@ export class MessageStreamOrchestrator {
   }
 
   private _getProviderName(): string {
-    const activeName = this.deps.config
-      .getContentGeneratorConfig()
-      ?.providerManager?.getActiveProviderName();
-    return activeName && activeName.length > 0 ? activeName : 'backend';
-  }
-
-  private _resolveModelForInfo(): string {
-    const activeProvider = this.deps.config
-      .getContentGeneratorConfig()
-      ?.providerManager?.getActiveProvider();
-    if (activeProvider !== undefined) {
-      const activeModel = activeProvider.getCurrentModel?.();
-      if (typeof activeModel === 'string' && activeModel.trim() !== '')
-        return activeModel;
-      const defaultModel = activeProvider.getDefaultModel?.();
-      if (typeof defaultModel === 'string' && defaultModel.trim() !== '')
-        return defaultModel;
-    }
-    return this.deps.getEffectiveModel();
+    return resolveProviderName(this.deps.config);
   }
 
   private _buildModelInfo(): ModelInfo {
-    const model = this._resolveModelForInfo();
-    const profileName = this._getProfileName();
-    return { model, providerName: this._getProviderName(), profileName, displayLabel: profileName && profileName !== '' ? profileName : model };
+    return buildModelInfo(this.deps.config, this.deps.getEffectiveModel());
   }
 
-  private _modelIdentityKey(info: ModelInfo): string {
-    return JSON.stringify([info.providerName ?? '', info.profileName ?? '', info.model]);
-  }
-
-  private async *_emitModelInfoForNewSequence(): AsyncGenerator<ServerAgentStreamEvent, void> {
+  private *_modelInfoEvents(force: boolean): Generator<ServerAgentStreamEvent> {
     const info = this._buildModelInfo();
-    this.#lastModelIdentity = this._modelIdentityKey(info);
-    yield { type: AgentEventType.ModelInfo, value: info };
-  }
-
-  private async *_emitModelInfoIfChanged(): AsyncGenerator<ServerAgentStreamEvent, void> {
-    const info = this._buildModelInfo();
-    const key = this._modelIdentityKey(info);
-    if (key === this.#lastModelIdentity) return;
+    const key = modelIdentityKey(info);
+    if (!force && key === this.#lastModelIdentity) return;
     this.#lastModelIdentity = key;
     yield { type: AgentEventType.ModelInfo, value: info };
   }
 
-  private _getProfileName(): string | null {
-    try {
-      const svc = (
-        this.deps.config as unknown as {
-          getSettingsService?: () => {
-            getCurrentProfileName?: () => string | null;
-            get?: (key: string) => unknown;
-          };
-        }
-      ).getSettingsService?.();
-      if (svc?.getCurrentProfileName) return svc.getCurrentProfileName();
-      if (svc?.get) {
-        const p = svc.get('currentProfile');
-        return typeof p === 'string' ? p : null;
-      }
-    } catch {
-      /* Settings service unavailable */
-    }
-    return null;
+  private async *_emitModelInfoForNewSequence(): AsyncGenerator<
+    ServerAgentStreamEvent,
+    void
+  > {
+    yield* this._modelInfoEvents(true);
+  }
+
+  private async *_emitModelInfoIfChanged(): AsyncGenerator<
+    ServerAgentStreamEvent,
+    void
+  > {
+    yield* this._modelInfoEvents(false);
   }
 
   private _resetTodoState(

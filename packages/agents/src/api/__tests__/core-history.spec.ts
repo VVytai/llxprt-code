@@ -64,7 +64,7 @@ function textMessage(speaker: 'human' | 'ai', text: string): AgentHistoryItem {
  * even though the runtime objects are IContent post-P21.
  */
 function messageText(msg: AgentMessage | AgentHistoryItem): string {
-  const blocks = (msg).blocks;
+  const blocks = msg.blocks;
   return blocks.map((b) => (b.type === 'text' ? b.text : '')).join('');
 }
 

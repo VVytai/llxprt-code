@@ -66,7 +66,7 @@ function messageText(msg: AgentMessage | AgentHistoryItem): string {
     return blocks.map((b) => (b.type === 'text' ? b.text : '')).join('');
   }
   // Legacy Content shape fallback
-  const parts = (msg).parts;
+  const parts = msg.parts;
   if (Array.isArray(parts)) {
     return parts.map((p) => ('text' in p ? p.text : '')).join('');
   }
