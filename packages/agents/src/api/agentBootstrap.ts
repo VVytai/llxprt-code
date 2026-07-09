@@ -256,13 +256,49 @@ export function createStableDisplayCallbacks(
 }
 
 /**
- * Maps an AgentInput (string | readonly ContentBlock[] | structured {text, role?})
- * to an AgentMessageInput for run().
+ * Narrows an array element to a recognised ContentBlock type field.
+ */
+function isContentBlock(item: unknown): item is ContentBlock {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    'type' in item &&
+    typeof (item as Record<string, unknown>).type === 'string'
+  );
+}
+
+/**
+ * True when every element of the array is a ContentBlock (has a `type` field).
+ * Distinguishes ContentBlock[] from legacy Part-shaped arrays ({text: string})
+ * that lack a `type` discriminator.
  */
 function isContentBlockArray(
   input: AgentInput,
 ): input is readonly ContentBlock[] {
-  return Array.isArray(input);
+  return Array.isArray(input) && input.every(isContentBlock);
+}
+
+/**
+ * True when a value is a legacy Part-shaped text object (has `text` but no
+ * `type` discriminator).
+ */
+function isLegacyPartText(item: unknown): item is { text: string } {
+  if (typeof item !== 'object' || item === null || 'type' in item) {
+    return false;
+  }
+  const record = item as Record<string, unknown>;
+  return 'text' in record && typeof record.text === 'string';
+}
+
+/**
+ * True when the array elements are legacy Part-shaped objects (have `text`
+ * but no `type`). These originate from `handleAtCommand` in the CLI which
+ * produces `[{text: string}]` arrays.
+ */
+function isLegacyPartTextArray(
+  input: unknown,
+): input is Array<{ text: string }> {
+  return Array.isArray(input) && input.every(isLegacyPartText);
 }
 
 export function toPartListUnion(input: AgentInput): AgentMessageInput {
@@ -271,6 +307,12 @@ export function toPartListUnion(input: AgentInput): AgentMessageInput {
   }
   if (isContentBlockArray(input)) {
     return [...input];
+  }
+  if (isLegacyPartTextArray(input)) {
+    return input.map((part) => ({
+      type: 'text' as const,
+      text: part.text,
+    }));
   }
   return input.text;
 }
