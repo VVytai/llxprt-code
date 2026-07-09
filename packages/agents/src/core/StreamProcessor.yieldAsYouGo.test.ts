@@ -8,7 +8,6 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StreamProcessor } from './StreamProcessor.js';
-import { attachHookRestrictedAllowedTools } from './hookRestrictionsLegacyCompat.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/DebugLogger.js';
 import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -166,11 +165,11 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     expect(result1.done).toBe(false);
 
     const chunk = result1.value;
-    const text =
-      chunk.content?.blocks?.[0]?.type === 'text'
-        ? (chunk.content.blocks[0] as { text: string }).text
-        : undefined;
-    expect(text).toBe('first chunk');
+    const firstBlock = chunk.content.blocks[0];
+    expect(firstBlock?.type).toBe('text');
+    expect(firstBlock?.type === 'text' ? firstBlock.text : undefined).toBe(
+      'first chunk',
+    );
 
     // Unstall the stream so the test can complete
     resolveStall?.();
@@ -182,40 +181,7 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     await gen.next(); // generator done
   });
 
-  it('rejects a stream that has no content after hook restrictions filter every tool call', async () => {
-    // Build a synthetic GenerateContentResponse with a blocked tool call,
-    // then use the legacy compat to stamp restrictions (it still works
-    // with GenerateContentResponse at this boundary).
-    const _blockedToolChunk = attachHookRestrictedAllowedTools(
-      {
-        candidates: [
-          {
-            content: {
-              role: 'model',
-              parts: [
-                {
-                  functionCall: {
-                    id: 'blocked-call',
-                    name: 'run_shell_command',
-                    args: { command: 'echo blocked' },
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        functionCalls: [
-          {
-            id: 'blocked-top-level-call',
-            name: 'run_shell_command',
-            args: { command: 'echo blocked top level' },
-          },
-        ],
-      } as unknown as never,
-      ['not-a-allowed-tool'],
-    );
-
-    // Convert to ModelStreamChunk for the neutral pipeline
+  it('yields an empty-block chunk after hook restrictions filter every tool call', async () => {
     const neutralChunk = toModelStreamChunk({
       speaker: 'ai',
       blocks: [
@@ -233,6 +199,10 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
       },
     } as IContent);
 
+    neutralChunk.hookRestrictions = {
+      allowedToolNames: ['not-a-allowed-tool'],
+    };
+
     async function* filteredOnlyStream(): AsyncGenerator<ModelStreamChunk> {
       yield neutralChunk;
     }
@@ -243,8 +213,8 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     } as IContent;
 
     const yielded: ModelStreamChunk[] = [];
-    // With _finalizeStreamProcessing stubbed, the stream completes
-    // without throwing (the validation is skipped).
+    // With _finalizeStreamProcessing stubbed, the stream completes without
+    // throwing (the validation is skipped).
     for await (const chunk of processor.processStreamResponse(
       filteredOnlyStream(),
       userInput,
@@ -253,8 +223,9 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
     }
 
     // The blocked tool call is filtered out by hook restrictions,
-    // so the yielded chunk has empty blocks
+    // so the yielded chunk has empty blocks.
     expect(yielded).toHaveLength(1);
+    expect(yielded[0].content.blocks).toHaveLength(0);
   });
 
   it('yields the correct number of chunks matching the source', async () => {

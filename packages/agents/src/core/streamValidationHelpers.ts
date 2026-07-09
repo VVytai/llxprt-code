@@ -237,7 +237,11 @@ export function enrichSchemaDepthError(
         `\n\nThis error was probably caused by cyclic schema references in one of the following tools, try disabling them:\n\n - ` +
         cyclicSchemaTools.join(`\n - `) +
         `\n`;
-      error.message += extraDetails;
+      try {
+        error.message += extraDetails;
+      } catch {
+        // Some framework errors expose a non-writable message; keep the original error.
+      }
     }
   }
 }

@@ -606,7 +606,6 @@ export class StreamProcessor {
 
     for await (const iContent of streamResponse) {
       this._trackPromptTokens(iContent);
-      lastIContent = iContent;
 
       const chunk = toModelStreamChunk(iContent);
 
@@ -624,12 +623,9 @@ export class StreamProcessor {
         chunk,
         hookRestrictedAllowedTools,
       );
-
-      if (modifiedChunk !== undefined) {
-        yield modifiedChunk;
-      } else {
-        yield chunk;
-      }
+      const yieldedChunk = modifiedChunk ?? chunk;
+      lastIContent = this._contentForTelemetry(yieldedChunk);
+      yield yieldedChunk;
     }
 
     this._logTelemetry(telemetryContext, lastIContent);
@@ -728,6 +724,19 @@ export class StreamProcessor {
     }
 
     return undefined;
+  }
+
+  private _contentForTelemetry(chunk: ModelStreamChunk): IContent {
+    if (chunk.usage === undefined) {
+      return chunk.content;
+    }
+    return {
+      ...chunk.content,
+      metadata: {
+        ...(chunk.content.metadata ?? {}),
+        usage: chunk.usage,
+      },
+    };
   }
 
   private _logTelemetry(

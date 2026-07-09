@@ -63,9 +63,8 @@ export function createUserContentWithFunctionResponseFix(
 ): IContent {
   const contents = iContentFromAgentMessageInput(message);
   if (contents.length > 0) {
-    // Merge all IContent[] entries into a single human-speaker IContent.
     const allBlocks = contents.flatMap((c) => c.blocks);
-    return { speaker: 'human', blocks: allBlocks };
+    return { speaker: contents[0].speaker, blocks: allBlocks };
   }
   return {
     speaker: 'human',
