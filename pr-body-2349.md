@@ -1,8 +1,8 @@
 ## Summary
 
-Foundation for migrating `packages/agents` off `@google/genai` and all Google-shaped structural content to neutral domain-named types (issue #2349). This PR implements phases P01-P06 of `PLAN-20260707-AGENTNEUTRAL`, establishing the tooling, type foundation, and behavioral safety net before the production migration slices.
+Migrates `packages/agents` off `@google/genai` and all Google-shaped structural content to neutral domain-named types (issue #2349). This PR executes phases P01-P33 of `PLAN-20260707-AGENTNEUTRAL`, including the tooling, type foundation, production migration slices, dependency removal, and final enforcement gate.
 
-This is a **multi-phase migration plan** (P01-P33). This PR contains the foundational phases (P01-P06). Subsequent phases will migrate the stream pipeline, side-channels, direct-message path, structural access sites, runtime enums, usage metadata, client contract, subagents, executors, remaining retypes, and enforcement gate.
+This is the implementation PR for the **multi-phase migration plan** (P01-P33). The phase sequence covers the stream pipeline, side-channels, direct-message path, structural access sites, runtime enums, usage metadata, client contract, subagents, executors, remaining retypes, and enforcement gate.
 
 ## What this PR does
 

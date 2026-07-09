@@ -178,7 +178,7 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
     expect(recordedText).not.toContain('secret thought');
   });
 
-  it('retains thought signature in history even when includeThoughts=false', () => {
+  it('drops thinking blocks and their signatures from history when includeThoughts=false', () => {
     const ctx = makeRuntimeContext(false);
     const mgr = new ConversationManager(historyService, ctx, 'test-model');
     const userInput: IContent = {

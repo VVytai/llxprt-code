@@ -21,6 +21,7 @@ import {
   type EmojiFilterMode,
   INITIAL_HISTORY_LENGTH,
   type IContent,
+  type ContentBlock,
   type TextBlock,
   type CheckpointContent,
 } from '@vybestack/llxprt-code-core';
@@ -33,6 +34,24 @@ import type {
 import { MessageType } from '../types.js';
 import { type CommandArgumentSchema } from './schema/types.js';
 import { withFuzzyFilter } from '../utils/fuzzyFilter.js';
+
+type CheckpointPart = NonNullable<CheckpointContent['parts']>[number];
+
+function isCheckpointContentBlock(
+  part: CheckpointPart,
+): part is CheckpointPart & ContentBlock {
+  return typeof part.type === 'string';
+}
+
+function checkpointPartToContentBlock(part: CheckpointPart): ContentBlock {
+  if (part.type === 'text' && typeof part.text === 'string') {
+    return { type: 'text', text: part.text };
+  }
+  if (isCheckpointContentBlock(part)) {
+    return { ...part };
+  }
+  return { type: 'text', text: part.text ?? '' };
+}
 
 /**
  * Resolve emoji filter mode setting, defaulting to 'auto' for invalid values.
@@ -235,10 +254,9 @@ const resumeCommand: SlashCommand = {
     const checkpoint = await logger.loadCheckpoint(tag);
     let conversation: IContent[] = checkpoint.history.map((item) => ({
       speaker: item.role === 'user' ? 'human' : 'ai',
-      blocks: (item.parts ?? []).map((part) => ({
-        type: 'text' as const,
-        text: part.text ?? '',
-      })),
+      blocks: (item.parts ?? []).map((part) =>
+        checkpointPartToContentBlock(part),
+      ),
     }));
 
     // Apply emoji filtering if needed

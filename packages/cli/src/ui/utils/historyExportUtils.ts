@@ -142,11 +142,21 @@ function formatBlockToMarkdown(block: ContentBlock): string {
  *
  * @param history - Array of IContent objects from the conversation
  */
+function speakerToTranscriptRole(speaker: IContent['speaker']): string {
+  if (speaker === 'human') {
+    return 'User';
+  }
+  if (speaker === 'tool') {
+    return 'Tool';
+  }
+  return 'Assistant';
+}
+
 function formatHistoryAsMarkdown(history: IContent[]): string {
   let transcript = '# LLxprt Code Conversation Transcript\n\n';
 
   for (const item of history) {
-    const role = item.speaker === 'human' ? 'User' : 'Assistant';
+    const role = speakerToTranscriptRole(item.speaker);
     transcript += `## ${role}\n\n`;
 
     for (const block of item.blocks) {
