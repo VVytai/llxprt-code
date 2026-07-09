@@ -487,7 +487,7 @@ describe('applyRequestModifications', () => {
     expect(result).toHaveLength(2);
     // After the neutral migration, applyRequestModifications returns IContent[]
     // (neutral {speaker, blocks}). Assert the observable shape.
-    const first = result[0] as IContent;
+    const first = result[0];
     expect(first.speaker).toBe('human');
     expect(first.blocks).toStrictEqual([
       { type: 'text', text: 'replaced message one' },
