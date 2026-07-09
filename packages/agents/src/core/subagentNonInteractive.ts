@@ -435,8 +435,8 @@ export async function dispatchNonInteractiveTurnResult(
  * can be unit-tested in isolation.
  */
 export function hasNonInteractiveMessages(
-  nextMessages: Content[] | null,
-): nextMessages is Content[] {
+  nextMessages: IContent[] | null,
+): nextMessages is IContent[] {
   return nextMessages !== null && nextMessages.length > 0;
 }
 

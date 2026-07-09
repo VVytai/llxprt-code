@@ -23,6 +23,7 @@ import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/Ag
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { ProviderRuntimeContext } from '@vybestack/llxprt-code-core/runtime/providerRuntimeContext.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
+import type { AgentClientGenerateConfig } from '@vybestack/llxprt-code-core/core/clientContract.js';
 
 export type ToolGroupArray = Array<{
   functionDeclarations?: Array<{
@@ -269,13 +270,10 @@ const systemInstructionLogger = new DebugLogger(
  * value is absent or contains no text.
  */
 export function extractSystemInstructionText(
-  raw: GenerateContentConfig['systemInstruction'],
+  raw: AgentClientGenerateConfig['systemInstruction'],
 ): string | undefined {
-  // The SDK types declare systemInstruction as ContentUnion | undefined, but
-  // defensive null-safety is needed because 'parts' in null / 'text' in null
-  // would throw at runtime. Broadening to unknown lets the null guard pass
-  // lint without a suppression directive.
-  const value = raw as unknown;
+  // Broadening to unknown lets the null guard pass lint without a suppression directive.
+  const value: unknown = raw;
   if (value === undefined || value === null) {
     return undefined;
   }

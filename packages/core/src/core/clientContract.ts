@@ -79,6 +79,7 @@ export interface AgentClientGenerateConfig {
   abortSignal?: AbortSignal;
   tools?: unknown;
   toolConfig?: unknown;
+  systemInstruction?: unknown;
 }
 
 export interface AgentChatContract {

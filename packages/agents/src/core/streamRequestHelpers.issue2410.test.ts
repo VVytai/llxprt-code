@@ -23,7 +23,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
   it('returns undefined for null input', () => {
     expect(
       extractSystemInstructionText(
-        null as unknown as Parameters<typeof extractSystemInstructionText>[0],
+        null as unknown,
       ),
     ).toBeUndefined();
   });
@@ -44,9 +44,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     };
     expect(
       extractSystemInstructionText(
-        content as unknown as Parameters<
-          typeof extractSystemInstructionText
-        >[0],
+        content as unknown,
       ),
     ).toBe('You are a subagent.');
   });
@@ -55,9 +53,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     const content = { role: 'system', parts: [] };
     expect(
       extractSystemInstructionText(
-        content as unknown as Parameters<
-          typeof extractSystemInstructionText
-        >[0],
+        content as unknown,
       ),
     ).toBeUndefined();
   });
@@ -66,7 +62,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     const parts = [{ text: 'part one' }, { text: 'part two' }];
     expect(
       extractSystemInstructionText(
-        parts as unknown as Parameters<typeof extractSystemInstructionText>[0],
+        parts as unknown,
       ),
     ).toBe(['part one', 'part two'].join('\n'));
   });
@@ -75,7 +71,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     const parts = [{ text: '  real content  ' }, { text: '   ' }];
     expect(
       extractSystemInstructionText(
-        parts as unknown as Parameters<typeof extractSystemInstructionText>[0],
+        parts as unknown,
       ),
     ).toBe('real content');
   });
@@ -84,7 +80,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     const part = { text: 'single part text' };
     expect(
       extractSystemInstructionText(
-        part as unknown as Parameters<typeof extractSystemInstructionText>[0],
+        part as unknown,
       ),
     ).toBe('single part text');
   });
@@ -98,9 +94,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     };
     expect(
       extractSystemInstructionText(
-        content as unknown as Parameters<
-          typeof extractSystemInstructionText
-        >[0],
+        content as unknown,
       ),
     ).toBe('content text');
   });
@@ -108,13 +102,11 @@ describe('issue #2410 – extractSystemInstructionText', () => {
   it('returns undefined for unrecognized shapes', () => {
     expect(
       extractSystemInstructionText(
-        42 as unknown as Parameters<typeof extractSystemInstructionText>[0],
+        42 as unknown,
       ),
     ).toBeUndefined();
     expect(
-      extractSystemInstructionText({ foo: 'bar' } as unknown as Parameters<
-        typeof extractSystemInstructionText
-      >[0]),
+      extractSystemInstructionText({ foo: 'bar' } as unknown),
     ).toBeUndefined();
   });
 
@@ -122,7 +114,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     const parts = [{ inlineData: { data: 'binary' } }, { text: 'hello' }];
     expect(
       extractSystemInstructionText(
-        parts as unknown as Parameters<typeof extractSystemInstructionText>[0],
+        parts as unknown,
       ),
     ).toBe('hello');
   });
@@ -134,9 +126,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
     };
     expect(
       extractSystemInstructionText(
-        content as unknown as Parameters<
-          typeof extractSystemInstructionText
-        >[0],
+        content as unknown,
       ),
     ).toBe(['a', 'b'].join('\n'));
   });
