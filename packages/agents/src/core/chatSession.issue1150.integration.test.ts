@@ -21,9 +21,36 @@ import type {
   ThinkingBlock,
   ToolCallBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import type { Part, GenerateContentResponse } from '@google/genai';
 
-function extractParts(response: GenerateContentResponse): Part[] {
+/**
+ * Local structural type mirroring the legacy Google Part shape used purely
+ * for test fixtures in this file (thought/text/functionCall).
+ */
+interface LegacyPart {
+  text?: string;
+  thought?: boolean;
+  thoughtSignature?: string;
+  llxprtSourceField?: string;
+  functionCall?: { id?: string; name: string; args?: Record<string, unknown> };
+  functionResponse?: {
+    id?: string;
+    name?: string;
+    response?: unknown;
+  };
+}
+
+/**
+ * Local structural type mirroring the legacy Google GenerateContentResponse
+ * shape used purely for test fixtures in this file.
+ */
+interface LegacyGenerateContentResponse {
+  candidates?: Array<{
+    content?: { role?: string; parts?: LegacyPart[] };
+    finishReason?: string;
+  }>;
+}
+
+function extractParts(response: LegacyGenerateContentResponse): LegacyPart[] {
   const content = response.candidates?.[0]?.content;
   return content?.parts ?? [];
 }
@@ -58,7 +85,7 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
       // by checking the Part structure that should be created
 
       // The expected Part structure
-      interface ThoughtPart extends Part {
+      interface ThoughtPart extends LegacyPart {
         thought: true;
         text: string;
         thoughtSignature?: string;
@@ -90,7 +117,7 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
       // Simulate the stream of GenerateContentResponse from converted IContents
 
       // Chunk 1: Thinking block (from separate IContent yield)
-      const thinkingChunk: GenerateContentResponse = {
+      const thinkingChunk: LegacyGenerateContentResponse = {
         candidates: [
           {
             content: {
@@ -101,15 +128,15 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
                   text: 'Let me think about this...',
                   thoughtSignature: 'sig123',
                   llxprtSourceField: 'thinking',
-                } as Part,
+                } as LegacyPart,
               ],
             },
           },
         ],
-      } as GenerateContentResponse;
+      } as LegacyGenerateContentResponse;
 
       // Chunk 2: Text + tool call
-      const toolCallChunk: GenerateContentResponse = {
+      const toolCallChunk: LegacyGenerateContentResponse = {
         candidates: [
           {
             content: {
@@ -128,10 +155,10 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
             finishReason: 'STOP',
           },
         ],
-      } as unknown as GenerateContentResponse;
+      } as unknown as LegacyGenerateContentResponse;
 
       // Simulate processStreamResponse accumulation
-      const modelResponseParts: Part[] = [];
+      const modelResponseParts: LegacyPart[] = [];
       modelResponseParts.push(...extractParts(thinkingChunk));
       modelResponseParts.push(...extractParts(toolCallChunk));
 
@@ -154,7 +181,7 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
      * Test that thinking is filtered when includeInContext is false
      */
     it('should filter thinking parts when includeInContext is false', () => {
-      const thinkingChunk: GenerateContentResponse = {
+      const thinkingChunk: LegacyGenerateContentResponse = {
         candidates: [
           {
             content: {
@@ -163,14 +190,14 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
                 {
                   thought: true,
                   text: 'Thinking...',
-                } as Part,
+                } as LegacyPart,
               ],
             },
           },
         ],
-      } as GenerateContentResponse;
+      } as LegacyGenerateContentResponse;
 
-      const textChunk: GenerateContentResponse = {
+      const textChunk: LegacyGenerateContentResponse = {
         candidates: [
           {
             content: {
@@ -179,9 +206,9 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
             },
           },
         ],
-      } as GenerateContentResponse;
+      } as LegacyGenerateContentResponse;
 
-      const modelResponseParts: Part[] = [];
+      const modelResponseParts: LegacyPart[] = [];
       // Process with thoughts filtered
       [thinkingChunk, textChunk].forEach((chunk) => {
         const content = chunk.candidates?.[0]?.content;
@@ -313,7 +340,7 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
      * If a Part doesn't have thought: true (boolean), it won't be recognized.
      */
     it('Part must have thought: true (boolean) to be recognized as thought', () => {
-      function isThoughtPart(part: Part | undefined): boolean {
+      function isThoughtPart(part: LegacyPart | undefined): boolean {
         return Boolean(
           part &&
             typeof part === 'object' &&
@@ -323,22 +350,28 @@ describe('Issue #1150: ChatSession thinking block integration', () => {
       }
 
       // Valid thought part
-      const validThought: Part = { thought: true, text: 'thinking...' } as Part;
+      const validThought: LegacyPart = {
+        thought: true,
+        text: 'thinking...',
+      } as LegacyPart;
       expect(isThoughtPart(validThought)).toBe(true);
 
       // Invalid: thought is string (not boolean)
-      const invalidThought1: Part = {
+      const invalidThought1: LegacyPart = {
         thought: 'true',
         text: 'thinking...',
-      } as unknown as Part;
+      } as unknown as LegacyPart;
       expect(isThoughtPart(invalidThought1)).toBe(false);
 
       // Invalid: thought is undefined
-      const invalidThought2: Part = { text: 'just text' };
+      const invalidThought2: LegacyPart = { text: 'just text' };
       expect(isThoughtPart(invalidThought2)).toBe(false);
 
       // Invalid: thought is false
-      const invalidThought3: Part = { thought: false, text: 'text' } as Part;
+      const invalidThought3: LegacyPart = {
+        thought: false,
+        text: 'text',
+      } as LegacyPart;
       expect(isThoughtPart(invalidThought3)).toBe(false);
     });
   });

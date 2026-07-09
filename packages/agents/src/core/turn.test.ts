@@ -7,7 +7,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ServerToolCallRequestEvent, ServerErrorEvent } from './turn.js';
 import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
-import type { Part, Content } from '@google/genai';
+import type {
+  ContentBlock,
+  IContent,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { reportError } from '@vybestack/llxprt-code-core/utils/errorReporting.js';
 import type { ChatSession } from './chatSession.js';
 import { InvalidStreamError, StreamEventType } from './chatSession.js';
@@ -20,18 +23,6 @@ const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
   mockSendMessageStream: vi.fn(),
   mockGetHistory: vi.fn(),
 }));
-
-vi.mock('@google/genai', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@google/genai')>();
-  const MockChat = vi.fn().mockImplementation(() => ({
-    sendMessageStream: mockSendMessageStream,
-    getHistory: mockGetHistory,
-  }));
-  return {
-    ...actual,
-    Chat: MockChat,
-  };
-});
 
 vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
   reportError: vi.fn(),
@@ -88,7 +79,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Hi' }];
+      const reqParts: ContentBlock[] = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -139,7 +130,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Hi' }];
+      const reqParts: ContentBlock[] = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -182,7 +173,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Hi' }];
+      const reqParts: ContentBlock[] = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -231,7 +222,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Use tools' }];
+      const reqParts: ContentBlock[] = [{ text: 'Use tools' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -272,7 +263,7 @@ describe('Turn', () => {
         'NO_FINISH_REASON',
       );
       mockSendMessageStream.mockRejectedValue(error);
-      const reqParts: Part[] = [{ text: 'Trigger invalid stream' }];
+      const reqParts: ContentBlock[] = [{ text: 'Trigger invalid stream' }];
 
       const events = [];
       for await (const event of turn.run(
@@ -290,8 +281,8 @@ describe('Turn', () => {
     it('should yield Error event and report if sendMessageStream throws', async () => {
       const error = new Error('API Error');
       mockSendMessageStream.mockRejectedValue(error);
-      const reqParts: Part[] = [{ text: 'Trigger error' }];
-      const historyContent: Content[] = [
+      const reqParts: ContentBlock[] = [{ text: 'Trigger error' }];
+      const historyContent: IContent[] = [
         { role: 'model', parts: [{ text: 'Previous history' }] },
       ];
       mockGetHistory.mockReturnValue(historyContent);
@@ -470,7 +461,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Generate long text' }];
+      const reqParts: ContentBlock[] = [{ text: 'Generate long text' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -517,7 +508,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Test safety' }];
+      const reqParts: ContentBlock[] = [{ text: 'Test safety' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -565,7 +556,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Test no finish reason' }];
+      const reqParts: ContentBlock[] = [{ text: 'Test no finish reason' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -609,7 +600,7 @@ describe('Turn', () => {
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
 
       const events = [];
-      const reqParts: Part[] = [{ text: 'Test multiple responses' }];
+      const reqParts: ContentBlock[] = [{ text: 'Test multiple responses' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,

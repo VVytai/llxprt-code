@@ -10,7 +10,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Part } from '@google/genai';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { ChatSession } from './chatSession.js';
 import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
@@ -520,7 +519,7 @@ describe('ChatSession runtime history and tool-call behavior', () => {
 
       const events = [] as Array<{ type: string; value?: unknown }>;
       for await (const event of turn.run(
-        [{ text: 'Hello there!' }] as Part[],
+        [{ text: 'Hello there!' }] as unknown[],
         new AbortController().signal,
       )) {
         events.push({

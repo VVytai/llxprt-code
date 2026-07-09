@@ -10,7 +10,7 @@
  *
  * Neutral ContentBlock[]-based helpers. Replaces the former
  * googlePartHelpers.ts (Part[]-based) with thin re-exports of the
- * authoritative core block utilities. This file has ZERO @google/genai
+ * authoritative core block utilities. This file has zero SDK
  * imports.
  */
 

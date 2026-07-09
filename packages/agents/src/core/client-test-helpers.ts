@@ -16,8 +16,6 @@
  */
 
 import { vi } from 'vitest';
-import type { Chat, GenerateContentResponse } from '@google/genai';
-import { GoogleGenAI } from '@google/genai';
 import type { ContentGeneratorConfig } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ConfigParameters } from '@vybestack/llxprt-code-core/config/config.js';
 import type { ChatSession } from './chatSession.js';
@@ -94,33 +92,13 @@ function resetAndApplyServiceMocks(): void {
   setSimulate429(false);
 }
 
-/** Wire the GoogleGenAI constructor mock to the provided mock fns. */
-function setupGoogleGenAIMock(mockFns: ClientMockFns): void {
-  const { mockChatCreateFn, mockGenerateContentFn, mockEmbedContentFn } =
-    mockFns;
-
-  const MockedGoogleGenAI = vi.mocked(GoogleGenAI);
-  MockedGoogleGenAI.mockImplementation((..._args: unknown[]): GoogleGenAI => {
-    const mockInstance = {
-      chats: { create: mockChatCreateFn },
-      models: {
-        generateContent: mockGenerateContentFn,
-        embedContent: mockEmbedContentFn,
-      },
-    };
-    return mockInstance as unknown as GoogleGenAI;
-  });
-
-  mockChatCreateFn.mockResolvedValue({} as Chat);
-  mockGenerateContentFn.mockResolvedValue({
-    candidates: [
-      {
-        content: {
-          parts: [{ text: '{"key": "value"}' }],
-        },
-      },
-    ],
-  } as unknown as GenerateContentResponse);
+/**
+ * Previously wired the GoogleGenAI constructor mock to the provided mock fns.
+ * The production code no longer uses GoogleGenAI (it uses createContentGenerator),
+ * so this is now a no-op retained for API compatibility with callers.
+ */
+function setupGoogleGenAIMock(_mockFns: ClientMockFns): void {
+  // No-op — embedding/generation mocks are wired via vi.mock in individual test files.
 }
 
 /** Build and register the mock Config implementation. */

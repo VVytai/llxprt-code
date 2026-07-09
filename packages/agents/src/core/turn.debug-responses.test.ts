@@ -7,9 +7,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ServerAgentStreamEvent } from './turn.js';
 import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
-import type { Part } from '@google/genai';
 import type { ChatSession } from './chatSession.js';
 import { StreamEventType } from './chatSession.js';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   type MockedChatInstance,
   findFinishedEvent,
@@ -20,18 +20,6 @@ const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
   mockSendMessageStream: vi.fn(),
   mockGetHistory: vi.fn(),
 }));
-
-vi.mock('@google/genai', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@google/genai')>();
-  const MockChat = vi.fn().mockImplementation(() => ({
-    sendMessageStream: mockSendMessageStream,
-    getHistory: mockGetHistory,
-  }));
-  return {
-    ...actual,
-    Chat: MockChat,
-  };
-});
 
 vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
   reportError: vi.fn(),
@@ -48,21 +36,6 @@ vi.mock(
       // analyzeResponseOutcome now operates on ContentBlock[]; delegate to the
       // real implementation so thinking/tool_call/text detection is correct.
       analyzeResponseOutcome: actual.analyzeResponseOutcome,
-      // Legacy Part/GenerateContentResponse helpers retained for any callers
-      // still on the old shapes.
-      getResponseText: (resp: GenerateContentResponse) =>
-        resp.candidates?.[0]?.content?.parts
-          ?.filter((part) => (part as { thought?: boolean }).thought !== true)
-          .map((part) => part.text)
-          .join('') ?? undefined,
-      getFunctionCalls: (resp: GenerateContentResponse) =>
-        resp.functionCalls ?? [],
-      getFunctionCallsFromParts: (parts: Part[]) => {
-        const functionCalls = parts
-          .filter((part) => part.functionCall !== undefined)
-          .map((part) => part.functionCall!);
-        return functionCalls.length > 0 ? functionCalls : undefined;
-      },
     };
   },
 );
@@ -111,7 +84,7 @@ describe('Turn - debug responses and finished event outcome', () => {
         yield { type: StreamEventType.CHUNK, value: chunk2 };
       })();
       mockSendMessageStream.mockResolvedValue(mockResponseStream);
-      const reqParts: Part[] = [{ text: 'Hi' }];
+      const reqParts: ContentBlock[] = [{ type: 'text', text: 'Hi' }];
       for await (const _ of turn.run(reqParts, new AbortController().signal)) {
         // consume stream
       }

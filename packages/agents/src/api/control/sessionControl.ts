@@ -192,10 +192,7 @@ export class SessionControl implements AgentSessionControl {
     const history = await this.deps.resolveClient().getHistory();
     // Convert neutral IContent[] to the legacy checkpoint format ({role, parts}).
     const checkpointHistory = ContentConverters.toGeminiContents(history);
-    await logger.saveCheckpoint(
-      checkpointHistory as never,
-      tag,
-    );
+    await logger.saveCheckpoint(checkpointHistory as never, tag);
     return {
       id: tag,
       createdAt: new Date().toISOString(),

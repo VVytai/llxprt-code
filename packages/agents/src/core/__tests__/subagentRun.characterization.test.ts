@@ -3,7 +3,7 @@
  * @requirement REQ-005.5a
  *
  * Behavioral characterization of the subagent slice BEFORE retyping
- * subagent*.ts off @google/genai (P23). These tests pin OBSERVABLE behavior
+ * subagent*.ts off provider-specific types (P23). These tests pin OBSERVABLE behavior
  * so the retype cannot silently change tool-response processing, text
  * response handling, termination logic, or emoji filtering.
  *

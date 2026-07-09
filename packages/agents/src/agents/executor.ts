@@ -59,7 +59,7 @@ import { callModelAndConsumeStream } from './executor-stream-processor.js';
  *
  * Structurally compatible with the Google `GenerateContentConfig` expected by
  * `ChatSession` so that the executor can configure model parameters without
- * importing `@google/genai`.
+ * importing the Gemini SDK.
  */
 type AgentGenerateContentConfig = {
   temperature?: number;

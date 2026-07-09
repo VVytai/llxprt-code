@@ -17,7 +17,7 @@
  * @plan:PLAN-20260707-AGENTNEUTRAL.P06
  */
 
-import type { Tool } from '@google/genai';
+import type { ToolDeclaration } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { vi, type Mock } from 'vitest';
 import { ChatSession } from '../chatSession.js';
 import { Turn, AgentEventType, DEFAULT_AGENT_ID } from '../turn.js';
@@ -134,7 +134,7 @@ export interface FullLoopHarness {
 export function createFullLoopHarness(
   generateChatCompletionMock: Mock,
   options?: {
-    tools?: Tool[];
+    tools?: ToolDeclaration[];
     hookConfig?: Config;
     historyService?: HistoryService;
   },

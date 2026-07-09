@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Part } from '@google/genai';
+import type { GeminiContentPart } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
@@ -81,7 +81,6 @@ const {
   };
 });
 
-vi.mock('@google/genai');
 vi.mock('@vybestack/llxprt-code-core/services/complexity-analyzer.js', () => ({
   ComplexityAnalyzer: vi.fn().mockImplementation(() => ({
     analyzeComplexity: vi.fn().mockReturnValue({
@@ -195,7 +194,7 @@ interface OverflowScenario {
 
 interface OverflowScenarioHandle {
   mockChat: Partial<ChatSession>;
-  request: Part[];
+  request: GeminiContentPart[];
   estimatedRequestTokenCount: number;
   remainingTokenCount: number;
 }
@@ -423,7 +422,9 @@ describe('Gemini Client — preflight compression recovery (issue 2402)', () => 
         compressionResult: PerformCompressionResult.COMPRESSED,
         proceeds: true,
       });
-      const request: Part[] = [{ text: 'a'.repeat(OVERFLOW_REQUEST_CHARS) }];
+      const request: GeminiContentPart[] = [
+        { text: 'a'.repeat(OVERFLOW_REQUEST_CHARS) },
+      ];
 
       const events = await fromAsync(
         client.sendMessageStream(

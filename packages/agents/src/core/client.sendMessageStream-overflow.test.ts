@@ -10,7 +10,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Part, PartListUnion } from '@google/genai';
+import type {
+  GeminiContentPart,
+  AgentMessageInput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
@@ -79,7 +82,6 @@ const {
   };
 });
 
-vi.mock('@google/genai');
 vi.mock('@vybestack/llxprt-code-core/services/complexity-analyzer.js', () => ({
   ComplexityAnalyzer: vi.fn().mockImplementation(() => ({
     analyzeComplexity: vi.fn().mockReturnValue({
@@ -304,7 +306,7 @@ describe('Gemini Client (client.ts)', () => {
       client['contentGenerator'] = mockGenerator as ContentGenerator;
 
       // A small "continue" request — remaining is -49,442.
-      const request: Part[] = [{ text: 'continue' }];
+      const request: GeminiContentPart[] = [{ text: 'continue' }];
 
       const mockStream = (async function* () {
         yield { type: AgentEventType.Content, value: 'ok' };
@@ -358,7 +360,7 @@ describe('Gemini Client (client.ts)', () => {
       client['contentGenerator'] = mockGenerator as ContentGenerator;
 
       // Pure functionResponse continuation — 0 tokens by text estimate.
-      const request: Part[] = [
+      const request: GeminiContentPart[] = [
         {
           functionResponse: {
             name: 'someTool',
@@ -605,7 +607,7 @@ describe('Gemini Client (client.ts)', () => {
       })();
       mockTurnRunFn.mockReturnValue(mockStream);
 
-      const request: Part[] = [
+      const request: GeminiContentPart[] = [
         { text: 'short' }, // 5 chars → 1 token
         {
           inlineData: {
@@ -712,7 +714,7 @@ describe('Gemini Client (client.ts)', () => {
       // In the old implementation, this would incorrectly estimate ~2.7M tokens
       // In the new implementation, only the text part is counted
       const largePdfBase64 = 'A'.repeat(11 * 1024 * 1024);
-      const request: Part[] = [
+      const request: GeminiContentPart[] = [
         { text: 'Please analyze this PDF document' }, // ~35 chars = ~8 tokens
         {
           inlineData: {
@@ -861,10 +863,10 @@ describe('Gemini Client (client.ts)', () => {
         false,
       );
 
-      const forwardedRequests: Part[][] = [];
+      const forwardedRequests: GeminiContentPart[][] = [];
       mockTurnRunFn.mockReset();
-      mockTurnRunFn.mockImplementation((req: PartListUnion) => {
-        forwardedRequests.push(req as Part[]);
+      mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
+        forwardedRequests.push(req as GeminiContentPart[]);
         return (async function* () {
           yield {
             type: AgentEventType.Thought,

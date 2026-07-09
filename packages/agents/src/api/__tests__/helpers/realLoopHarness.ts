@@ -19,11 +19,11 @@
  * lives under __tests__/helpers/ which is excluded from the P09 boundary scan.
  */
 
-import { type PartListUnion } from '@google/genai';
 import { FakeProvider } from '@vybestack/llxprt-code-providers';
 import {
   emptyModelOutput,
   iContentFromBlocks,
+  type AgentMessageInput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
@@ -170,7 +170,7 @@ function makeScriptedClientContract(
     },
     generateEmbedding: async () => [],
     async *sendMessageStream(
-      req: PartListUnion,
+      req: AgentMessageInput,
       signal: AbortSignal,
     ): AsyncGenerator<ServerAgentStreamEvent> {
       history.push(

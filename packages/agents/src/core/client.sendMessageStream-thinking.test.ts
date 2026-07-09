@@ -10,7 +10,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Part, PartListUnion } from '@google/genai';
+import type {
+  GeminiContentPart,
+  AgentMessageInput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
@@ -77,7 +80,6 @@ const {
   };
 });
 
-vi.mock('@google/genai');
 vi.mock('@vybestack/llxprt-code-core/services/complexity-analyzer.js', () => ({
   ComplexityAnalyzer: vi.fn().mockImplementation(() => ({
     analyzeComplexity: vi.fn().mockReturnValue({
@@ -209,11 +211,11 @@ describe('Gemini Client (client.ts)', () => {
     });
 
     it('should auto-continue when model generates thinking-only output', async () => {
-      const forwardedRequests: Part[][] = [];
+      const forwardedRequests: GeminiContentPart[][] = [];
       let callCount = 0;
       mockTurnRunFn.mockReset();
-      mockTurnRunFn.mockImplementation((req: PartListUnion) => {
-        forwardedRequests.push(req as Part[]);
+      mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
+        forwardedRequests.push(req as GeminiContentPart[]);
         callCount++;
         if (callCount === 1) {
           return (async function* () {

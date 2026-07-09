@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { PartListUnion } from '@google/genai';
+import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
@@ -77,7 +77,6 @@ const {
   };
 });
 
-vi.mock('@google/genai');
 vi.mock('@vybestack/llxprt-code-core/services/complexity-analyzer.js', () => ({
   ComplexityAnalyzer: vi.fn().mockImplementation(() => ({
     analyzeComplexity: vi.fn().mockReturnValue({
@@ -291,12 +290,12 @@ describe('Gemini Client (client.ts)', () => {
       mockTriggerBeforeAgentHook.mockResolvedValue(contextOutput);
 
       // Track what request was passed to turn.run
-      const capturedRequests: PartListUnion[] = [];
+      const capturedRequests: AgentMessageInput[] = [];
       const mockStream = (async function* () {
         yield { type: AgentEventType.Content, value: 'Response' };
         yield { type: AgentEventType.Finished, value: { reason: 'STOP' } };
       })();
-      mockTurnRunFn.mockImplementation((req: PartListUnion) => {
+      mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
         capturedRequests.push(req);
         return mockStream;
       });

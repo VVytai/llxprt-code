@@ -29,7 +29,7 @@ import { canonicalizeToolName } from './toolGovernance.js';
 /**
  * Extracts function calls from Google Part[]. Local to this legacy compat
  * module (formerly from googlePartHelpers.ts) so that file can be
- * zero-@google/genai.
+ * zero-SDK.
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P17
  * @requirement:REQ-011.1

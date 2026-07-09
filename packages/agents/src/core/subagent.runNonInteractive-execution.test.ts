@@ -25,10 +25,9 @@ import {
 } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import { getEnvironmentContext } from '@vybestack/llxprt-code-core/utils/environmentContext.js';
 import { executeToolCall } from './nonInteractiveToolExecutor.js';
-import type { FunctionDeclaration } from '@google/genai';
-import { Type } from '@google/genai';
+import type { FunctionDeclaration } from '../agents/types.js';
 import { ToolErrorType } from '@vybestack/llxprt-code-tools';
-import type { Part } from '@google/genai';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   createCompletedToolCallResponse,
   createMockConfig,
@@ -278,7 +277,7 @@ describe('subagent.ts', () => {
       const listFilesToolDef: FunctionDeclaration = {
         name: 'list_files',
         description: 'Lists files',
-        parameters: { type: Type.OBJECT, properties: {} },
+        parameters: { type: 'OBJECT', properties: {} },
       };
 
       const { config } = await createMockConfig({
@@ -497,7 +496,7 @@ describe('subagent.ts', () => {
         expect(part).not.toMatchObject({ type: 'tool_call' });
       }
       const hasToolResponse = secondCallArgs.message.some(
-        (p: Part) =>
+        (p: ContentBlock) =>
           'type' in p &&
           (p as Record<string, unknown>).type === 'tool_response',
       );
@@ -524,10 +523,10 @@ describe('subagent.ts', () => {
             name: 'write_file',
             description: 'Write files to disk',
             parameters: {
-              type: Type.OBJECT,
+              type: 'OBJECT',
               properties: {
-                path: { type: Type.STRING },
-                content: { type: Type.STRING },
+                path: { type: 'STRING' },
+                content: { type: 'STRING' },
               },
             },
           } as FunctionDeclaration,

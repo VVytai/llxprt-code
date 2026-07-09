@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Content } from '@google/genai';
+import type { GeminiContent } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
@@ -84,7 +84,6 @@ const {
   };
 });
 
-vi.mock('@google/genai');
 vi.mock('@vybestack/llxprt-code-core/services/complexity-analyzer.js', () => ({
   ComplexityAnalyzer: vi.fn().mockImplementation(() => ({
     analyzeComplexity: vi.fn().mockReturnValue({
@@ -261,7 +260,7 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['chat'] = mockChat as unknown as ChatSession;
 
-      const historyWithThoughts: Content[] = [
+      const historyWithThoughts: GeminiContent[] = [
         {
           role: 'user',
           parts: [{ text: 'hello' }],
@@ -285,7 +284,7 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = undefined; // Chat not initialized
       vi.spyOn(client, 'hasChatInitialized').mockReturnValue(false);
 
-      const history: Content[] = [
+      const history: GeminiContent[] = [
         {
           role: 'user',
           parts: [{ text: 'hello' }],
@@ -301,7 +300,7 @@ describe('Gemini Client (client.ts)', () => {
     });
 
     it('returns history from a stored history service after profile invalidation', async () => {
-      const history: Content[] = [
+      const history: GeminiContent[] = [
         { role: 'user', parts: [{ text: 'remember issue 2049' }] },
         { role: 'model', parts: [{ text: 'we are preserving history' }] },
       ];
@@ -334,7 +333,7 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = mockChat as unknown as ChatSession;
       vi.spyOn(client, 'hasChatInitialized').mockReturnValue(true);
 
-      const history: Content[] = [
+      const history: GeminiContent[] = [
         {
           role: 'user',
           parts: [{ text: 'hello' }],
@@ -358,7 +357,7 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = mockChat as unknown as ChatSession;
       vi.spyOn(client, 'hasChatInitialized').mockReturnValue(true);
 
-      const history: Content[] = [
+      const history: GeminiContent[] = [
         {
           role: 'user',
           parts: [{ text: 'hello' }],

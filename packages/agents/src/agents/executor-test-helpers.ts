@@ -13,18 +13,18 @@ import { ToolRegistry } from '@vybestack/llxprt-code-tools';
 import { LSTool } from '@vybestack/llxprt-code-tools';
 import { ReadFileTool } from '@vybestack/llxprt-code-tools';
 import { CoreToolHostAdapter } from '@vybestack/llxprt-code-core/tools-adapters/CoreToolHostAdapter.js';
-import { StreamEventType, type StreamEvent } from '../core/chatSession.js';
 import {
-  type FunctionCall,
-  type Part,
-  type GenerateContentConfig,
-} from '@google/genai';
+  StreamEventType,
+  type StreamEvent,
+  type ChatSessionConfig,
+} from '../core/chatSession.js';
 import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type {
   ContentBlock,
   ToolCallBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type { FunctionCall } from './types.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import { MockTool } from '@vybestack/llxprt-code-core/test-utils/mock-tool.js';
 import { z } from 'zod';
@@ -55,9 +55,26 @@ export interface ViTestApi {
 }
 
 /**
- * Converts a Google-shaped Part to a neutral ContentBlock.
+ * Structural mock-part shape used by test fixtures. Mirrors the subset of
+ * the legacy Google `Part` discriminator keys that the tests exercise
+ * (text / thought / functionCall / functionResponse). Kept local so this
+ * file uses only neutral types (zero SDK dependency).
  */
-function partToBlock(part: Part): ContentBlock {
+export type MockPart =
+  | { text: string; thought?: boolean }
+  | { functionCall: FunctionCall }
+  | {
+      functionResponse: {
+        id?: string;
+        name?: string;
+        response?: unknown;
+      };
+    };
+
+/**
+ * Converts a mock Part to a neutral ContentBlock.
+ */
+function partToBlock(part: MockPart): ContentBlock {
   if ('text' in part && part.text !== undefined) {
     if (part.thought === true) {
       return { type: 'thinking', thought: part.text };
@@ -86,12 +103,11 @@ function partToBlock(part: Part): ContentBlock {
 }
 
 /**
- * Creates a mock API response chunk by converting Google-shaped Parts to
- * a neutral ModelStreamChunk. Keeps backward compatibility with existing
- * test callers that pass Part[].
+ * Creates a mock API response chunk by converting mock Parts to
+ * a neutral ModelStreamChunk.
  */
 export const createMockResponseChunk = (
-  parts: Part[],
+  parts: MockPart[],
   functionCalls?: FunctionCall[],
   allowedTools?: readonly string[],
 ): ModelStreamChunk => {
@@ -99,7 +115,7 @@ export const createMockResponseChunk = (
   const existingCallNames = new Set(
     parts
       .filter(
-        (p): p is Part & { functionCall: FunctionCall } =>
+        (p): p is MockPart & { functionCall: FunctionCall } =>
           'functionCall' in p && p.functionCall !== undefined,
       )
       .map((p) => p.functionCall.id ?? p.functionCall.name),
@@ -138,7 +154,7 @@ export const mockModelResponse = (
   thought?: string,
   text?: string,
 ): void => {
-  const parts: Part[] = [];
+  const parts: MockPart[] = [];
   if (thought) {
     parts.push({
       text: `**${thought}** This is the reasoning part.`,
@@ -193,8 +209,8 @@ export function createCompletedToolCallResponse(
 }
 
 export interface MessageParams {
-  message?: Part[];
-  config?: GenerateContentConfig;
+  message?: MockPart[];
+  config?: ChatSessionConfig;
 }
 
 /**

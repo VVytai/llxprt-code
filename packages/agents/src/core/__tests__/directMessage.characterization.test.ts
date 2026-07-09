@@ -21,7 +21,7 @@
  */
 
 import { describe, it, expect, vi, type Mock } from 'vitest';
-import type { Tool } from '@google/genai';
+import type { ToolDeclaration } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import * as fc from 'fast-check';
 
 import { ChatSession } from '../chatSession.js';
@@ -116,7 +116,7 @@ interface DirectHarness {
 function createDirectHarness(
   generateChatCompletionMock: Mock,
   options?: {
-    tools?: Tool[];
+    tools?: ToolDeclaration[];
     hookConfig?: Config;
     historyService?: HistoryService;
   },

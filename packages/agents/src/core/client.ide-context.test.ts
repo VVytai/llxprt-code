@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Content } from '@google/genai';
+import type { GeminiContent } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
@@ -79,7 +79,6 @@ const {
   };
 });
 
-vi.mock('@google/genai');
 vi.mock('@vybestack/llxprt-code-core/services/complexity-analyzer.js', () => ({
   ComplexityAnalyzer: vi.fn().mockImplementation(() => ({
     analyzeComplexity: vi.fn().mockReturnValue({
@@ -235,7 +234,7 @@ describe('Gemini Client (client.ts)', () => {
 
       it('should NOT add IDE context when a tool call is pending', async () => {
         // Arrange: History ends with a functionCall from the model
-        const historyWithPendingCall: Content[] = [
+        const historyWithPendingCall: GeminiContent[] = [
           { role: 'user', parts: [{ text: 'Please use a tool.' }] },
           {
             role: 'model',
@@ -276,7 +275,7 @@ describe('Gemini Client (client.ts)', () => {
 
       it('should add IDE context when no tool call is pending', async () => {
         // Arrange: History is normal, no pending calls
-        const normalHistory: Content[] = [
+        const normalHistory: GeminiContent[] = [
           { role: 'user', parts: [{ text: 'A normal message.' }] },
           { role: 'model', parts: [{ text: 'A normal response.' }] },
         ];
@@ -307,7 +306,7 @@ describe('Gemini Client (client.ts)', () => {
         // --- Step 1: A tool call is pending, context should be skipped ---
 
         // Arrange: History ends with a functionCall
-        const historyWithPendingCall: Content[] = [
+        const historyWithPendingCall: GeminiContent[] = [
           { role: 'user', parts: [{ text: 'Please use a tool.' }] },
           {
             role: 'model',
@@ -358,7 +357,7 @@ describe('Gemini Client (client.ts)', () => {
         // --- Step 2: A new message is sent, latest context should be included ---
 
         // Arrange: The model has responded to the tool, and the user is sending a new message.
-        const historyAfterToolResponse: Content[] = [
+        const historyAfterToolResponse: GeminiContent[] = [
           ...historyWithPendingCall,
           {
             role: 'user',
@@ -454,7 +453,7 @@ describe('Gemini Client (client.ts)', () => {
         vi.mocked(mockChat.addHistory!).mockClear();
 
         // --- Step 1: A tool call is pending, context should be skipped ---
-        const historyWithPendingCall: Content[] = [
+        const historyWithPendingCall: GeminiContent[] = [
           { role: 'user', parts: [{ text: 'Please use a tool.' }] },
           {
             role: 'model',
@@ -505,7 +504,7 @@ describe('Gemini Client (client.ts)', () => {
         expect(vi.mocked(mockChat.addHistory).mock.calls).toHaveLength(0);
 
         // --- Step 2: A new message is sent, latest context DELTA should be included ---
-        const historyAfterToolResponse: Content[] = [
+        const historyAfterToolResponse: GeminiContent[] = [
           ...historyWithPendingCall,
           {
             role: 'user',

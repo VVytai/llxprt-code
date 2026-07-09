@@ -9,12 +9,30 @@
  * @requirement REQ-THINK-003
  */
 import { describe, it, expect } from 'vitest';
-import type { GenerateContentResponse, Part } from '@google/genai';
 
 /**
- * Helper to create a mock GenerateContentResponse with parts
+ * Structural mock-part shape for thinking/text/functionCall test fixtures.
  */
-function createMockResponse(parts: Part[]): GenerateContentResponse {
+interface MockPart {
+  text?: string;
+  thought?: boolean;
+  functionCall?: { name: string; args: object };
+}
+
+/**
+ * Structural mock response shape with candidates/content/parts.
+ */
+interface MockResponse {
+  candidates?: Array<{
+    content?: { role?: string; parts?: MockPart[] };
+  }>;
+  readonly text: string;
+}
+
+/**
+ * Helper to create a mock response with parts
+ */
+function createMockResponse(parts: MockPart[]): MockResponse {
   return {
     candidates: [
       {
@@ -30,23 +48,23 @@ function createMockResponse(parts: Part[]): GenerateContentResponse {
       );
       return textParts.map((p) => (p as { text: string }).text).join('');
     },
-  } as GenerateContentResponse;
+  };
 }
 
 /**
  * Helper to create a thought part
  */
-function createThoughtPart(text: string): Part {
+function createThoughtPart(text: string): MockPart {
   return {
     thought: true,
     text,
-  } as unknown as Part;
+  };
 }
 
 /**
  * Helper to create a text part
  */
-function createTextPart(text: string): Part {
+function createTextPart(text: string): MockPart {
   return {
     text,
   };
@@ -55,13 +73,13 @@ function createTextPart(text: string): Part {
 /**
  * Helper to create a function call part
  */
-function createFunctionCallPart(name: string, args: object): Part {
+function createFunctionCallPart(name: string, args: object): MockPart {
   return {
     functionCall: {
       name,
       args,
     },
-  } as unknown as Part;
+  };
 }
 
 describe('turn.ts thinking event handling @plan:PLAN-20251202-THINKING.P16', () => {

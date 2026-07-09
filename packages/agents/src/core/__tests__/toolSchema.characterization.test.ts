@@ -22,7 +22,6 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { Type } from '@google/genai';
 import * as fc from 'fast-check';
 import type { OutputConfig } from '@vybestack/llxprt-code-core/core/subagentTypes.js';
 
@@ -45,7 +44,7 @@ describe('toolSchema characterization — executor (buildCompleteTaskDeclaration
     const decl = buildCompleteTaskDeclaration(undefined);
     const schema = decl.parametersJsonSchema as Record<string, unknown>;
 
-    expect(schema['type']).toBe(Type.OBJECT);
+    expect(schema['type']).toBe('OBJECT');
     expect(schema['type']).toBe('OBJECT');
   });
 
@@ -75,7 +74,7 @@ describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () 
 
     expect(decls).toHaveLength(1);
     const schema = decls[0].parametersJsonSchema as Record<string, unknown>;
-    expect(schema['type']).toBe(Type.OBJECT);
+    expect(schema['type']).toBe('OBJECT');
     expect(schema['type']).toBe('OBJECT');
   });
 
@@ -88,7 +87,7 @@ describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () 
       unknown
     >;
 
-    expect(nameProp['type']).toBe(Type.STRING);
+    expect(nameProp['type']).toBe('STRING');
     expect(nameProp['type']).toBe('STRING');
   });
 
@@ -101,7 +100,7 @@ describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () 
       unknown
     >;
 
-    expect(valueProp['type']).toBe(Type.STRING);
+    expect(valueProp['type']).toBe('STRING');
     expect(valueProp['type']).toBe('STRING');
   });
 
@@ -130,7 +129,7 @@ describe('toolSchema characterization — subagent (convertMetadataToFunctionDec
     });
 
     const schema = decl.parametersJsonSchema as Record<string, unknown>;
-    expect(schema['type']).toBe(Type.OBJECT);
+    expect(schema['type']).toBe('OBJECT');
     expect(schema['type']).toBe('OBJECT');
   });
 
@@ -169,21 +168,20 @@ describe('toolSchema characterization — subagent (convertMetadataToFunctionDec
 // ---------------------------------------------------------------------------
 
 describe('toolSchema characterization — property-based type mappings', () => {
-  // The Type enum from @google/genai maps enum members to uppercase string
-  // literals. P17 replaces Type.X with 'X'. These property-based tests verify
-  // that every common Type enum value equals its corresponding uppercase string
-  // literal, so the P17 swap is behavior-preserving.
+  // The legacy Type enum maps enum members to uppercase string literals.
+  // These property-based tests verify that every common type value equals
+  // its corresponding uppercase string literal.
 
-  const typeMappings: ReadonlyArray<readonly [Type, string]> = [
-    [Type.STRING, 'STRING'],
-    [Type.OBJECT, 'OBJECT'],
-    [Type.ARRAY, 'ARRAY'],
-    [Type.NUMBER, 'NUMBER'],
-    [Type.INTEGER, 'INTEGER'],
-    [Type.BOOLEAN, 'BOOLEAN'],
+  const typeMappings: ReadonlyArray<readonly [string, string]> = [
+    ['STRING', 'STRING'],
+    ['OBJECT', 'OBJECT'],
+    ['ARRAY', 'ARRAY'],
+    ['NUMBER', 'NUMBER'],
+    ['INTEGER', 'INTEGER'],
+    ['BOOLEAN', 'BOOLEAN'],
   ];
 
-  it('every Type enum value equals its uppercase string literal', () => {
+  it('every type value equals its uppercase string literal', () => {
     fc.assert(
       fc.property(
         fc.constantFrom(...typeMappings),

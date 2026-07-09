@@ -25,8 +25,7 @@ import {
 } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import { getEnvironmentContext } from '@vybestack/llxprt-code-core/utils/environmentContext.js';
 import { executeToolCall } from './nonInteractiveToolExecutor.js';
-import type { Part } from '@google/genai';
-import { Type } from '@google/genai';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 const { mockReadTodos, TodoStoreMock } = vi.hoisted(() => {
   const mockReadTodos = vi.fn().mockResolvedValue([]);
   const TodoStoreMock = vi
@@ -168,7 +167,7 @@ describe('subagent.ts', () => {
         name: 'run_shell_command',
         displayName: 'Shell',
         canUpdateOutput: true,
-        schema: { parameters: { type: Type.OBJECT, properties: {} } },
+        schema: { parameters: { type: 'OBJECT', properties: {} } },
         build: vi.fn(),
       };
 
@@ -235,7 +234,7 @@ describe('subagent.ts', () => {
         name: 'read_file',
         displayName: 'Read File',
         canUpdateOutput: false,
-        schema: { parameters: { type: Type.OBJECT, properties: {} } },
+        schema: { parameters: { type: 'OBJECT', properties: {} } },
         build: vi.fn(),
       };
 
@@ -301,7 +300,7 @@ describe('subagent.ts', () => {
         name: 'run_shell_command',
         displayName: 'Shell',
         canUpdateOutput: true,
-        schema: { parameters: { type: Type.OBJECT, properties: {} } },
+        schema: { parameters: { type: 'OBJECT', properties: {} } },
         build: vi.fn(),
       };
 
@@ -412,7 +411,7 @@ describe('subagent.ts', () => {
       }
       // Should still have a tool_response
       const hasToolResponse = parts.some(
-        (p: Part) =>
+        (p: ContentBlock) =>
           'type' in p &&
           (p as Record<string, unknown>).type === 'tool_response',
       );
@@ -511,7 +510,7 @@ describe('subagent.ts', () => {
 
       // Should have tool_response for both tool calls
       const toolResponses = parts.filter(
-        (p: Part) =>
+        (p: ContentBlock) =>
           'type' in p &&
           (p as Record<string, unknown>).type === 'tool_response',
       );

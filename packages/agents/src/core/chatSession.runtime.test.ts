@@ -5,7 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { GenerateContentConfig, Tool } from '@google/genai';
+import type { ChatSessionConfig } from './chatSession.js';
+import type {
+  ToolDeclaration,
+  LegacyToolsetLike,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { ChatSession } from './chatSession.js';
 import type { TextBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { getToolCalls } from '@vybestack/llxprt-code-core/llm-types/index.js';
@@ -112,10 +116,10 @@ describe('ChatSession runtime context', () => {
       {
         functionDeclarations: [{ name: 'doThing' } as Record<string, unknown>],
       },
-    ] as unknown as Tool[];
+    ] as unknown as LegacyToolsetLike;
 
-    const generationConfig: GenerateContentConfig = {
-      tools,
+    const generationConfig: ChatSessionConfig = {
+      tools: tools as unknown as ToolDeclaration[],
     };
 
     const runtimeState = createAgentRuntimeState({
@@ -237,7 +241,7 @@ describe('ChatSession runtime context', () => {
           { name: 'run_shell_command' } as Record<string, unknown>,
         ],
       },
-    ] as unknown as Tool[];
+    ] as unknown as LegacyToolsetLike;
     const runtimeState = createAgentRuntimeState({
       runtimeId: 'runtime-test',
       provider: provider.name,
@@ -356,7 +360,7 @@ describe('ChatSession runtime context', () => {
           { name: 'run_shell_command' } as Record<string, unknown>,
         ],
       },
-    ] as unknown as Tool[];
+    ] as unknown as LegacyToolsetLike;
     const hookConfig = Object.create(config) as Config;
     Object.defineProperties(hookConfig, {
       getEnableHooks: { value: () => true },
