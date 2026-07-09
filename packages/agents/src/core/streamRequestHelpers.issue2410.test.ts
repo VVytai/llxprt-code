@@ -21,11 +21,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
   });
 
   it('returns undefined for null input', () => {
-    expect(
-      extractSystemInstructionText(
-        null as unknown,
-      ),
-    ).toBeUndefined();
+    expect(extractSystemInstructionText(null as unknown)).toBeUndefined();
   });
 
   it('returns trimmed string for string input', () => {
@@ -42,47 +38,33 @@ describe('issue #2410 – extractSystemInstructionText', () => {
       role: 'system',
       parts: [{ text: 'You are a subagent.' }],
     };
-    expect(
-      extractSystemInstructionText(
-        content as unknown,
-      ),
-    ).toBe('You are a subagent.');
+    expect(extractSystemInstructionText(content as unknown)).toBe(
+      'You are a subagent.',
+    );
   });
 
   it('returns undefined for Content with empty parts', () => {
     const content = { role: 'system', parts: [] };
-    expect(
-      extractSystemInstructionText(
-        content as unknown,
-      ),
-    ).toBeUndefined();
+    expect(extractSystemInstructionText(content as unknown)).toBeUndefined();
   });
 
   it('extracts text from a Part[] shape', () => {
     const parts = [{ text: 'part one' }, { text: 'part two' }];
-    expect(
-      extractSystemInstructionText(
-        parts as unknown,
-      ),
-    ).toBe(['part one', 'part two'].join('\n'));
+    expect(extractSystemInstructionText(parts as unknown)).toBe(
+      ['part one', 'part two'].join('\n'),
+    );
   });
 
   it('trims whitespace-only parts before joining', () => {
     const parts = [{ text: '  real content  ' }, { text: '   ' }];
-    expect(
-      extractSystemInstructionText(
-        parts as unknown,
-      ),
-    ).toBe('real content');
+    expect(extractSystemInstructionText(parts as unknown)).toBe('real content');
   });
 
   it('extracts text from a single Part shape { text }', () => {
     const part = { text: 'single part text' };
-    expect(
-      extractSystemInstructionText(
-        part as unknown,
-      ),
-    ).toBe('single part text');
+    expect(extractSystemInstructionText(part as unknown)).toBe(
+      'single part text',
+    );
   });
 
   it('does not treat a Content object as a single Part', () => {
@@ -92,19 +74,13 @@ describe('issue #2410 – extractSystemInstructionText', () => {
       parts: [{ text: 'content text' }],
       text: 'wrong',
     };
-    expect(
-      extractSystemInstructionText(
-        content as unknown,
-      ),
-    ).toBe('content text');
+    expect(extractSystemInstructionText(content as unknown)).toBe(
+      'content text',
+    );
   });
 
   it('returns undefined for unrecognized shapes', () => {
-    expect(
-      extractSystemInstructionText(
-        42 as unknown,
-      ),
-    ).toBeUndefined();
+    expect(extractSystemInstructionText(42 as unknown)).toBeUndefined();
     expect(
       extractSystemInstructionText({ foo: 'bar' } as unknown),
     ).toBeUndefined();
@@ -112,11 +88,7 @@ describe('issue #2410 – extractSystemInstructionText', () => {
 
   it('drops non-text parts and joins only text parts in a Part[]', () => {
     const parts = [{ inlineData: { data: 'binary' } }, { text: 'hello' }];
-    expect(
-      extractSystemInstructionText(
-        parts as unknown,
-      ),
-    ).toBe('hello');
+    expect(extractSystemInstructionText(parts as unknown)).toBe('hello');
   });
 
   it('joins multiple text parts in a Content shape the same as Part[]', () => {
@@ -124,10 +96,8 @@ describe('issue #2410 – extractSystemInstructionText', () => {
       role: 'system',
       parts: [{ text: 'a' }, { text: 'b' }],
     };
-    expect(
-      extractSystemInstructionText(
-        content as unknown,
-      ),
-    ).toBe(['a', 'b'].join('\n'));
+    expect(extractSystemInstructionText(content as unknown)).toBe(
+      ['a', 'b'].join('\n'),
+    );
   });
 });
