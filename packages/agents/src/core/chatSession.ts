@@ -519,7 +519,7 @@ export class ChatSession {
   }
 
   setTools(tools: ToolDeclaration[]): void {
-    this.generationConfig.tools = tools;
+    this.generationConfig.tools = [{ functionDeclarations: tools }];
   }
 
   clearTools(): void {

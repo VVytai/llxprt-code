@@ -279,7 +279,7 @@ async function buildChatFromRuntime(
   todoContinuationService.updateTodoToolAvailabilityFromDeclarations(
     filteredDeclarations,
   );
-  const tools = filteredDeclarations;
+  const tools = [{ functionDeclarations: filteredDeclarations }];
 
   const chat = new ChatSession(
     runtimeBundle.runtimeContext,
