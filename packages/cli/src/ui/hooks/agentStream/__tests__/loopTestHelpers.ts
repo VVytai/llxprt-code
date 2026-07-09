@@ -67,6 +67,7 @@ export function agentRequestInputToIContent(req: AgentRequestInput): IContent {
     return { speaker: 'human', blocks: [{ type: 'text', text: req }] };
   if (
     typeof req === 'object' &&
+    req !== null &&
     !Array.isArray(req) &&
     'speaker' in req &&
     'blocks' in req
