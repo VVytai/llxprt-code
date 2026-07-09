@@ -1,30 +1,56 @@
 /**
- * @license
- * Copyright 2025 Vybestack LLC
- * SPDX-License-Identifier: Apache-2.0
- */
-
-/**
- * LEGACY hook restriction helpers operating on Google-shaped Part[]/FunctionCall
- * and GenerateContentResponse (WeakMap-based).
+ * LEGACY hook restriction helpers.
  *
- * @plan:PLAN-20260707-AGENTNEUTRAL.P11 — DELETE in P25 (when last consumer migrates)
+ * Uses LOCAL structural types (not the Gemini SDK) so the module has ZERO
+ * SDK imports. The structural shapes match Google's FunctionCall/Part/Content/
+ * GenerateContentResponse but are defined locally.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P11
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P32
  * @requirement:REQ-003.2
- *
- * This module holds the old WeakMap-based and Part[]/FunctionCall-based
- * restriction helpers for files not yet migrated to the neutral block-based
- * API (streamChunkWrapper, streamResponseHelpers, subagent*, executor*).
- * It is deleted in P25 when the last consumer (executor-stream-processor.ts)
- * migrates to neutral types.
  */
 
-import type {
-  Content,
-  FunctionCall,
-  GenerateContentResponse,
-  Part,
-} from '@google/genai';
 import { canonicalizeToolName } from './toolGovernance.js';
+
+/** Local structural type matching the call shape used by consumers. */
+interface LegacyFunctionCall {
+  id?: string;
+  name?: string;
+  args?: Record<string, unknown>;
+}
+
+/** Local structural type matching Google Part's function-bearing subset. */
+interface LegacyPart {
+  text?: string;
+  thought?: boolean;
+  thoughtSignature?: string;
+  functionCall?: LegacyFunctionCall;
+  functionResponse?: { id?: string; name?: string; response?: unknown };
+  inlineData?: { mimeType?: string; data?: string };
+  fileData?: { mimeType?: string; fileUri?: string };
+}
+
+/** Local structural type matching Google Content. */
+interface LegacyContent {
+  role?: string;
+  parts?: LegacyPart[];
+}
+
+/** Local structural type matching Google GenerateContentResponse envelope. */
+interface LegacyGenerateContentResponse {
+  candidates?: Array<{
+    content?: { role?: string; parts?: LegacyPart[] };
+    finishReason?: string;
+  }>;
+  functionCalls?: LegacyFunctionCall[];
+  automaticFunctionCallingHistory?: LegacyContent[];
+  usageMetadata?: Record<string, unknown>;
+}
+
+type Part = LegacyPart;
+type FunctionCall = LegacyFunctionCall;
+type Content = LegacyContent;
+type GenerateContentResponse = LegacyGenerateContentResponse;
 
 /**
  * Extracts function calls from Google Part[]. Local to this legacy compat

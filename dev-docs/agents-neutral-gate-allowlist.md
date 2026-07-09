@@ -55,19 +55,19 @@ Each entry is a markdown table row:
 
 ### P11 — Legacy hook restrictions compat (allow-listed bounded adapter)
 
-| File                                                       | Subkind              | Context Pattern | Justification                                                                                                                                                                                       |
-| ---------------------------------------------------------- | -------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File                                                       | Subkind              | Context Pattern | Justification                                                                                                                                                                              |
+| ---------------------------------------------------------- | -------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `A-raw-genai-import` | `*`             | Bounded hook-wire legacy compat: WeakMap/Part[]/FunctionCall restriction helpers; sole remaining raw @google/genai importer, explicitly allow-listed as the external-wire boundary adapter |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `B-banned-symbol`    | `*`             | Bounded hook-wire legacy compat: Content/FunctionCall/GenerateContentResponse/Part used solely for the WeakMap restriction bridge to unmigrated hook JSON wire                |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F3-role-parts`      | `content.parts` | Legacy Part[]-based filtering; bounded to this file                                                                                                                                                    |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access`    | `*`             | Legacy Part[]-based access for content filtering; bounded to this file                                                                                                                                |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `B-banned-symbol`    | `*`             | Bounded hook-wire legacy compat: Content/FunctionCall/GenerateContentResponse/Part used solely for the WeakMap restriction bridge to unmigrated hook JSON wire                             |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F3-role-parts`      | `content.parts` | Legacy Part[]-based filtering; bounded to this file                                                                                                                                        |
+| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access`    | `*`             | Legacy Part[]-based access for content filtering; bounded to this file                                                                                                                     |
 
 ### P25 — Bounded structural adapters (toGeminiContents calls)
 
-| File                                           | Subkind               | Context Pattern       | Justification                                                                                                                                      |
-| ---------------------------------------------- | --------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agents/src/core/streamRequestHelpers.ts` | `G-call-toGeminiContent` | `toGeminiContents` | G3 hook-wire adapter: converts neutral IContent[] to Gemini shape ONLY for the hook JSON wire; loop re-enters neutral IContent[] |
-| `packages/agents/src/api/control/sessionControl.ts` | `G-call-toGeminiContent` | `toGeminiContents` | Checkpoint save boundary: converts IContent[] to Gemini shape for checkpoint serialization; restore converts back via toIContents          |
+| File                                                | Subkind                  | Context Pattern    | Justification                                                                                                                     |
+| --------------------------------------------------- | ------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agents/src/core/streamRequestHelpers.ts`  | `G-call-toGeminiContent` | `toGeminiContents` | G3 hook-wire adapter: converts neutral IContent[] to Gemini shape ONLY for the hook JSON wire; loop re-enters neutral IContent[]  |
+| `packages/agents/src/api/control/sessionControl.ts` | `G-call-toGeminiContent` | `toGeminiContents` | Checkpoint save boundary: converts IContent[] to Gemini shape for checkpoint serialization; restore converts back via toIContents |
 
 ### Expected entries at target state (added by migration slices)
 
