@@ -9,8 +9,6 @@ import type {
   ContentBlock,
   AgentRequestInput,
 } from '@vybestack/llxprt-code-core';
-import { iContentFromBlocks } from '@vybestack/llxprt-code-core';
-
 /**
  * Integration tests for useAgentEventStream that drive the REAL engine
  * (createAgenticLoop + mapLoopStream) through the hook. The only mock boundary
@@ -49,8 +47,6 @@ import {
 import { ToolConfirmationOutcome } from '@vybestack/llxprt-code-tools';
 import {
   AgentEventType,
-  DEFAULT_AGENT_ID,
-  type ToolCallRequestInfo,
   type ServerAgentStreamEvent,
 } from '@vybestack/llxprt-code-core/core/turn.js';
 import type {
@@ -76,97 +72,14 @@ import type {
 } from '@vybestack/llxprt-code-tools';
 import type { AgentEventRouter } from '../useAgentEventStream.js';
 import { useAgentEventStream } from '../useAgentEventStream.js';
-
-// ─── Stream-event builders (same patterns as agents test helpers) ──────────
-
-function toolCallRequestEvent(
-  name: string,
-  callId: string,
-  args: Record<string, unknown> = {},
-): ServerAgentStreamEvent {
-  const value: ToolCallRequestInfo = {
-    callId,
-    name,
-    args,
-    isClientInitiated: false,
-    prompt_id: callId,
-    agentId: DEFAULT_AGENT_ID,
-  };
-  return { type: AgentEventType.ToolCallRequest, value };
-}
-
-function contentEvent(text: string): ServerAgentStreamEvent {
-  return { type: AgentEventType.Content, value: text };
-}
-
-function finishedEvent(): ServerAgentStreamEvent {
-  return {
-    type: AgentEventType.Finished,
-    value: { reason: 'stop' },
-  };
-}
-
-// ─── Scripted AgentClientContract ──────────────────────────────────────────
-
-interface ScriptedClientState {
-  scriptQueue: ServerAgentStreamEvent[][];
-  history: IContent[];
-  turnMessages: AgentRequestInput[];
-  recordedToolCalls: CompletedToolCall[][];
-  sendMessageStreamCalls: AgentRequestInput[];
-}
-
-function agentRequestInputToBlocks(req: AgentRequestInput): ContentBlock[] {
-  if (typeof req === 'string') return [{ type: 'text', text: req }];
-  if (Array.isArray(req)) return req as ContentBlock[];
-  if (typeof req === 'object' && 'blocks' in req)
-    return (req as { blocks: ContentBlock[] }).blocks;
-  return [req as ContentBlock];
-}
-
-/**
- * Converts an AgentRequestInput into an IContent, mirroring the agents
- * package's convertPartListUnionToIContent. When the input is a Part[]
- * carrying functionResponse parts (the 2nd-turn continuation message the
- * loop builds from completed tool calls), this yields
- * { speaker: 'tool', blocks: [{ type: 'tool_response', ... }] } so the
- * scripted client's history matches what a real client would record.
- */
-function agentRequestInputToIContent(req: AgentRequestInput): IContent {
-  if (typeof req === 'string')
-    return { speaker: 'human', blocks: [{ type: 'text', text: req }] };
-  if (
-    typeof req === 'object' &&
-    !Array.isArray(req) &&
-    'speaker' in req &&
-    'blocks' in req
-  )
-    return req as IContent;
-  const parts = (Array.isArray(req) ? req : [req]) as Array<
-    Record<string, unknown>
-  >;
-  const allFunctionResponses = parts.every(
-    (p) =>
-      typeof p === 'object' &&
-      'functionResponse' in p &&
-      p['functionResponse'] !== undefined,
-  );
-  if (allFunctionResponses) {
-    const blocks: ContentBlock[] = parts.map((part) => {
-      const fr = (part as { functionResponse: Record<string, unknown> })
-        .functionResponse;
-      return {
-        type: 'tool_response',
-        callId: fr.id as string,
-        toolName: fr.name as string,
-        result: fr.response as Record<string, unknown>,
-        error: undefined,
-      } as ContentBlock;
-    });
-    return { speaker: 'tool', blocks };
-  }
-  return iContentFromBlocks(agentRequestInputToBlocks(req), 'human');
-}
+import {
+  toolCallRequestEvent,
+  contentEvent,
+  finishedEvent,
+  agentRequestInputToIContent,
+  agentRequestInputToBlocks,
+  type ScriptedClientState,
+} from './loopTestHelpers.js';
 
 function createScriptedAgentClient(scripts: ServerAgentStreamEvent[][]): {
   client: AgentClientContract;
@@ -227,7 +140,7 @@ function createScriptedAgentClient(scripts: ServerAgentStreamEvent[][]): {
       state.turnMessages.push(req);
       state.history.push(agentRequestInputToIContent(req));
       const script = state.scriptQueue.shift();
-      if (!script) return;
+      if (script === undefined) return;
       for (const event of script) {
         if (signal.aborted) return;
         yield event;
