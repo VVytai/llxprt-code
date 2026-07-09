@@ -28,6 +28,7 @@ import {
   fromConfig,
   type Agent,
   type AgentToolHandle,
+  type AgentInput,
   type ProviderActivationIntent,
 } from '@vybestack/llxprt-code-agents';
 
@@ -45,7 +46,6 @@ import {
   getErrorFallbackModel,
 } from './utils/apiErrorFormatting.js';
 import { firstNonEmptyString } from './utils/coalesce.js';
-import type { AgentInput } from '@vybestack/llxprt-code-agents';
 import {
   resolveContentPrefixIdentity,
   createCliModelIdentityRuntime,

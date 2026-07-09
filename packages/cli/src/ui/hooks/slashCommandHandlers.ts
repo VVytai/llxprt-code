@@ -9,6 +9,7 @@ import type {
   RecordingIntegration,
   ToolCallConfirmationDetails,
   DebugLogger,
+  AgentRequestInput,
 } from '@vybestack/llxprt-code-core';
 import { MCPDiscoveryState } from '@vybestack/llxprt-code-mcp';
 import {
@@ -16,7 +17,6 @@ import {
   logSlashCommand,
   SlashCommandEvent,
   ToolConfirmationOutcome,
-  type AgentRequestInput,
 } from '@vybestack/llxprt-code-core';
 import { join } from 'node:path';
 import { parseSlashCommand } from '../../utils/commands.js';

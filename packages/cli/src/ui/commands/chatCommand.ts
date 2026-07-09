@@ -20,11 +20,9 @@ import {
   EmojiFilter,
   type EmojiFilterMode,
   INITIAL_HISTORY_LENGTH,
-} from '@vybestack/llxprt-code-core';
-import type {
-  IContent,
-  TextBlock,
-  CheckpointContent,
+  type IContent,
+  type TextBlock,
+  type CheckpointContent,
 } from '@vybestack/llxprt-code-core';
 import path from 'path';
 import type {
