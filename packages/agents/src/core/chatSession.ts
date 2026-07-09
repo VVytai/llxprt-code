@@ -12,6 +12,7 @@ import type {
   AgentMessageInput,
   ToolDeclaration,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { ToolGroupArray } from './streamRequestHelpers.js';
 
 /**
  * Neutral generation config carried by ChatSession. Extends the neutral
@@ -23,7 +24,7 @@ import type {
  */
 export interface ChatSessionConfig extends ModelGenerationSettings {
   abortSignal?: AbortSignal;
-  tools?: ToolDeclaration[];
+  tools?: ToolGroupArray;
   toolConfig?: unknown;
 }
 

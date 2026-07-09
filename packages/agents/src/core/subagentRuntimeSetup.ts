@@ -849,7 +849,10 @@ function instantiateChat(
       temperature: modelConfig.temp,
       topP: modelConfig.top_p,
       systemInstruction: systemInstruction || undefined,
-      tools: combinedDeclarations.length > 0 ? combinedDeclarations : undefined,
+      tools:
+        combinedDeclarations.length > 0
+          ? [{ functionDeclarations: combinedDeclarations }]
+          : undefined,
     };
 
     return new ChatSession(
