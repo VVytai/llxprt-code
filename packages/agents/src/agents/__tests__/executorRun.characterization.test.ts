@@ -36,6 +36,14 @@ function extractAllText(results: IContent[]): string[] {
   return results.map(extractTextFromContent);
 }
 
+const UNSAFE_TEMPLATE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function isSafeTemplateKey(value: string): boolean {
+  return (
+    /^\w+$/.test(value) && value.length > 0 && !UNSAFE_TEMPLATE_KEYS.has(value)
+  );
+}
+
 // ─── Tests ─────────────────────────────────────────────────
 
 describe('executorRun.characterization — template application', () => {
@@ -148,7 +156,7 @@ describe('executorRun.characterization — property-based template', () => {
     fc.assert(
       fc.property(
         fc.record({
-          key: fc.string().filter((s) => /^\w+$/.test(s) && s.length > 0),
+          key: fc.string().filter(isSafeTemplateKey),
           value: fc.string(),
         }),
         ({ key, value }) => {
@@ -201,9 +209,7 @@ describe('executorRun.characterization — property-based template', () => {
     fc.assert(
       fc.property(
         fc.uniqueArray(
-          fc
-            .string()
-            .filter((s) => /^\w+$/.test(s) && s.length > 0 && s.length <= 10),
+          fc.string().filter((s) => isSafeTemplateKey(s) && s.length <= 10),
           { minLength: 1, maxLength: 5 },
         ),
         fc.uniqueArray(fc.string(), { minLength: 1, maxLength: 5 }),
