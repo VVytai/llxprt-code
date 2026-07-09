@@ -32,6 +32,7 @@ function createMockCompressionHandler() {
 
 function createMockConversationManager() {
   return {
+    recordHistory: vi.fn(),
     recordStreamingHistory: vi.fn(),
   };
 }
@@ -79,6 +80,7 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
       conversationManager: conversation,
       historyService: history,
       logger: new DebugLogger('test'),
+      eagerlyRecordedToolResponseCallIds: new Set<string>(),
     });
 
     // Stub internal methods that processStreamResponse calls post-loop

@@ -189,22 +189,35 @@ export class ConversationManager {
    * @param modelOutput - Model's output IContent array
    * @param automaticFunctionCallingHistory - Optional AFC history
    * @param usageMetadata - Optional usage statistics
+   * @param options - Optional overrides for user-input characteristics when the
+   *   recorded `userInput` has been filtered/transformed and no longer reflects
+   *   the original input shape (for example after eagerly recorded tool
+   *   responses are removed before history finalization).
    */
   recordHistory(
     userInput: IContent | IContent[],
     modelOutput: IContent[],
     automaticFunctionCallingHistory?: IContent[],
     usageMetadata?: UsageStats | null,
+    options?: {
+      userInputWasArray?: boolean;
+      userInputWasFunctionResponse?: boolean;
+    },
   ): void {
     const newHistoryEntries: IContent[] = [];
 
     const userContent: IContent | IContent[] = userInput;
 
     // Capture user input characteristics for model turn logic
-    const userInputWasArray = Array.isArray(userContent);
+    const userInputWasArray =
+      options?.userInputWasArray ?? Array.isArray(userInput);
+    const singleUserInput =
+      !userInputWasArray && !Array.isArray(userInput) ? userInput : undefined;
     const userInputWasFunctionResponse =
-      !userInputWasArray &&
-      userContent.blocks.some((b) => b.type === 'tool_response');
+      options?.userInputWasFunctionResponse ??
+      singleUserInput?.blocks.some(
+        (block) => block.type === 'tool_response',
+      ) === true;
     const hasAfc = !!(
       automaticFunctionCallingHistory &&
       automaticFunctionCallingHistory.length > 0

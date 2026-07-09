@@ -148,8 +148,12 @@ export async function recordHistoryWithUsage(
   historyService: HistoryService,
   compressionHandler: CompressionHandler,
   runtimeContext: AgentRuntimeContext,
-  userInput: IContent,
+  userInput: IContent | IContent[],
   acc: ModelOutput,
+  userInputFlags?: {
+    userInputWasArray?: boolean;
+    userInputWasFunctionResponse?: boolean;
+  },
 ): Promise<void> {
   const includeThoughts =
     runtimeContext.ephemerals.reasoning.includeInContext();
@@ -178,6 +182,7 @@ export async function recordHistoryWithUsage(
     modelOutput,
     undefined,
     streamingUsage,
+    userInputFlags,
   );
 
   await historyService.waitForTokenUpdates();

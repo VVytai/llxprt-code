@@ -327,6 +327,101 @@ export function validateStreamCompletion(
   }
 }
 
+interface UserInputFlags {
+  readonly userInputWasArray?: boolean;
+  readonly userInputWasFunctionResponse?: boolean;
+}
+
+export interface FilteredEagerToolResponses {
+  readonly content: IContent | null;
+  readonly matchedCallIds: readonly string[];
+}
+
+export interface PreparedHistoryUserInput {
+  readonly historyUserInput: IContent | IContent[];
+  readonly filteredResults: readonly FilteredEagerToolResponses[];
+  readonly userInputFlags: UserInputFlags | undefined;
+}
+
+export function filterEagerlyRecordedToolResponses(
+  content: IContent,
+  eagerlyRecordedToolResponseCallIds: ReadonlySet<string>,
+): FilteredEagerToolResponses {
+  if (eagerlyRecordedToolResponseCallIds.size === 0) {
+    return { content, matchedCallIds: [] };
+  }
+
+  const matchedCallIds: string[] = [];
+  const blocks = content.blocks.filter((block) => {
+    const callId = block.type === 'tool_response' ? block.callId : undefined;
+    if (
+      typeof callId === 'string' &&
+      eagerlyRecordedToolResponseCallIds.has(callId)
+    ) {
+      matchedCallIds.push(callId);
+      return false;
+    }
+    return true;
+  });
+
+  if (matchedCallIds.length === 0) {
+    return { content, matchedCallIds };
+  }
+  if (blocks.length === 0) {
+    return { content: null, matchedCallIds };
+  }
+
+  return {
+    content: { ...content, blocks },
+    matchedCallIds,
+  };
+}
+
+export function prepareHistoryUserInput(
+  userInput: IContent | IContent[],
+  eagerlyRecordedToolResponseCallIds: ReadonlySet<string>,
+): PreparedHistoryUserInput {
+  const filteredResults = (
+    Array.isArray(userInput) ? userInput : [userInput]
+  ).map((content) =>
+    filterEagerlyRecordedToolResponses(
+      content,
+      eagerlyRecordedToolResponseCallIds,
+    ),
+  );
+  const filteredUserInput = filteredResults.flatMap(
+    (result) => result.content ?? [],
+  );
+  const allSingleUserInputBlocksWereEagerlyRecorded =
+    !Array.isArray(userInput) && filteredResults[0]?.content === null;
+
+  return {
+    historyUserInput: Array.isArray(userInput)
+      ? filteredUserInput
+      : (filteredResults[0]?.content ?? filteredUserInput),
+    filteredResults,
+    userInputFlags: allSingleUserInputBlocksWereEagerlyRecorded
+      ? {
+          // The filtered history input is now an empty array, so keep the shape
+          // flags aligned with what ConversationManager will actually see.
+          userInputWasArray: true,
+          userInputWasFunctionResponse: true,
+        }
+      : undefined,
+  };
+}
+
+export function clearMatchedEagerToolResponseCallIds(
+  filteredResults: readonly FilteredEagerToolResponses[],
+  eagerlyRecordedToolResponseCallIds: Set<string>,
+): void {
+  for (const result of filteredResults) {
+    for (const callId of result.matchedCallIds) {
+      eagerlyRecordedToolResponseCallIds.delete(callId);
+    }
+  }
+}
+
 interface RecordHistoryParams {
   userInput: IContent;
   consolidatedBlocks: ContentBlock[];
@@ -335,6 +430,7 @@ interface RecordHistoryParams {
   historyService: HistoryService;
   compressionHandler: CompressionHandler;
   logger: DebugLogger;
+  userInputFlags?: UserInputFlags;
 }
 
 /**
@@ -376,6 +472,7 @@ export async function recordHistoryWithUsage(
     [modelIContent],
     undefined,
     streamingUsageMetadata,
+    args.userInputFlags,
   );
 
   await args.historyService.waitForTokenUpdates();

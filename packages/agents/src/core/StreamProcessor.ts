@@ -69,6 +69,8 @@ import { enforceBeforeModelHookDecision } from './beforeModelHookDecision.js';
 import {
   trackPromptTokens,
   isMissingFinishReason,
+  prepareHistoryUserInput,
+  clearMatchedEagerToolResponseCallIds,
 } from './streamResponseHelpers.js';
 import {
   afterModelModifiedToChunk,
@@ -103,6 +105,7 @@ interface BeforeModelHookFireResult {
 
 export class StreamProcessor {
   private logger = new DebugLogger('llxprt:gemini:stream-processor');
+  private eagerlyRecordedToolResponseCallIds = new Set<string>();
 
   constructor(
     private readonly runtimeContext: AgentRuntimeContext,
@@ -116,6 +119,14 @@ export class StreamProcessor {
     private readonly historyService: HistoryService,
     private readonly generationConfig: AgentClientGenerateConfig,
   ) {}
+
+  markToolResponsesRecorded(callIds: readonly string[]): void {
+    for (const callId of callIds) {
+      if (typeof callId === 'string' && callId.length > 0) {
+        this.eagerlyRecordedToolResponseCallIds.add(callId);
+      }
+    }
+  }
 
   /** Resolves the provider, sends the request with retry, and returns a response stream. */
   async makeApiCallAndProcessStream(
@@ -830,14 +841,27 @@ export class StreamProcessor {
       responseText,
     );
 
-    await recordHistoryWithUsage(
-      this.logger,
-      this.conversationManager,
-      this.historyService,
-      this.compressionHandler,
-      this.runtimeContext,
+    const preparedHistoryUserInput = prepareHistoryUserInput(
       userInput,
-      acc,
+      this.eagerlyRecordedToolResponseCallIds,
     );
+
+    try {
+      await recordHistoryWithUsage(
+        this.logger,
+        this.conversationManager,
+        this.historyService,
+        this.compressionHandler,
+        this.runtimeContext,
+        preparedHistoryUserInput.historyUserInput,
+        acc,
+        preparedHistoryUserInput.userInputFlags,
+      );
+    } finally {
+      clearMatchedEagerToolResponseCallIds(
+        preparedHistoryUserInput.filteredResults,
+        this.eagerlyRecordedToolResponseCallIds,
+      );
+    }
   }
 }

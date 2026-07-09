@@ -88,15 +88,15 @@ export function buildToolResponses(
 }
 
 /**
- * Records cancelled tool history via `agentClient.addHistory`, splitting blocks
- * by type so tool calls land under speaker 'ai' and tool responses under
- * speaker 'tool'. Used when a turn is cancelled so the model sees a
- * well-formed tool response for every tool call it emitted.
+ * Records completed or cancelled tool history via `agentClient.addHistory`,
+ * splitting blocks by type so tool calls land under speaker 'ai' and tool
+ * responses under speaker 'tool'. Used so the model sees a well-formed tool
+ * response for every tool call it emitted.
  *
- * Awaits both writes so callers that exit the loop immediately afterwards can
- * guarantee the cancelled-tool history is persisted before the turn ends.
+ * Awaits both writes so callers that continue or exit the loop immediately
+ * afterwards can guarantee the tool history is durable before the next turn.
  */
-export async function recordCancelledToolHistory(
+async function recordCompletedToolHistory(
   tools: CompletedToolCall[],
   agentClient: AgentClientContract,
 ): Promise<void> {
@@ -112,4 +112,16 @@ export async function recordCancelledToolHistory(
   if (nonToolCallBlocks.length > 0) {
     await agentClient.addHistory(iContentFromBlocks(nonToolCallBlocks, 'tool'));
   }
+}
+
+/**
+ * Records cancelled tool history eagerly using the same role-splitting logic as
+ * successful completed tools. Kept as a dedicated helper to preserve the
+ * existing call site semantics and readability at the cancelled-tools boundary.
+ */
+export async function recordCancelledToolHistory(
+  tools: CompletedToolCall[],
+  agentClient: AgentClientContract,
+): Promise<void> {
+  await recordCompletedToolHistory(tools, agentClient);
 }

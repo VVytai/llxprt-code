@@ -128,6 +128,7 @@ export class TurnProcessor {
   private logger = new DebugLogger('llxprt:turn-processor');
   private sendPromise: Promise<void> = Promise.resolve();
   private lastPromptTokenCount: number | null = null;
+  private eagerlyRecordedToolResponseCallIds = new Set<string>();
 
   constructor(
     private readonly runtimeContext: AgentRuntimeContext,
@@ -357,6 +358,15 @@ export class TurnProcessor {
     } catch {
       // If a previous send failed, sendPromise can reject; callers that just need
       // a "best effort" flush should not fail provider switching.
+    }
+  }
+
+  /** Tracks tool responses already recorded during eager client streaming. */
+  markToolResponsesRecorded(callIds: readonly string[]): void {
+    for (const callId of callIds) {
+      if (typeof callId === 'string' && callId.length > 0) {
+        this.eagerlyRecordedToolResponseCallIds.add(callId);
+      }
     }
   }
 
@@ -776,22 +786,26 @@ export class TurnProcessor {
     _params: SendMessageParams,
     _prompt_id: string,
   ): Promise<void> {
-    const currentModel = this.runtimeContext.state.model;
-    const afcHistory = response.afcHistory;
+    try {
+      const currentModel = this.runtimeContext.state.model;
+      const afcHistory = response.afcHistory;
 
-    const filteredAfcHistory =
-      afcHistory && afcHistory.length > 0
-        ? afcHistory.filter((content: IContent) => content.blocks.length > 0)
-        : undefined;
-    if (filteredAfcHistory && filteredAfcHistory.length > 0) {
-      this._recordAfcHistory(filteredAfcHistory, currentModel);
-    } else {
-      this._recordUserContent(userContent, currentModel);
+      const filteredAfcHistory =
+        afcHistory && afcHistory.length > 0
+          ? afcHistory.filter((content: IContent) => content.blocks.length > 0)
+          : undefined;
+      if (filteredAfcHistory && filteredAfcHistory.length > 0) {
+        this._recordAfcHistory(filteredAfcHistory, currentModel);
+      } else {
+        this._recordUserContent(userContent, currentModel);
+      }
+
+      this._recordOutputContent(response, currentModel, filteredAfcHistory);
+
+      await this._syncTokenCounts(response);
+    } finally {
+      this.eagerlyRecordedToolResponseCallIds.clear();
     }
-
-    this._recordOutputContent(response, currentModel, filteredAfcHistory);
-
-    await this._syncTokenCounts(response);
   }
 
   private _recordAfcHistory(
