@@ -815,10 +815,7 @@ export class TurnProcessor {
     userContent: IContent,
     currentModel: string | undefined,
   ): void {
-    const contents = Array.isArray(userContent) ? userContent : [userContent];
-    for (const content of contents) {
-      this.historyService.add(content, currentModel);
-    }
+    this.historyService.add(userContent, currentModel);
   }
 
   private _recordOutputContent(

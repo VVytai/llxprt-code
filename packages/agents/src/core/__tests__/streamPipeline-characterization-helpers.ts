@@ -255,6 +255,23 @@ export function findFinished(
   );
 }
 
+function isThoughtSummaryValue(
+  value: unknown,
+): value is { subject?: string; description?: string } {
+  return value !== null && typeof value === 'object';
+}
+
+function thoughtSummaryToText(value: {
+  subject?: string;
+  description?: string;
+}): string {
+  return [value.subject, value.description]
+    .filter(
+      (part): part is string => typeof part === 'string' && part.length > 0,
+    )
+    .join('\n');
+}
+
 export function extractContentText(events: ServerAgentStreamEvent[]): string {
   return events
     .filter((e) => e.type === AgentEventType.Content)
@@ -268,8 +285,8 @@ export function extractThoughtText(events: ServerAgentStreamEvent[]): string[] {
     .map((e) => {
       const val = (e as { value: unknown }).value;
       if (typeof val === 'string') return val;
-      if (val !== null && typeof val === 'object' && 'text' in val) {
-        return (val as { text: string }).text;
+      if (isThoughtSummaryValue(val)) {
+        return thoughtSummaryToText(val);
       }
       return String(val);
     });

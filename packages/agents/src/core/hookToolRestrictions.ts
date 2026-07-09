@@ -44,15 +44,12 @@ export function applyHookRestrictionsToChunk(
   }
   const toolCallBlocks = getToolCallBlocks(chunk.content.blocks);
   const allowedSet = new Set(allowedTools.map(canonicalizeToolName));
-  const kept = toolCallBlocks.filter((b) =>
-    allowedSet.has(canonicalizeToolName(b.name)),
-  );
   const removed = toolCallBlocks.filter(
     (b) => !allowedSet.has(canonicalizeToolName(b.name)),
   );
-  const keptIds = new Set(kept.map((b) => b.id));
-  const newBlocks = chunk.content.blocks.filter(
-    (b) => b.type !== 'tool_call' || keptIds.has(b.id),
+  const newBlocks = filterHookRestrictedBlocks(
+    chunk.content.blocks,
+    allowedTools,
   );
   const hookRestrictions: HookRestrictions = {
     allowedToolNames: [...allowedTools],

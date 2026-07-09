@@ -875,7 +875,7 @@ export class Turn {
       agentId: this.agentId,
       functionCallIndex,
       name: fnCall.name,
-      args: fnCall.parameters,
+      args: fnCall.parameters ?? {},
     });
     const digest = createHash('sha256')
       .update(payload)
