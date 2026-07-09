@@ -13,7 +13,7 @@ import { createSettingsProviderRuntimeContext } from '@vybestack/llxprt-code-cor
 import { createAgentRuntimeStateFromConfig } from '@vybestack/llxprt-code-core/runtime/runtimeStateFactory.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
+
 import { ToolRegistry } from '@vybestack/llxprt-code-tools';
 import type { AnyDeclarativeTool } from '@vybestack/llxprt-code-tools';
 import type { MessageBus } from '@vybestack/llxprt-code-core/confirmation-bus/message-bus.js';
@@ -743,13 +743,11 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
       );
       const runtimeBundle = await this.buildRuntimeBundle();
 
-      const geminiHistory = ContentConverters.toGeminiContents(startHistory);
-
       return new ChatSession(
         runtimeBundle.runtimeContext,
         runtimeBundle.contentGenerator,
         generationConfig,
-        geminiHistory,
+        startHistory,
       );
     } catch (error) {
       await reportError(

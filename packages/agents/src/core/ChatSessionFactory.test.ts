@@ -479,9 +479,9 @@ describe('createChatSession', () => {
       expect.anything(),
       expect.anything(),
       expect.objectContaining({
-        thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
+        reasoning: { includeInOutput: true },
       }),
-      expect.anything(),
+      [],
     );
   });
 
@@ -504,8 +504,8 @@ describe('createChatSession', () => {
     expect(ChatSession).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.not.objectContaining({ thinkingConfig: expect.anything() }),
-      expect.anything(),
+      expect.not.objectContaining({ reasoning: expect.anything() }),
+      [],
     );
   });
 

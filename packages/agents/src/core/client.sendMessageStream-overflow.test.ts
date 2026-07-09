@@ -241,7 +241,7 @@ describe('Gemini Client (client.ts)', () => {
       // We need a request > 95 tokens.
       // A string of length 400 is roughly 100 tokens.
       const longText = 'a'.repeat(400);
-      const request: Part[] = [{ text: longText }];
+      const request = [{ type: 'text' as const, text: longText }];
       // Structured fallback counts the text content (400 chars), not JSON structure.
       const estimatedRequestTokenCount = Math.floor(longText.length / 4);
       const remainingTokenCount = MOCKED_TOKEN_LIMIT - lastPromptTokenCount;
@@ -389,7 +389,7 @@ describe('Gemini Client (client.ts)', () => {
       expect(mockTurnRunFn).toHaveBeenCalled();
     });
 
-    it('should use the model-aware tokenizer (estimatePendingTokens + convertPartListUnionToIContent) when remaining capacity is positive', async () => {
+    it('should use the model-aware tokenizer (estimatePendingTokens + iContentFromAgentMessageInput) when remaining capacity is positive', async () => {
       // Arrange — proves the positive-remaining path routes through the
       // tokenizer-backed sizing path rather than the text-only fallback.
       const MOCKED_TOKEN_LIMIT = 10000;
@@ -399,16 +399,11 @@ describe('Gemini Client (client.ts)', () => {
         lastPromptTokenCount,
       );
 
-      const convertSpy = vi.fn().mockReturnValue({
-        speaker: 'human',
-        blocks: [{ type: 'text', text: 'hi' }],
-      });
       const estimateSpy = vi.fn().mockResolvedValue(50);
       const mockChat: Partial<ChatSession> = {
         addHistory: vi.fn(),
         getHistory: vi.fn().mockReturnValue([]),
         getLastPromptTokenCount: vi.fn().mockReturnValue(lastPromptTokenCount),
-        convertPartListUnionToIContent: convertSpy,
         estimatePendingTokens: estimateSpy,
       };
       client['chat'] = mockChat as ChatSession;
@@ -418,7 +413,7 @@ describe('Gemini Client (client.ts)', () => {
       })();
       mockTurnRunFn.mockReturnValue(mockStream);
 
-      const request: Part[] = [{ text: 'continue' }];
+      const request = [{ type: 'text' as const, text: 'continue' }];
 
       // Act
       const stream = client.sendMessageStream(
@@ -428,11 +423,14 @@ describe('Gemini Client (client.ts)', () => {
       );
       await fromAsync(stream);
 
-      // Assert — tokenizer path was used; text-only fallback was not needed.
-      expect(convertSpy).toHaveBeenCalledWith(request);
+      // Assert — tokenizer path was used; estimatePendingTokens receives the
+      // IContent[] produced by iContentFromAgentMessageInput.
       expect(estimateSpy).toHaveBeenCalledTimes(1);
       expect(estimateSpy).toHaveBeenCalledWith([
-        { speaker: 'human', blocks: [{ type: 'text', text: 'hi' }] },
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'continue' }],
+        },
       ]);
       // No overflow since 50 < (9000 * 0.95).
       expect(mockTurnRunFn).toHaveBeenCalled();
@@ -485,7 +483,7 @@ describe('Gemini Client (client.ts)', () => {
 
     it('should count functionResponse payload tokens in the structured fallback (no tokenizer available)', async () => {
       // Arrange — a minimal chat double WITHOUT tokenizer methods forces the
-      // structured fallback. A functionResponse-only request must be estimated
+      // structured fallback. A tool-response-only request must be estimated
       // as > 0 tokens (its JSON payload), unlike the old text-only estimate.
       const MOCKED_TOKEN_LIMIT = 1000;
       vi.mocked(tokenLimit).mockReturnValue(MOCKED_TOKEN_LIMIT);
@@ -506,15 +504,15 @@ describe('Gemini Client (client.ts)', () => {
       })();
       mockTurnRunFn.mockReturnValue(mockStream);
 
-      // Build a functionResponse payload large enough that its JSON/4 exceeds
+      // Build a tool_response payload large enough that its JSON/4 exceeds
       // the 95% threshold of the full limit (1000 * 0.95 = 950 tokens).
       const largeResult = 'x'.repeat(4000);
-      const request: Part[] = [
+      const request = [
         {
-          functionResponse: {
-            name: 'someTool',
-            response: { result: largeResult },
-          },
+          type: 'tool_response' as const,
+          callId: 'someTool',
+          toolName: 'someTool',
+          result: { result: largeResult },
         },
       ];
 
@@ -532,16 +530,17 @@ describe('Gemini Client (client.ts)', () => {
         (e) => e.type === AgentEventType.ContextWindowWillOverflow,
       );
       expect(overflow).toBeDefined();
-      // JSON of the functionResponse is well over 4000 chars → > 950 tokens.
+      // JSON of the tool_response result is well over 4000 chars → > 950 tokens.
       expect(
         (overflow as { value: { estimatedRequestTokenCount: number } }).value
           .estimatedRequestTokenCount,
       ).toBeGreaterThan(950);
     });
 
-    it('should use structured fallback when request conversion throws before tokenizer sizing', async () => {
-      // Arrange — convertPartListUnionToIContent is synchronous. If it throws,
-      // the fallback still needs to run instead of rejecting the stream.
+    it('should use structured fallback when tokenizer throws before sizing', async () => {
+      // Arrange — estimatePendingTokens throws (e.g. uninitialized internals
+      // during early preflight). The fallback still needs to run instead of
+      // rejecting the stream.
       const MOCKED_TOKEN_LIMIT = 1000;
       vi.mocked(tokenLimit).mockReturnValue(MOCKED_TOKEN_LIMIT);
       const lastPromptTokenCount = 0;
@@ -553,19 +552,18 @@ describe('Gemini Client (client.ts)', () => {
         addHistory: vi.fn(),
         getHistory: vi.fn().mockReturnValue([]),
         getLastPromptTokenCount: vi.fn().mockReturnValue(lastPromptTokenCount),
-        convertPartListUnionToIContent: vi.fn(() => {
-          throw new Error('conversion unavailable');
-        }),
-        estimatePendingTokens: vi.fn().mockResolvedValue(1),
+        estimatePendingTokens: vi
+          .fn()
+          .mockRejectedValue(new Error('tokenizer unavailable')),
       };
       client['chat'] = mockChat as ChatSession;
 
-      const request: Part[] = [
+      const request = [
         {
-          functionResponse: {
-            name: 'someTool',
-            response: { result: 'x'.repeat(4000) },
-          },
+          type: 'tool_response' as const,
+          callId: 'someTool',
+          toolName: 'someTool',
+          result: { result: 'x'.repeat(4000) },
         },
       ];
 
@@ -577,7 +575,7 @@ describe('Gemini Client (client.ts)', () => {
       );
       const events = await fromAsync(stream);
 
-      // Assert — fallback counted the functionResponse payload and emitted the
+      // Assert — fallback counted the tool_response payload and emitted the
       // same preflight overflow event rather than throwing.
       const overflow = events.find(
         (e) => e.type === AgentEventType.ContextWindowWillOverflow,
@@ -671,7 +669,7 @@ describe('Gemini Client (client.ts)', () => {
       // Remaining (sticky) = 100. Threshold (95%) = 95.
       // We need a request > 95 tokens.
       const longText = 'a'.repeat(400);
-      const request: Part[] = [{ text: longText }];
+      const request = [{ type: 'text' as const, text: longText }];
       // Structured fallback counts the text content (400 chars), not JSON structure.
       const estimatedRequestTokenCount = Math.floor(longText.length / 4);
       const remainingTokenCount = STICKY_MODEL_LIMIT - lastPromptTokenCount;
@@ -810,7 +808,7 @@ describe('Gemini Client (client.ts)', () => {
       // Second call with "Please continue."
       expect(mockTurnRunFn).toHaveBeenNthCalledWith(
         2,
-        [{ text: 'System: Please continue.' }],
+        [{ type: 'text', text: 'System: Please continue.' }],
         expect.any(Object),
       );
     });

@@ -13,36 +13,31 @@
  * → 'user' role, to maintain well-formed Gemini turn history).
  */
 
-import type { Part } from '@google/genai';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { DEFAULT_AGENT_ID } from '@vybestack/llxprt-code-core/core/turn.js';
 import type { CompletedToolCall } from '@vybestack/llxprt-code-core/scheduler/types.js';
 import type { AgentClientContract } from '@vybestack/llxprt-code-core/core/clientContract.js';
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ToolCallBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import { convertBlocksToParts } from '../MessageConverter.js';
-
-function isFunctionCallPart(part: Part): boolean {
-  return 'functionCall' in part;
-}
 
 /**
- * Partitions a flat `Part[]` into functionCalls, functionResponses, and other
- * parts. Used to maintain proper history ordering: functionCalls go to the
- * 'model' role, functionResponses + otherParts go to the 'user' role.
+ * Partitions a flat `ContentBlock[]` into tool-call, tool-response, and other
+ * blocks. Used to maintain proper history ordering: tool calls go to the
+ * 'ai' speaker, tool responses + other blocks go to the 'tool' speaker.
  */
-export function splitPartsByRole(parts: Part[]): {
-  functionCalls: Part[];
-  functionResponses: Part[];
-  otherParts: Part[];
+export function splitPartsByRole(parts: ContentBlock[]): {
+  functionCalls: ContentBlock[];
+  functionResponses: ContentBlock[];
+  otherParts: ContentBlock[];
 } {
-  const functionCalls: Part[] = [];
-  const functionResponses: Part[] = [];
-  const otherParts: Part[] = [];
+  const functionCalls: ContentBlock[] = [];
+  const functionResponses: ContentBlock[] = [];
+  const otherParts: ContentBlock[] = [];
 
   for (const part of parts) {
-    if ('functionCall' in part) {
+    if (part.type === 'tool_call') {
       functionCalls.push(part);
-    } else if ('functionResponse' in part) {
+    } else if (part.type === 'tool_response') {
       functionResponses.push(part);
     } else {
       otherParts.push(part);
@@ -79,13 +74,15 @@ export function classifyCompletedTools(tools: CompletedToolCall[]): {
 }
 
 /**
- * Builds the flat list of functionResponse parts to feed back to the model.
- * Filters out functionCall parts (already present in the assistant turn).
+ * Builds the flat list of tool-response blocks to feed back to the model.
+ * Filters out tool-call blocks (already present in the assistant turn).
  */
-export function buildToolResponses(geminiTools: CompletedToolCall[]): Part[] {
+export function buildToolResponses(
+  geminiTools: CompletedToolCall[],
+): ContentBlock[] {
   return geminiTools.flatMap((toolCall) =>
-    convertBlocksToParts(toolCall.response.responseParts).filter(
-      (part) => !isFunctionCallPart(part),
+    toolCall.response.responseParts.filter(
+      (block) => block.type !== 'tool_call',
     ),
   );
 }

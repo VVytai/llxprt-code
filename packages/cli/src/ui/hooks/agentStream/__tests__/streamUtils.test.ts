@@ -67,7 +67,7 @@ describe('mergePartListUnions', () => {
   });
 
   it('merges Part objects directly', () => {
-    const part: TestPart = { text: 'foo' };
+    const part: TestPart = { type: 'text', text: 'foo' };
     const result = mergePartListUnions([part]);
     expect(result).toStrictEqual([{ text: 'foo' }]);
   });
@@ -178,8 +178,8 @@ describe('mergePendingToolGroupsForDisplay', () => {
 describe('splitPartsByRole', () => {
   it('separates functionCall parts into functionCalls array', () => {
     const parts: TestPart[] = [
-      { functionCall: { name: 'foo', args: {} } },
-      { text: 'hello' },
+      { type: 'tool_call', id: '1', name: 'foo', parameters: {} },
+      { type: 'text', text: 'hello' },
     ];
     const { functionCalls, functionResponses, otherParts } =
       splitPartsByRole(parts);
@@ -190,7 +190,12 @@ describe('splitPartsByRole', () => {
 
   it('separates functionResponse parts into functionResponses array', () => {
     const parts: TestPart[] = [
-      { functionResponse: { name: 'foo', response: { result: 'ok' } } },
+      {
+        type: 'tool_response',
+        callId: '1',
+        toolName: 'foo',
+        result: { result: 'ok' },
+      },
     ];
     const { functionCalls, functionResponses, otherParts } =
       splitPartsByRole(parts);
@@ -210,10 +215,10 @@ describe('splitPartsByRole', () => {
 
   it('correctly separates mixed content', () => {
     const parts: TestPart[] = [
-      { functionCall: { name: 'a', args: {} } },
-      { functionResponse: { name: 'a', response: {} } },
-      { text: 'text' },
-      { functionCall: { name: 'b', args: {} } },
+      { type: 'tool_call', id: '1', name: 'a', parameters: {} },
+      { type: 'tool_response', callId: '1', toolName: 'a', result: {} },
+      { type: 'text', text: 'text' },
+      { type: 'tool_call', id: '2', name: 'b', parameters: {} },
     ];
     const { functionCalls, functionResponses, otherParts } =
       splitPartsByRole(parts);

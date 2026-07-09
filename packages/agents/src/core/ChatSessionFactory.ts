@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentConfig, Tool } from '@google/genai';
+import type { ModelGenerationSettings } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { ChatSessionConfig } from './chatSession.js';
 import { getEnvironmentContext } from '@vybestack/llxprt-code-core/utils/environmentContext.js';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import {
@@ -155,7 +156,7 @@ export interface CreateChatSessionDeps {
   storedHistoryService: HistoryService | undefined;
   clearStoredHistoryService: () => void;
   extraHistory?: IContent[];
-  generateContentConfig: GenerateContentConfig;
+  generateContentConfig: ModelGenerationSettings;
   todoContinuationService: TodoContinuationService;
   toolRegistry: ToolRegistry | undefined;
 }
@@ -214,16 +215,19 @@ async function applySystemPromptTokenOffset(
 }
 
 /**
- * Builds the GenerateContentConfig with thinking support if applicable.
+ * Builds the generation settings with thinking support if applicable.
  */
 function buildGenerateContentConfig(
-  baseConfig: GenerateContentConfig,
+  baseConfig: ModelGenerationSettings,
   model: string,
-): GenerateContentConfig {
+): ChatSessionConfig {
   return isThinkingSupported(model)
     ? {
         ...baseConfig,
-        thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
+        reasoning: {
+          ...(baseConfig.reasoning ?? {}),
+          includeInOutput: true,
+        },
       }
     : baseConfig;
 }
@@ -236,7 +240,7 @@ async function buildChatFromRuntime(
   runtimeState: AgentRuntimeState,
   contentGenerator: ContentGenerator,
   historyService: HistoryService,
-  generateContentConfig: GenerateContentConfig,
+  generateContentConfig: ModelGenerationSettings,
   todoContinuationService: TodoContinuationService,
   toolRegistry: ToolRegistry | undefined,
   systemInstruction: string,
@@ -275,7 +279,7 @@ async function buildChatFromRuntime(
   todoContinuationService.updateTodoToolAvailabilityFromDeclarations(
     filteredDeclarations,
   );
-  const tools: Tool[] = [{ functionDeclarations: filteredDeclarations }];
+  const tools = filteredDeclarations;
 
   const chat = new ChatSession(
     runtimeBundle.runtimeContext,

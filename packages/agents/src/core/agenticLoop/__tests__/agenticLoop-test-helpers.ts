@@ -41,7 +41,8 @@ import type {
   AgentClientContract,
 } from '@vybestack/llxprt-code-core/core/clientContract.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
-import type { Content, Part, PartListUnion } from '@google/genai';
+import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { AgentRequestInput } from '@vybestack/llxprt-code-core/core/clientContract.js';
 import type {
   ContentBlock,
   IContent,
@@ -56,22 +57,22 @@ import { convertPartListUnionToIContent } from '../../MessageConverter.js';
  */
 export type TurnScript = ServerAgentStreamEvent[];
 
-/** Converts a PartListUnion into a Part[] (string → [{text}]). */
-export function partListUnionToParts(req: PartListUnion): Part[] {
+/** Converts an AgentRequestInput into a ContentBlock[] (string → [{text}]). */
+export function partListUnionToParts(req: AgentRequestInput): ContentBlock[] {
   if (Array.isArray(req)) {
-    return req as Part[];
+    return req as ContentBlock[];
   }
   if (typeof req === 'string') {
-    return [{ text: req }];
+    return [{ type: 'text', text: req }];
   }
-  return [req];
+  return [req as ContentBlock];
 }
 
 /** Shared mutable state for a scripted agent client. */
 interface ScriptedClientState {
   scriptQueue: TurnScript[];
   history: IContent[];
-  turnMessages: PartListUnion[];
+  turnMessages: AgentRequestInput[];
   promptIds: string[];
   recordedToolCalls: CompletedToolCall[][];
 }
@@ -144,13 +145,13 @@ function buildScriptedClient(state: ScriptedClientState): AgentClientContract {
     },
     generateEmbedding: async () => [],
     async *sendMessageStream(
-      req: PartListUnion,
+      req: AgentRequestInput,
       signal: AbortSignal,
       promptId: string,
     ): AsyncGenerator<ServerAgentStreamEvent> {
       turnMessages.push(req);
       promptIds.push(promptId);
-      history.push(convertPartListUnionToIContent(req));
+      history.push(convertPartListUnionToIContent(req as AgentMessageInput));
       const script = scriptQueue.shift();
       if (!script) {
         return;
@@ -177,7 +178,7 @@ function buildScriptedClient(state: ScriptedClientState): AgentClientContract {
 export function createScriptedAgentClient(scripts: TurnScript[]): {
   client: AgentClientContract;
   history: IContent[];
-  turnMessages: PartListUnion[];
+  turnMessages: AgentRequestInput[];
   promptIds: string[];
   recordedToolCalls: CompletedToolCall[][];
 } {
@@ -356,7 +357,7 @@ export function createAskPolicyEngine(): PolicyEngine {
 /** Collects all events from running the loop to completion. */
 export async function collectEvents(
   loop: AgenticLoop,
-  message: PartListUnion,
+  message: AgentMessageInput,
   signal: AbortSignal,
   promptId?: string,
 ): Promise<AgenticLoopEvent[]> {
@@ -413,8 +414,7 @@ export function hasFunctionResponse(history: IContent[]): boolean {
 export type {
   ApprovalHandler,
   AgenticLoopEvent,
-  Content,
-  PartListUnion,
+  AgentRequestInput,
   Config,
   ToolRegistry,
   CompletedToolCall,

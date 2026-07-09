@@ -11,6 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Part } from '@google/genai';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { ChatSession } from './chatSession.js';
 import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { RuntimeProvider as IProvider } from '@vybestack/llxprt-code-core/runtime/contracts/RuntimeProvider.js';
@@ -112,23 +113,31 @@ describe('ChatSession runtime history and tool-call behavior', () => {
       [],
     );
 
-    const toolCallPart = {
-      functionCall: {
-        id: 'toolu_123',
-        name: 'run_shell_command',
-        args: { command: 'ls -lt dev-docs' },
-      },
+    const inputToolCall: IContent = {
+      speaker: 'ai',
+      blocks: [
+        {
+          type: 'tool_call',
+          id: 'toolu_123',
+          name: 'run_shell_command',
+          parameters: { command: 'ls -lt dev-docs' },
+        },
+      ],
     };
-    const toolResponsePart = {
-      functionResponse: {
-        id: 'toolu_123',
-        name: 'run_shell_command',
-        response: { stdout: 'ok', stderr: '', exitCode: 0 },
-      },
+    const inputToolResponse: IContent = {
+      speaker: 'tool',
+      blocks: [
+        {
+          type: 'tool_response',
+          callId: 'toolu_123',
+          toolName: 'run_shell_command',
+          result: { stdout: 'ok', stderr: '', exitCode: 0 },
+        },
+      ],
     };
 
     const stream = await chat.sendMessageStream(
-      { message: [toolCallPart, toolResponsePart] as unknown as Part[] },
+      { message: [inputToolCall, inputToolResponse] },
       'prompt-123',
     );
     for await (const _event of stream) {
@@ -137,11 +146,15 @@ describe('ChatSession runtime history and tool-call behavior', () => {
 
     const curated = historyService.getCuratedForProvider();
     const toolCallIndex = curated.findIndex(
-      (content) => content.speaker === 'ai' && content.blocks.length > 0,
+      (content) =>
+        content.blocks.some((b) => b.type === 'tool_call') &&
+        content.blocks.length > 0,
     );
     expect(toolCallIndex).toBeGreaterThanOrEqual(0);
     const toolResponseIndex = curated.findIndex(
-      (content) => content.speaker === 'tool' && content.blocks.length > 0,
+      (content) =>
+        content.blocks.some((b) => b.type === 'tool_response') &&
+        content.blocks.length > 0,
     );
     expect(toolResponseIndex).toBeGreaterThanOrEqual(0);
     expect(toolResponseIndex).toBe(toolCallIndex + 1);

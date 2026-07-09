@@ -22,12 +22,9 @@ import {
   type SchedulerOptions,
 } from '@vybestack/llxprt-code-core/config/config.js';
 import { type ToolExecutionConfig } from './nonInteractiveToolExecutor.js';
-import {
-  type Content,
-  type FunctionDeclaration,
-  type GenerateContentConfig,
-} from '@google/genai';
-import { ChatSession } from './chatSession.js';
+import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type { ToolDeclaration } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { ChatSession, type ChatSessionConfig } from './chatSession.js';
 import type {
   AgentRuntimeContext,
   ReadonlySettingsSnapshot,
@@ -68,7 +65,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true when a non-string FunctionDeclaration entry is excluded from
+ * Returns true when a non-string ToolDeclaration entry is excluded from
  * subagent runtimes (task/list_subagents). Declarations without a usable
  * string name are never excluded.
  */
@@ -116,12 +113,12 @@ function getDeclarationWhitelistName(
 }
 
 /**
- * Converts a ToolMetadata object into a FunctionDeclaration for the Gemini API.
+ * Converts a ToolMetadata object into a ToolDeclaration for the Gemini API.
  */
 export function convertMetadataToFunctionDeclaration(
   fallbackName: string,
   metadata: ToolMetadata,
-): FunctionDeclaration {
+): ToolDeclaration {
   const rawSchema =
     metadata.parameterSchema && typeof metadata.parameterSchema === 'object'
       ? { ...metadata.parameterSchema }
@@ -395,7 +392,7 @@ function resolveDeclarationEntry(
     toolsView: ToolRegistryView;
     registryNameByCanonical: Map<string, string>;
   },
-): FunctionDeclaration | null {
+): ToolDeclaration | null {
   if (typeof entry !== 'string') {
     if (isSubagentExcludedDeclaration(entry)) {
       return null;
@@ -467,7 +464,7 @@ function resolveDeclarationEntry(
 export function buildRuntimeFunctionDeclarations(
   toolsView: ToolRegistryView,
   toolConfig: ToolConfig | undefined,
-): FunctionDeclaration[] {
+): ToolDeclaration[] {
   const listedNames =
     typeof toolsView.listToolNames === 'function'
       ? toolsView.listToolNames()
@@ -481,7 +478,7 @@ export function buildRuntimeFunctionDeclarations(
   }
   const allowedNames = new Set(registryNameByCanonical.keys());
 
-  const declarations: FunctionDeclaration[] = [];
+  const declarations: ToolDeclaration[] = [];
 
   if (toolConfig === undefined) {
     for (const name of listedNames) {
@@ -501,7 +498,7 @@ export function buildRuntimeFunctionDeclarations(
   }
 
   if (toolConfig.tools.length === 0) {
-    const noFunctionDeclarations: FunctionDeclaration[] = [];
+    const noFunctionDeclarations: ToolDeclaration[] = [];
     return noFunctionDeclarations;
   }
 
@@ -520,12 +517,12 @@ export function buildRuntimeFunctionDeclarations(
 
 export function getScopeLocalFuncDefs(
   outputConfig?: OutputConfig,
-): FunctionDeclaration[] {
+): ToolDeclaration[] {
   if (!outputConfig?.outputs) {
     return [];
   }
 
-  const emitValueTool: FunctionDeclaration = {
+  const emitValueTool: ToolDeclaration = {
     name: 'self_emitvalue',
     description: `* This tool emits A SINGLE return value from this execution, such that it can be collected and presented to the calling function.
         * You can only emit ONE VALUE each time you call this tool. You are expected to call this tool MULTIPLE TIMES if you have MULTIPLE OUTPUTS.`,
@@ -749,7 +746,7 @@ export async function createChatObject(
     throw new Error('PromptConfig.systemPrompt must be a non-empty string.');
   }
 
-  const startHistory: Content[] = [];
+  const startHistory: IContent[] = [];
   const personaPrompt = buildChatSystemPrompt(
     promptConfig,
     outputConfig,
@@ -788,7 +785,7 @@ async function buildSystemInstruction(
   environmentContextLoader: EnvironmentContextLoader,
   runtimeContext: AgentRuntimeContext,
   modelConfig: ModelConfig,
-  combinedDeclarations: FunctionDeclaration[],
+  combinedDeclarations: ToolDeclaration[],
   config: Config,
   personaPrompt: string,
   logger: { debug: (fn: () => string) => void },
@@ -802,7 +799,7 @@ async function buildSystemInstruction(
   const toolNames = Array.from(
     new Set(
       combinedDeclarations
-        .map((d) => (d as Partial<FunctionDeclaration>).name?.trim())
+        .map((d) => (d as Partial<ToolDeclaration>).name?.trim())
         .filter((name): name is string => Boolean(name && name.length > 0)),
     ),
   );
@@ -841,23 +838,18 @@ async function buildSystemInstruction(
 function instantiateChat(
   modelConfig: ModelConfig,
   systemInstruction: string,
-  combinedDeclarations: FunctionDeclaration[],
-  startHistory: Content[],
+  combinedDeclarations: ToolDeclaration[],
+  startHistory: IContent[],
   runtimeContext: AgentRuntimeContext,
   contentGenerator: ContentGenerator,
   _logger: { debug: (fn: () => string) => void },
 ): ChatSession | null {
   try {
-    const generationConfig: GenerateContentConfig & {
-      systemInstruction?: string | Content;
-    } = {
+    const generationConfig: ChatSessionConfig = {
       temperature: modelConfig.temp,
       topP: modelConfig.top_p,
       systemInstruction: systemInstruction || undefined,
-      tools:
-        combinedDeclarations.length > 0
-          ? [{ functionDeclarations: combinedDeclarations }]
-          : undefined,
+      tools: combinedDeclarations.length > 0 ? combinedDeclarations : undefined,
     };
 
     return new ChatSession(

@@ -32,6 +32,7 @@ import type {
   EditorType,
   ToolCall,
   AgentRequestInput,
+  ContentBlock,
 } from '@vybestack/llxprt-code-core';
 import { DebugLogger } from '@vybestack/llxprt-code-core';
 import type { UseHistoryManagerReturn } from '../useHistoryManager.js';
@@ -268,11 +269,14 @@ function toAgentInput(message: AgentRequestInput): AgentInput {
     return message;
   }
   if (Array.isArray(message)) {
-    return message.map((part): { text: string } =>
-      typeof part === 'string' ? { text: part } : (part as { text: string }),
+    return message.map(
+      (part): ContentBlock =>
+        typeof part === 'string'
+          ? { type: 'text', text: part }
+          : (part as ContentBlock),
     );
   }
-  return [message];
+  return [message as ContentBlock];
 }
 
 function iterateAgentStream(

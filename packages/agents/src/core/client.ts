@@ -4,13 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  type GenerateContentConfig,
-  type PartListUnion,
-  type Tool,
-  type SendMessageParameters,
-} from '@google/genai';
-import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type {
+  ModelGenerationSettings,
+  ModelOutput,
+  ToolDeclaration,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { AgentRequestInput } from '@vybestack/llxprt-code-core/core/clientContract.js';
 import {
   getDirectoryContextString,
   getEnvironmentContext,
@@ -24,7 +23,7 @@ import {
   buildToolDeclarationsFromView,
   getEnabledToolNamesForPrompt,
 } from './clientToolGovernance.js';
-import type { ChatSession } from './chatSession.js';
+import type { ChatSession, SendMessageParams } from './chatSession.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 
@@ -76,7 +75,7 @@ export class AgentClient implements AgentClientContract {
   private contentGenerator?: ContentGenerator;
   private embeddingModel: string;
   private logger: DebugLogger;
-  private generateContentConfig: GenerateContentConfig = {
+  private generateContentConfig: ModelGenerationSettings = {
     temperature: 0,
     topP: 1,
   };
@@ -492,9 +491,23 @@ export class AgentClient implements AgentClientContract {
       typeof this.chat?.getToolsView === 'function'
         ? this.chat.getToolsView()
         : undefined;
-    const toolDeclarations = toolsView
+    const toolDeclarations: ToolDeclaration[] = toolsView
       ? buildToolDeclarationsFromView(toolRegistry, toolsView)
-      : toolRegistry.getFunctionDeclarations();
+      : toolRegistry
+          .getFunctionDeclarations()
+          .filter((d) => typeof d.name === 'string' && d.name.length > 0)
+          .map(
+            (d): ToolDeclaration => ({
+              name: d.name!,
+              parametersJsonSchema:
+                (d.parametersJsonSchema as Record<string, unknown>) ??
+                (d.parameters as Record<string, unknown>) ??
+                {},
+              ...(typeof d.description === 'string'
+                ? { description: d.description }
+                : {}),
+            }),
+          );
     this.todoContinuationService.updateTodoToolAvailabilityFromDeclarations(
       toolDeclarations,
     );
@@ -514,15 +527,13 @@ export class AgentClient implements AgentClientContract {
       );
     }
 
-    const tools: Tool[] = [{ functionDeclarations: toolDeclarations }];
     if (!this.hasChatInitialized()) {
       this.chat = await this.startChat(this._previousHistory ?? []);
     }
-    this.getChat().setTools(tools);
+    this.getChat().setTools(toolDeclarations);
   }
 
   clearTools(): void {
-    delete this.generateContentConfig.tools;
     if (this.chat && typeof this.chat.clearTools === 'function') {
       this.chat.clearTools();
     }
@@ -661,7 +672,7 @@ export class AgentClient implements AgentClientContract {
   }
 
   async generateDirectMessage(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     promptId: string,
   ): Promise<ModelOutput> {
     await this.lazyInitialize();
@@ -701,7 +712,7 @@ export class AgentClient implements AgentClientContract {
   }
 
   async *sendMessageStream(
-    initialRequest: PartListUnion,
+    initialRequest: AgentRequestInput,
     signal: AbortSignal,
     prompt_id: string,
     turns: number = this.MAX_TURNS,
@@ -734,7 +745,7 @@ export class AgentClient implements AgentClientContract {
     schema: Record<string, unknown>,
     abortSignal: AbortSignal,
     model: string,
-    config: GenerateContentConfig = {},
+    config: ModelGenerationSettings = {},
   ): Promise<Record<string, unknown>> {
     await this.lazyInitialize();
     return clientLlmGenerateJson(
@@ -752,7 +763,7 @@ export class AgentClient implements AgentClientContract {
 
   async generateContent(
     contents: IContent[],
-    generationConfig: GenerateContentConfig,
+    generationConfig: ModelGenerationSettings,
     abortSignal: AbortSignal,
     model: string,
   ): Promise<ModelOutput> {

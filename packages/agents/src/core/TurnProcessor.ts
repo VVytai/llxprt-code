@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  type GenerateContentConfig,
-  type SendMessageParameters,
-} from '@google/genai';
+import type { AgentClientGenerateConfig } from '@vybestack/llxprt-code-core/core/clientContract.js';
+import type { SendMessageParams } from './chatSession.js';
 import { retryWithBackoff } from '@vybestack/llxprt-code-core/utils/retry.js';
 import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
 import {
@@ -139,7 +137,7 @@ export class TurnProcessor {
       source: string,
       extras?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
-    private readonly generationConfig: GenerateContentConfig,
+    private readonly generationConfig: AgentClientGenerateConfig,
     private readonly historyService: HistoryService,
     private readonly streamProcessor: StreamProcessor,
     private readonly resolveProviderBaseUrl: (
@@ -152,7 +150,7 @@ export class TurnProcessor {
    * Waits for previous send, prepares message, calls provider, commits result to history.
    */
   async sendMessage(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
   ): Promise<ModelOutput> {
     await this.sendPromise;
@@ -188,7 +186,7 @@ export class TurnProcessor {
    * Waits for previous send, prepares message, delegates to StreamProcessor.
    */
   async sendMessageStream(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
   ): Promise<AsyncGenerator<StreamEvent>> {
     await this.sendPromise;
@@ -222,7 +220,7 @@ export class TurnProcessor {
   }
 
   private async *_createStreamGenerator(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
     userContent: IContent,
     onDone: () => void,
@@ -263,7 +261,7 @@ export class TurnProcessor {
    * a single break/continue.
    */
   private async *_runStreamAttempt(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
     userContent: IContent,
     attempt: number,
@@ -318,9 +316,9 @@ export class TurnProcessor {
   }
 
   private _applyRetryTemperature(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     attempt: number,
-  ): SendMessageParameters {
+  ): SendMessageParams {
     if (attempt === 0) return params;
     const baselineTemperature = Math.max(params.config?.temperature ?? 1, 1);
     const newTemperature = Math.min(
@@ -333,7 +331,7 @@ export class TurnProcessor {
     };
   }
 
-  private _normalizeUserContent(params: SendMessageParameters): IContent {
+  private _normalizeUserContent(params: SendMessageParams): IContent {
     return normalizeToolInteractionInput(params.message);
   }
 
@@ -372,7 +370,7 @@ export class TurnProcessor {
   /**
    * Prepares user message: validates and converts input before provider enforcement.
    */
-  private _prepareSendMessage(params: SendMessageParameters): {
+  private _prepareSendMessage(params: SendMessageParams): {
     userContent: IContent;
     userIContents: IContent[];
   } {
@@ -386,7 +384,7 @@ export class TurnProcessor {
    * Executes the provider call with retry and bucket failover.
    */
   private async _executeSendWithRetry(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     userIContents: IContent[],
     provider: IProvider,
     prompt_id: string,
@@ -509,7 +507,7 @@ export class TurnProcessor {
    */
   private async _executeProviderCall(
     provider: IProvider,
-    params: SendMessageParameters,
+    params: SendMessageParams,
     requestContents: IContent[],
     providerBaseUrl: string | undefined,
   ): Promise<ModelOutput> {
@@ -684,14 +682,14 @@ export class TurnProcessor {
     this.compressionHandler.lastPromptTokenCount = this.lastPromptTokenCount;
   }
   private _selectRequestTools(
-    params: SendMessageParameters,
-  ): GenerateContentConfig['tools'] {
+    params: SendMessageParams,
+  ): AgentClientGenerateConfig['tools'] {
     return params.config?.tools ?? this.generationConfig.tools;
   }
 
   private async _applyToolSelectionHook(
     configForHooks: Config | undefined,
-    tools: GenerateContentConfig['tools'],
+    tools: AgentClientGenerateConfig['tools'],
   ): Promise<ToolSelectionHookResult> {
     const toolsFromConfig = Array.isArray(tools)
       ? (tools as ToolGroupArray)
@@ -775,7 +773,7 @@ export class TurnProcessor {
   private async _commitSendResult(
     response: ModelOutput,
     userContent: IContent,
-    _params: SendMessageParameters,
+    _params: SendMessageParams,
     _prompt_id: string,
   ): Promise<void> {
     const currentModel = this.runtimeContext.state.model;

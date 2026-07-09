@@ -20,6 +20,7 @@ checkH) join the metric at P31 via an EXPLICIT documented re-baseline step.
 count=24 owner=P13
 count=17 owner=P21
 count=7 owner=P25
+count=1 owner=P27
 
 Command: `npx tsx scripts/agents-neutral-gate.ts --count`
 

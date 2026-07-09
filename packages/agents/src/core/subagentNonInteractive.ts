@@ -350,7 +350,7 @@ export async function runNonInteractiveTurn(
       abortSignal: abortController.signal,
       tools: [{ functionDeclarations: toolsList }],
     },
-  } as Parameters<typeof chat.sendMessageStream>[0];
+  } as unknown as Parameters<typeof chat.sendMessageStream>[0];
 
   const responseStream = await chat.sendMessageStream(
     messageParams,

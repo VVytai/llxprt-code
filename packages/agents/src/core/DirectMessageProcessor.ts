@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {
-  SendMessageParameters,
-  GenerateContentConfig,
-} from '@google/genai';
+import type { AgentClientGenerateConfig } from '@vybestack/llxprt-code-core/core/clientContract.js';
+import type { SendMessageParams } from './chatSession.js';
 import { retryWithBackoff } from '@vybestack/llxprt-code-core/utils/retry.js';
 import { createAbortError } from '@vybestack/llxprt-code-core/utils/delay.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -166,7 +164,7 @@ export class DirectMessageProcessor {
       source: string,
       extras?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
-    private readonly generationConfig: GenerateContentConfig,
+    private readonly generationConfig: AgentClientGenerateConfig,
 
     private readonly historyService: HistoryService,
     _makePositionMatcher: () =>
@@ -180,7 +178,7 @@ export class DirectMessageProcessor {
    * @pseudocode lines 10-19
    */
   async generateDirectMessage(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
   ): Promise<ModelOutput> {
     const provider = this.providerResolver('DirectMessageProcessor');
@@ -237,9 +235,7 @@ export class DirectMessageProcessor {
   /**
    * Converts user input message to IContent array.
    */
-  private _convertUserInput(
-    message: SendMessageParameters['message'],
-  ): IContent[] {
+  private _convertUserInput(message: SendMessageParams['message']): IContent[] {
     const userContent = normalizeToolInteractionInput(message);
     const idGen = this.historyService.getIdGeneratorCallback();
     const stamped: IContent = {
@@ -258,7 +254,7 @@ export class DirectMessageProcessor {
    */
   private async _executeWithRetry(
     provider: IProvider,
-    params: SendMessageParameters,
+    params: SendMessageParams,
     userIContents: IContent[],
   ): Promise<ModelOutput> {
     return retryWithBackoff(
@@ -408,7 +404,7 @@ export class DirectMessageProcessor {
    */
   private async _executeDirectProviderCall(
     provider: IProvider,
-    params: SendMessageParameters,
+    params: SendMessageParams,
     userIContents: IContent[],
   ): Promise<ModelOutput> {
     const {
@@ -463,7 +459,7 @@ export class DirectMessageProcessor {
   }
 
   private _buildProviderRuntimeMetadata(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     effectiveToolsFromConfig: ToolGroupArray | undefined,
   ): Record<string, unknown> {
     const directOverrides = this._extractDirectGeminiOverrides(params.config);
@@ -520,8 +516,8 @@ export class DirectMessageProcessor {
   }
 
   private _selectRequestTools(
-    params: SendMessageParameters,
-  ): GenerateContentConfig['tools'] {
+    params: SendMessageParams,
+  ): AgentClientGenerateConfig['tools'] {
     return params.config?.tools ?? this.generationConfig.tools;
   }
 
@@ -530,7 +526,7 @@ export class DirectMessageProcessor {
    * @requirement:REQ-004.1
    */
   private async _applyPreSendHooks(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     userIContents: IContent[],
   ): Promise<{
     effectiveToolsFromConfig: ToolGroupArray | undefined;
@@ -886,7 +882,7 @@ export class DirectMessageProcessor {
   /**
    * Extracts direct Gemini overrides from config.
    */
-  private _extractDirectGeminiOverrides(config?: GenerateContentConfig):
+  private _extractDirectGeminiOverrides(config?: AgentClientGenerateConfig):
     | {
         serverTools?: unknown;
         toolConfig?: unknown;

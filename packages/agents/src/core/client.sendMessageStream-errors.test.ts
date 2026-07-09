@@ -285,6 +285,7 @@ describe('Gemini Client (client.ts)', () => {
         2,
         [
           {
+            type: 'text',
             text: 'System: The previous tool calls produced a response that was too large (HTTP 413). The tools involved were: read_file, search_file. Please retry with fewer or more focused queries.',
           },
         ],

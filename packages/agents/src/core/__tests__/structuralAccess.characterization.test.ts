@@ -22,7 +22,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Content } from '@google/genai';
 import * as fc from 'fast-check';
 import { ConversationManager } from '../ConversationManager.js';
 import {
@@ -122,9 +121,9 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
       speaker: 'human',
       blocks: [{ type: 'text', text: 'hello' }],
     };
-    const modelOutput: Content[] = [
-      { role: 'model', parts: [{ text: 'Hello ' }] },
-      { role: 'model', parts: [{ text: 'World' }] },
+    const modelOutput: IContent[] = [
+      { speaker: 'ai', blocks: [{ type: 'text', text: 'Hello ' }] },
+      { speaker: 'ai', blocks: [{ type: 'text', text: 'World' }] },
     ];
 
     conversationManager.recordHistory(userInput, modelOutput);
@@ -138,10 +137,10 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
       speaker: 'human',
       blocks: [{ type: 'text', text: 'prompt' }],
     };
-    const modelOutput: Content[] = [
-      { role: 'model', parts: [{ text: 'A' }] },
-      { role: 'model', parts: [{ text: 'B' }] },
-      { role: 'model', parts: [{ text: 'C' }] },
+    const modelOutput: IContent[] = [
+      { speaker: 'ai', blocks: [{ type: 'text', text: 'A' }] },
+      { speaker: 'ai', blocks: [{ type: 'text', text: 'B' }] },
+      { speaker: 'ai', blocks: [{ type: 'text', text: 'C' }] },
     ];
 
     conversationManager.recordHistory(userInput, modelOutput);
@@ -157,12 +156,17 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
       speaker: 'human',
       blocks: [{ type: 'text', text: 'hi' }],
     };
-    const modelOutput: Content[] = [
+    const modelOutput: IContent[] = [
       {
-        role: 'model',
-        parts: [
-          { thought: true, text: 'secret thought', thoughtSignature: 'sig1' },
-          { text: 'visible answer' },
+        speaker: 'ai',
+        blocks: [
+          {
+            type: 'thinking',
+            thought: 'secret thought',
+            signature: 'sig1',
+            sourceField: 'thought',
+          },
+          { type: 'text', text: 'visible answer' },
         ],
       },
     ];
@@ -181,12 +185,17 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
       speaker: 'human',
       blocks: [{ type: 'text', text: 'hi' }],
     };
-    const modelOutput: Content[] = [
+    const modelOutput: IContent[] = [
       {
-        role: 'model',
-        parts: [
-          { thought: true, text: 'hidden thought', thoughtSignature: 'sigABC' },
-          { text: 'answer' },
+        speaker: 'ai',
+        blocks: [
+          {
+            type: 'thinking',
+            thought: 'hidden thought',
+            signature: 'sigABC',
+            sourceField: 'thought',
+          },
+          { type: 'text', text: 'answer' },
         ],
       },
     ];
@@ -206,12 +215,17 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
       speaker: 'human',
       blocks: [{ type: 'text', text: 'hi' }],
     };
-    const modelOutput: Content[] = [
+    const modelOutput: IContent[] = [
       {
-        role: 'model',
-        parts: [
-          { thought: true, text: 'my thought', thoughtSignature: 'sigXYZ' },
-          { text: 'visible answer' },
+        speaker: 'ai',
+        blocks: [
+          {
+            type: 'thinking',
+            thought: 'my thought',
+            signature: 'sigXYZ',
+            sourceField: 'thought',
+          },
+          { type: 'text', text: 'visible answer' },
         ],
       },
     ];
@@ -229,8 +243,8 @@ describe('REQ-005.1: ConversationManager text consolidation + thought filtering'
       speaker: 'human',
       blocks: [{ type: 'text', text: 'hi' }],
     };
-    const modelOutput: Content[] = [
-      { role: 'model', parts: [{ text: 'answer' }] },
+    const modelOutput: IContent[] = [
+      { speaker: 'ai', blocks: [{ type: 'text', text: 'answer' }] },
     ];
     const usage: UsageStats = {
       promptTokens: 10,
@@ -265,9 +279,9 @@ describe('REQ-005.1: consolidation + thought filtering (property)', () => {
           speaker: 'human',
           blocks: [{ type: 'text', text: 'q' }],
         };
-        const modelOutput: Content[] = texts.map((t) => ({
-          role: 'model' as const,
-          parts: [{ text: t }],
+        const modelOutput: IContent[] = texts.map((t) => ({
+          speaker: 'ai' as const,
+          blocks: [{ type: 'text' as const, text: t }],
         }));
 
         mgr.recordHistory(userInput, modelOutput);
@@ -303,12 +317,17 @@ describe('REQ-005.1: consolidation + thought filtering (property)', () => {
             speaker: 'human',
             blocks: [{ type: 'text', text: 'q' }],
           };
-          const modelOutput: Content[] = [
+          const modelOutput: IContent[] = [
             {
-              role: 'model',
-              parts: [
-                { thought: true, text: thought, thoughtSignature: sig },
-                { text: answer },
+              speaker: 'ai',
+              blocks: [
+                {
+                  type: 'thinking',
+                  thought,
+                  signature: sig,
+                  sourceField: 'thought',
+                },
+                { type: 'text', text: answer },
               ],
             },
           ];
@@ -338,7 +357,9 @@ describe('REQ-005.1: consolidation + thought filtering (property)', () => {
           speaker: 'human',
           blocks: [{ type: 'text', text: 'q' }],
         };
-        const modelOutput: Content[] = [{ role: 'model', parts: [{ text }] }];
+        const modelOutput: IContent[] = [
+          { speaker: 'ai', blocks: [{ type: 'text', text }] },
+        ];
 
         mgr.recordHistory(userInput, modelOutput);
 

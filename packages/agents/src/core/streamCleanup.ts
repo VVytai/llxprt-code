@@ -4,17 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentResponse } from '@google/genai';
+import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { RuntimeProvider as IProvider } from '@vybestack/llxprt-code-core/runtime/contracts/RuntimeProvider.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { CompressionHandler } from '../compression/CompressionHandler.js';
 
 const logger = new DebugLogger('llxprt:stream-cleanup');
 
-type StreamResult<TYield = GenerateContentResponse> = IteratorResult<
-  TYield,
-  void
->;
+type StreamResult<TYield = ModelStreamChunk> = IteratorResult<TYield, void>;
 type StreamNext<TNext, TYield> = (
   ...args: [] | [TNext]
 ) => Promise<StreamResult<TYield>>;
@@ -167,7 +164,7 @@ async function disposeWithCleanup<TYield>(
  * the returned generator so cleanup can run for non-aborted requests.
  */
 export function withCompressionCallbackCleanup<
-  TYield = GenerateContentResponse,
+  TYield = ModelStreamChunk,
   TNext = unknown,
 >(
   stream: AsyncGenerator<TYield, void, TNext>,

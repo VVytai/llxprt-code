@@ -13,7 +13,6 @@ import { isStructuredError } from '@vybestack/llxprt-code-core/utils/quotaErrorD
 import { hasCycleInSchema } from '@vybestack/llxprt-code-tools';
 import { convertBlocksToParts } from './MessageConverter.js';
 import { isMissingFinishReason } from './streamResponseHelpers.js';
-import type { Content } from '@google/genai';
 import type { ConversationManager } from './ConversationManager.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { CompressionHandler } from '../compression/CompressionHandler.js';
@@ -159,10 +158,10 @@ export async function recordHistoryWithUsage(
     ? acc.content.blocks
     : acc.content.blocks.filter((block) => block.type !== 'thinking');
 
-  const modelOutput: Content[] = [
+  const modelOutput: IContent[] = [
     {
-      role: 'model' as const,
-      parts: convertBlocksToParts(outputBlocks),
+      speaker: 'ai',
+      blocks: convertBlocksToParts(outputBlocks),
     },
   ];
 

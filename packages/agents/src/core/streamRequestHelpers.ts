@@ -12,11 +12,10 @@
  * params (no shared mutable state) so they can be unit-tested in isolation.
  */
 
-import type { Content, SendMessageParameters } from '@google/genai';
-import { type GenerateContentConfig } from '@google/genai';
 import type { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
 import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type { SendMessageParams } from './chatSession.js';
 import { logApiRequest } from './turnLogging.js';
 import type { ConversationManager } from './ConversationManager.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
@@ -34,7 +33,7 @@ export type ToolGroupArray = Array<{
 }>;
 
 export interface ToolSelectionHookResult {
-  tools: GenerateContentConfig['tools'];
+  tools: unknown;
   allowedFunctionNames: string[] | undefined;
 }
 
@@ -71,9 +70,9 @@ export function buildRequestContentsResult(
  * Select the tools for the request from params or the fallback generationConfig.
  */
 export function selectRequestTools(
-  params: SendMessageParameters,
-  fallbackTools: GenerateContentConfig['tools'],
-): GenerateContentConfig['tools'] {
+  params: SendMessageParams,
+  fallbackTools: unknown,
+): unknown {
   return params.config?.tools ?? fallbackTools;
 }
 
@@ -84,7 +83,7 @@ export function selectRequestTools(
  */
 export function buildRuntimeContext(
   baseRuntimeContext: ProviderRuntimeContext,
-  params: SendMessageParameters,
+  params: SendMessageParams,
 ): ProviderRuntimeContext {
   if (!params.config?.abortSignal) return baseRuntimeContext;
   return {
@@ -98,7 +97,7 @@ export function buildRuntimeContext(
 
 interface PrepareRequestPayloadParams {
   requestContents: IContent[];
-  tools: GenerateContentConfig['tools'];
+  tools: unknown;
   logger: DebugLogger;
   providerRuntimeBuilder: (
     source: string,
@@ -123,7 +122,7 @@ export function prepareRequestPayload(
       providerName: args.providerName,
       model: args.modelName,
       historyLength: args.requestContents.length,
-      toolCount: args.tools?.length ?? 0,
+      toolCount: Array.isArray(args.tools) ? args.tools.length : 0,
       baseUrl: args.baseUrl,
     },
   );
@@ -202,10 +201,12 @@ export function applyRequestModifications(
   // merged request carries usable contents.
   const modifiedRequest =
     beforeModelResult.applyLLMRequestModifications(target);
-  const modifiedContents = (modifiedRequest as { contents?: Content[] | null })
+  const modifiedContents = (modifiedRequest as { contents?: IContent[] | null })
     .contents;
   if (modifiedContents !== undefined && modifiedContents !== null) {
-    const converted = ContentConverters.toIContents(modifiedContents);
+    // modifiedContents comes from the hook wire adapter which already
+    // normalizes to IContent[] via toIContents at the boundary.
+    const converted = modifiedContents;
     // Guard: if the hook supplied llm_request.messages: [] (empty array) —
     // which converts to an empty contents array — treat it as "no
     // modification" and return the ORIGINAL reference. An empty contents

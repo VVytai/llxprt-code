@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { type PartListUnion, type Part } from '@google/genai';
+import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { AgentRequestInput } from '@vybestack/llxprt-code-core/core/clientContract.js';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   Turn,
   type ServerAgentStreamEvent,
@@ -15,7 +17,10 @@ import {
 } from './turn.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import {
+  iContentFromBlocks,
+  iContentFromAgentMessageInput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ChatSession } from './chatSession.js';
 import type { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
 import type { LoopDetectionService } from '@vybestack/llxprt-code-core/services/loopDetectionService.js';
@@ -56,7 +61,7 @@ export interface MessageStreamDeps {
   resetCurrentSequenceModel: () => void;
   updateTelemetryTokenCount: () => void;
   sendMessageStream: (
-    initialRequest: PartListUnion,
+    initialRequest: AgentMessageInput,
     signal: AbortSignal,
     prompt_id: string,
     turns?: number,
@@ -88,7 +93,7 @@ export interface IterationResult {
 interface PostTurnResult {
   done: boolean;
   retryCount: number;
-  newBaseRequest: PartListUnion | undefined;
+  newBaseRequest: AgentMessageInput | undefined;
 }
 
 /**
@@ -107,13 +112,29 @@ function normalizeTodoSnapshotEntry(todo: Todo): Todo {
 export const MAX_TURNS = 100;
 const MAX_RETRIES = 3;
 
+/**
+ * Narrows the contract-level {@link AgentRequestInput} (which may carry
+ * provider-native shapes) to the neutral {@link AgentMessageInput} expected
+ * by the internal stream pipeline. At runtime every request is already
+ * structurally an AgentMessageInput; this function provides a typed boundary
+ * without mutating the payload.
+ */
+function narrowToAgentMessageInput(
+  input: AgentRequestInput,
+): AgentMessageInput {
+  if (typeof input === 'string') {
+    return input;
+  }
+  return input as AgentMessageInput;
+}
+
 export class MessageStreamOrchestrator {
   #lastModelIdentity: string | null = null;
 
   constructor(private readonly deps: MessageStreamDeps) {}
 
   async *execute(
-    initialRequest: PartListUnion,
+    initialRequest: AgentRequestInput,
     signal: AbortSignal,
     prompt_id: string,
     turns: number,
@@ -125,7 +146,8 @@ export class MessageStreamOrchestrator {
     await this.deps.lazyInitialize();
     await this._ensureChatInitialized();
 
-    const promptText = extractPromptText(initialRequest);
+    const narrowedRequest = narrowToAgentMessageInput(initialRequest);
+    const promptText = extractPromptText(narrowedRequest);
     const ctx: StreamContext = {
       prompt_id,
       promptText,
@@ -136,10 +158,10 @@ export class MessageStreamOrchestrator {
       is413Retry,
     };
 
-    const request = yield* this._preflight(initialRequest, ctx);
+    const request = yield* this._preflight(narrowedRequest, ctx);
     if (request instanceof Turn) return request;
 
-    const earlyTurn = yield* this._checkSessionLimits(initialRequest, ctx);
+    const earlyTurn = yield* this._checkSessionLimits(narrowedRequest, ctx);
     if (earlyTurn) return earlyTurn;
 
     await this._injectIdeContext();
@@ -163,9 +185,9 @@ export class MessageStreamOrchestrator {
   }
 
   private async *_preflight(
-    initialRequest: PartListUnion,
+    initialRequest: AgentMessageInput,
     ctx: StreamContext,
-  ): AsyncGenerator<ServerAgentStreamEvent, PartListUnion | Turn> {
+  ): AsyncGenerator<ServerAgentStreamEvent, AgentMessageInput | Turn> {
     const {
       agentHookManager,
       loopDetector,
@@ -181,7 +203,7 @@ export class MessageStreamOrchestrator {
       agentHookManager.cleanupOldHookState(ctx.prompt_id, lastPromptId);
     }
 
-    let request: PartListUnion = initialRequest;
+    let request: AgentMessageInput = initialRequest;
     const isNewPrompt = getLastPromptId() !== ctx.prompt_id;
 
     if (isNewPrompt) {
@@ -219,8 +241,12 @@ export class MessageStreamOrchestrator {
 
       const additionalContext = hookOutput?.getAdditionalContext();
       if (additionalContext) {
+        const additionalBlock: ContentBlock = {
+          type: 'text',
+          text: additionalContext,
+        };
         const requestArray = Array.isArray(request) ? request : [request];
-        request = [...requestArray, { text: additionalContext }];
+        request = [...requestArray, additionalBlock] as AgentMessageInput;
       }
     } else {
       // Continuation / retry of the same prompt — emit ModelInfo only when
@@ -237,7 +263,7 @@ export class MessageStreamOrchestrator {
   }
 
   private async *_checkSessionLimits(
-    initialRequest: PartListUnion,
+    initialRequest: AgentMessageInput,
     ctx: StreamContext,
   ): AsyncGenerator<ServerAgentStreamEvent, Turn | undefined> {
     const { config, getChat, getSessionTurnCount, getEffectiveModel } =
@@ -291,14 +317,15 @@ export class MessageStreamOrchestrator {
     // throws (e.g. uninitialized internals during early preflight), fall back
     // to the structured payload-aware estimate so the guard still functions
     // while counting tool-response/tool-call JSON payloads.
-    const { estimatePendingTokens: est, convertPartListUnionToIContent: conv } =
-      chat;
+    const { estimatePendingTokens: est } = chat;
     const fallback = estimateRequestTokensStructured(initialRequest);
     const estimatedRequestTokenCount =
-      typeof est === 'function' && typeof conv === 'function'
+      typeof est === 'function'
         ? await Promise.resolve()
-            .then(() => conv.call(chat, initialRequest))
-            .then((content) => est.call(chat, [content]))
+            .then(() => {
+              const contents = iContentFromAgentMessageInput(initialRequest);
+              return est.call(chat, contents);
+            })
             .catch(() => fallback)
         : fallback;
 
@@ -358,23 +385,23 @@ export class MessageStreamOrchestrator {
   }
 
   private async *_runRetryLoop(
-    initialRequest: PartListUnion,
+    initialRequest: AgentMessageInput,
     signal: AbortSignal,
     ctx: StreamContext,
   ): AsyncGenerator<ServerAgentStreamEvent, Turn> {
     const { todoContinuationService, complexityAnalyzer, getSessionTurnCount } =
       this.deps;
 
-    let baseRequest: PartListUnion = Array.isArray(initialRequest)
-      ? [...(initialRequest as Part[])]
+    let baseRequest: AgentMessageInput = Array.isArray(initialRequest)
+      ? [...(initialRequest as ContentBlock[])]
       : initialRequest;
     let retryCount = 0;
     let lastTurn: Turn | undefined;
     let hadToolCallsThisTurn = false;
 
     while (retryCount < MAX_RETRIES) {
-      let iterRequest: PartListUnion = Array.isArray(baseRequest)
-        ? [...(baseRequest as Part[])]
+      let iterRequest: AgentMessageInput = Array.isArray(baseRequest)
+        ? [...(baseRequest as ContentBlock[])]
         : baseRequest;
 
       if (retryCount === 0) {
@@ -412,7 +439,7 @@ export class MessageStreamOrchestrator {
       if (iterResult.earlyReturn) return turn;
       hadToolCallsThisTurn = iterResult.hadToolCallsThisTurn;
 
-      const postTurnResult = yield* this._evaluatePostTurn(
+      const postTurnResult: PostTurnResult = yield* this._evaluatePostTurn(
         iterResult,
         baseRequest,
         retryCount,
@@ -430,12 +457,12 @@ export class MessageStreamOrchestrator {
   }
 
   private async *_processStreamIteration(
-    iterRequest: PartListUnion,
+    iterRequest: AgentMessageInput,
     signal: AbortSignal,
     turn: Turn,
     ctx: StreamContext,
     hadToolCallsPrior: boolean,
-    initialRequest: PartListUnion,
+    initialRequest: AgentMessageInput,
   ): AsyncGenerator<ServerAgentStreamEvent, IterationResult> {
     const { loopDetector, todoContinuationService, updateTelemetryTokenCount } =
       this.deps;
@@ -532,7 +559,7 @@ export class MessageStreamOrchestrator {
 
   private async *_evaluatePostTurn(
     iter: IterationResult,
-    baseRequest: PartListUnion,
+    baseRequest: AgentMessageInput,
     retryCount: number,
     ctx: StreamContext,
   ): AsyncGenerator<ServerAgentStreamEvent, PostTurnResult> {
@@ -580,7 +607,7 @@ export class MessageStreamOrchestrator {
         newBaseRequest: [
           {
             text: 'System: Continue and take the next concrete action now. Use tools if needed.',
-          } as Part,
+          } as ContentBlock,
         ],
       };
     }
@@ -595,7 +622,7 @@ export class MessageStreamOrchestrator {
 
   private async *_evaluateTodoContinuation(
     iter: IterationResult,
-    baseRequest: PartListUnion,
+    baseRequest: AgentMessageInput,
     retryCount: number,
     ctx: StreamContext,
   ): AsyncGenerator<ServerAgentStreamEvent, PostTurnResult> {
@@ -627,7 +654,7 @@ export class MessageStreamOrchestrator {
         afterOut?.shouldStopExecution() === true
       ) {
         yield* sendMessageStream(
-          [{ text: afterOut.getEffectiveReason() }],
+          [{ type: 'text', text: afterOut.getEffectiveReason() }],
           ctx.signal,
           ctx.prompt_id,
           getBoundedTurns() - 1,
@@ -690,7 +717,7 @@ export class MessageStreamOrchestrator {
       afterOut?.shouldStopExecution() === true
     ) {
       yield* sendMessageStream(
-        [{ text: afterOut.getEffectiveReason() }],
+        [{ type: 'text', text: afterOut.getEffectiveReason() }],
         ctx.signal,
         ctx.prompt_id,
         getBoundedTurns() - 1,
@@ -704,10 +731,10 @@ export class MessageStreamOrchestrator {
     todoContinuationService: TodoContinuationService,
     latestSnapshot: Todo[],
     activeTodos: Todo[],
-    baseRequest: PartListUnion,
+    baseRequest: AgentMessageInput,
     _deferredEvents: ServerAgentStreamEvent[],
     _ctx: StreamContext,
-  ): Promise<PartListUnion | undefined> {
+  ): Promise<AgentMessageInput | undefined> {
     const previousSnapshot = todoContinuationService.lastTodoSnapshot ?? [];
     const snapshotUnchanged = todoContinuationService.areTodoSnapshotsEqual(
       previousSnapshot,
@@ -731,7 +758,7 @@ export class MessageStreamOrchestrator {
     }
 
     const textOnlyBase = Array.isArray(baseRequest)
-      ? (baseRequest as Part[]).filter(
+      ? (baseRequest as ContentBlock[]).filter(
           (part) =>
             typeof part === 'object' &&
             'text' in part &&
@@ -745,11 +772,11 @@ export class MessageStreamOrchestrator {
   }
 
   private _applyComplexityAnalysis(
-    request: PartListUnion,
+    request: AgentMessageInput,
     todoContinuationService: TodoContinuationService,
     complexityAnalyzer: ComplexityAnalyzer,
     getSessionTurnCount: () => number,
-  ): { request: PartListUnion; baseRequest: PartListUnion } {
+  ): { request: AgentMessageInput; baseRequest: AgentMessageInput } {
     let shouldAppendTodoSuffix = false;
 
     if (Array.isArray(request) && request.length > 0) {
@@ -779,7 +806,7 @@ export class MessageStreamOrchestrator {
     }
 
     const baseRequest = Array.isArray(request)
-      ? [...(request as Part[])]
+      ? [...(request as ContentBlock[])]
       : request;
     return { request, baseRequest };
   }

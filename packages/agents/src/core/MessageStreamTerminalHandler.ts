@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { type PartListUnion } from '@google/genai';
+import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
   type IterationResult,
   MAX_TURNS,
@@ -62,7 +62,7 @@ async function* fireAfterHookAndEmitClearContext(
   }
 }
 
-function extractToolNamesFromRequest(request: PartListUnion): string[] {
+function extractToolNamesFromRequest(request: AgentMessageInput): string[] {
   if (!Array.isArray(request)) return [];
   const names = new Set<string>();
   for (const rawPart of request) {
@@ -87,7 +87,7 @@ async function* handle413Error(
   ctx: StreamContext,
   deferredEvents: ServerAgentStreamEvent[],
   state: TerminalState,
-  initialRequest: PartListUnion,
+  initialRequest: AgentMessageInput,
   signal: AbortSignal,
   boundedTurns: number,
 ): AsyncGenerator<ServerAgentStreamEvent, IterationResult | undefined> {
@@ -123,7 +123,7 @@ async function* handle413Error(
     },
   );
   yield* deps.sendMessageStream(
-    [{ text: message }],
+    [{ type: 'text', text: message }],
     signal,
     ctx.prompt_id,
     boundedTurns - 1,
@@ -161,7 +161,7 @@ async function* handleErrorEvent(
   ctx: StreamContext,
   deferredEvents: ServerAgentStreamEvent[],
   state: TerminalState,
-  initialRequest: PartListUnion,
+  initialRequest: AgentMessageInput,
 ): AsyncGenerator<ServerAgentStreamEvent, IterationResult | undefined> {
   const errorStatus = getErrorStatus(event);
   const { config } = deps;
@@ -227,7 +227,7 @@ async function* handleInvalidStreamEvent(
 
   if (config.getContinueOnFailedApiCall() && !ctx.isInvalidStreamRetry) {
     yield* deps.sendMessageStream(
-      [{ text: 'System: Please continue.' }],
+      [{ type: 'text', text: 'System: Please continue.' }],
       signal,
       ctx.prompt_id,
       boundedTurns - 1,
@@ -257,7 +257,7 @@ export async function* handleTerminalEvent(
   ctx: StreamContext,
   deferredEvents: ServerAgentStreamEvent[],
   state: TerminalState,
-  initialRequest: PartListUnion,
+  initialRequest: AgentMessageInput,
 ): AsyncGenerator<ServerAgentStreamEvent, IterationResult | undefined> {
   if (event.type === AgentEventType.Error) {
     return yield* handleErrorEvent(

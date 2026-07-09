@@ -370,7 +370,7 @@ function createRealEngineAgent(opts: RealEngineAgentOptions): Agent {
       });
       yield* mapLoopStream(
         loop.run(
-          input as AgentRequestInput,
+          input as never,
           streamOpts?.signal ?? new AbortController().signal,
           streamOpts?.promptId ?? 'test',
         ),

@@ -12,10 +12,8 @@
  * metadata injection, and model output consolidation.
  */
 
-import type { Content } from '@google/genai';
 import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type {
   IContent,
   ThinkingBlock,
@@ -23,8 +21,7 @@ import type {
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { stampAiTurnModel } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { CompletedToolCall } from './coreToolScheduler.js';
-import { isFunctionResponse } from '@vybestack/llxprt-code-core/utils/messageInspectors.js';
-import { extractCuratedHistory, validateHistory } from './MessageConverter.js';
+import { validateHistory } from './MessageConverter.js';
 
 /**
  * Consolidate adjacent `TextBlock`s at the front of `lastContent.blocks`
@@ -97,6 +94,23 @@ export class ConversationManager {
   }
 
   /**
+   * Stamps turnKey metadata onto an IContent for history recording.
+   * The idGen and matcher are carried for future tool-call ID canonicalization
+   * but are not applied to already-neutral blocks.
+   */
+  private stampHistoryIds(
+    content: IContent,
+    _idGen: (() => string) | undefined,
+    _matcher: (() => { historyId: string; toolName?: string }) | undefined,
+    turnKey: string,
+  ): IContent {
+    return {
+      ...content,
+      metadata: { ...content.metadata, turnId: turnKey },
+    };
+  }
+
+  /**
    * Get the underlying HistoryService instance
    */
   getHistoryService(): HistoryService {
@@ -129,30 +143,25 @@ export class ConversationManager {
   }
 
   /**
-   * Converts user input (Content or Content[]) to IContent[] for history.
-   * This consolidates the Content→IContent conversion pattern used in:
-   * - Constructor initial history import
-   * - sendMessage pre-send
-   * - sendMessageStream pre-send
-   *
-   * These all share the same semantics: model + matcher/idGen.
+   * Converts user input (IContent or IContent[]) to IContent[] for history.
+   * Ensures each turn gets a proper turnKey and tool-call ID generation.
    */
-  convertUserInputToIContents(userContent: Content | Content[]): IContent[] {
+  convertUserInputToIContents(userContent: IContent | IContent[]): IContent[] {
     const contents = Array.isArray(userContent) ? userContent : [userContent];
     const matcher = this.makePositionMatcher();
     return contents.map((content) => {
       const turnKey = this.historyService.generateTurnKey();
       const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-      return ContentConverters.toIContent(content, idGen, matcher, turnKey);
+      return this.stampHistoryIds(content, idGen, matcher, turnKey);
     });
   }
 
   /**
    * Imports initial history during ChatSession construction.
-   * Validates the history and converts each Content to IContent before adding.
+   * Validates the history and converts each IContent before adding.
    * Called from ChatSession constructor after ConversationManager is created.
    */
-  importInitialHistory(initialHistory: Content[], model: string): void {
+  importInitialHistory(initialHistory: IContent[], model: string): void {
     if (initialHistory.length === 0) {
       return;
     }
@@ -160,13 +169,13 @@ export class ConversationManager {
     // Validate before importing
     validateHistory(initialHistory);
 
-    // Convert and add each entry
+    // Add each entry
     const matcher = this.makePositionMatcher();
     for (const content of initialHistory) {
       const turnKey = this.historyService.generateTurnKey();
       const idGen = this.historyService.getIdGeneratorCallback(turnKey);
       this.historyService.add(
-        ContentConverters.toIContent(content, idGen, matcher, turnKey),
+        this.stampHistoryIds(content, idGen, matcher, turnKey),
         model,
       );
     }
@@ -176,31 +185,26 @@ export class ConversationManager {
    * Records a completed conversation turn to history.
    * This is the main orchestrator that handles both user and model turns.
    *
-   * @param userInput - User's input (Content or Content[] for paired tool call/response)
-   * @param modelOutput - Model's output Content array
-   * @param automaticFunctionCallingHistory - Optional AFC history from Gemini SDK
+   * @param userInput - User's input (IContent or IContent[] for paired tool call/response)
+   * @param modelOutput - Model's output IContent array
+   * @param automaticFunctionCallingHistory - Optional AFC history
    * @param usageMetadata - Optional usage statistics
    */
   recordHistory(
-    userInput: IContent | Content | Content[],
-    modelOutput: Content[],
-    automaticFunctionCallingHistory?: Content[],
+    userInput: IContent | IContent[],
+    modelOutput: IContent[],
+    automaticFunctionCallingHistory?: IContent[],
     usageMetadata?: UsageStats | null,
   ): void {
     const newHistoryEntries: IContent[] = [];
 
-    // Normalize neutral IContent to Gemini Content for legacy paths (P15 full retype)
-    const userContent: Content | Content[] =
-      !Array.isArray(userInput) &&
-      'speaker' in userInput &&
-      'blocks' in userInput
-        ? ContentConverters.toGeminiContent(userInput)
-        : userInput;
+    const userContent: IContent | IContent[] = userInput;
 
     // Capture user input characteristics for model turn logic
     const userInputWasArray = Array.isArray(userContent);
     const userInputWasFunctionResponse =
-      !userInputWasArray && isFunctionResponse(userContent);
+      !userInputWasArray &&
+      userContent.blocks.some((b) => b.type === 'tool_response');
     const hasAfc = !!(
       automaticFunctionCallingHistory &&
       automaticFunctionCallingHistory.length > 0
@@ -230,14 +234,14 @@ export class ConversationManager {
   }
 
   /**
-   * Handles user Content → IContent conversion, including AFC and paired
+   * Handles user IContent → history recording, including AFC and paired
    * tool call/response scenarios.
    *
    * Mutates newHistoryEntries by appending user turn entries.
    */
   private _recordUserTurn(
-    userInput: Content | Content[],
-    automaticFunctionCallingHistory: Content[] | undefined,
+    userInput: IContent | IContent[],
+    automaticFunctionCallingHistory: IContent[] | undefined,
     newHistoryEntries: IContent[],
   ): void {
     if (
@@ -248,31 +252,20 @@ export class ConversationManager {
       // freshly generated model turns with user turns; stamp the generating
       // model on AI entries (stampAiTurnModel no-ops on non-AI turns) to stay
       // consistent with TurnProcessor._recordAfcHistory's stamping.
-      const curatedAfc = extractCuratedHistory(automaticFunctionCallingHistory);
+      const curatedAfc = automaticFunctionCallingHistory;
       for (const content of curatedAfc) {
-        const turnKey = this.historyService.generateTurnKey();
-        newHistoryEntries.push(
-          stampAiTurnModel(
-            ContentConverters.toIContent(
-              content,
-              undefined,
-              undefined,
-              turnKey,
-            ),
-            this.model,
-          ),
-        );
+        newHistoryEntries.push(stampAiTurnModel(content, this.model));
       }
     } else {
       const matcher = this.makePositionMatcher();
-      // Handle both single Content and Content[] (for paired tool call/response)
+      // Handle both single IContent and IContent[] (for paired tool call/response)
       if (Array.isArray(userInput)) {
         // This is a paired tool call/response from the executor
-        // Add each part to history
+        // Add each entry to history
         for (const content of userInput) {
           const turnKey = this.historyService.generateTurnKey();
           const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-          const userIContent = ContentConverters.toIContent(
+          const userIContent = this.stampHistoryIds(
             content,
             idGen,
             matcher,
@@ -284,7 +277,7 @@ export class ConversationManager {
         // Normal user message
         const turnKey = this.historyService.generateTurnKey();
         const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-        const userIContent = ContentConverters.toIContent(
+        const userIContent = this.stampHistoryIds(
           userInput,
           idGen,
           matcher,
@@ -311,7 +304,7 @@ export class ConversationManager {
    * @pseudocode lines 28-31
    */
   private _recordModelTurn(
-    modelOutput: Content[],
+    modelOutput: IContent[],
     usageMetadata: UsageStats | null | undefined,
     newHistoryEntries: IContent[],
     userInputWasArray: boolean,
@@ -322,11 +315,9 @@ export class ConversationManager {
     const includeThoughtsInHistory =
       this.runtimeContext.ephemerals.reasoning.includeInContext();
 
-    // Convert model output Content[] → IContent[] ONCE at the boundary, then
-    // operate on neutral ContentBlock[] throughout (no .parts mutation).
-    const allModelIContents = modelOutput.map((content) =>
-      ContentConverters.toIContent(content, undefined, undefined, undefined),
-    );
+    // Model output is already neutral IContent[] — operate on neutral
+    // ContentBlock[] throughout (no .parts mutation).
+    const allModelIContents: IContent[] = modelOutput;
 
     // Extract thinking blocks from the neutral blocks (BR-5: drop thought text
     // when includeInContext is false; keep thinking blocks when true).

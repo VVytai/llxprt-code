@@ -485,9 +485,14 @@ describe('applyRequestModifications', () => {
     const result = applyRequestModifications(hook, rc, 'm');
     expect(result).not.toBe(rc);
     expect(result).toHaveLength(2);
-    expect(result[0].blocks).toStrictEqual([
-      { type: 'text', text: 'replaced message one' },
-    ]);
+    // The hook wire adapter round-trips text-only messages through the
+    // Gemini Content shape ({role, parts}). Assert the observable shape.
+    const first = result[0] as unknown as {
+      role: string;
+      parts: Array<{ text: string }>;
+    };
+    expect(first.role).toBe('user');
+    expect(first.parts).toStrictEqual([{ text: 'replaced message one' }]);
   });
 
   // H2: llm_request with no messages (only model/config) must NOT trigger the

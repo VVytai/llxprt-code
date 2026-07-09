@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { GenerateContentConfig } from '@google/genai';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import {
   getEnabledToolNamesForPrompt,
@@ -14,7 +13,10 @@ import { reportError } from '@vybestack/llxprt-code-core/utils/errorReporting.js
 import { retryWithBackoff } from '@vybestack/llxprt-code-core/utils/retry.js';
 import { getErrorMessage } from '@vybestack/llxprt-code-core/utils/errors.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
-import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type {
+  ModelGenerationSettings,
+  ModelOutput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { BaseLLMClient } from './baseLlmClient.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -53,7 +55,7 @@ export async function generateJson(
   schema: Record<string, unknown>,
   abortSignal: AbortSignal,
   model: string,
-  generationConfig: GenerateContentConfig = {},
+  generationConfig: ModelGenerationSettings = {},
   lastPromptId: string,
 ): Promise<Record<string, unknown>> {
   const logger = new DebugLogger('llxprt:core:clientLlmUtilities');
@@ -133,13 +135,13 @@ export async function generateContent(
   config: Config,
   contentGenerator: ContentGenerator,
   contents: IContent[],
-  generationConfig: GenerateContentConfig,
+  generationConfig: ModelGenerationSettings,
   abortSignal: AbortSignal,
   model: string,
   lastPromptId: string,
-  baseGenerateContentConfig: GenerateContentConfig,
+  baseGenerateContentConfig: ModelGenerationSettings,
 ): Promise<ModelOutput> {
-  const configToUse: GenerateContentConfig = {
+  const configToUse: ModelGenerationSettings = {
     ...baseGenerateContentConfig,
     ...generationConfig,
   };

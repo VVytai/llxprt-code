@@ -82,9 +82,10 @@ function addShellCommandToAgentHistory(
   if (agent) {
     void agent
       .addHistory({
-        role: 'user',
-        parts: [
+        speaker: 'human',
+        blocks: [
           {
+            type: 'text',
             text: `I ran the following shell command:
 \`\`\`sh
 ${rawQuery}

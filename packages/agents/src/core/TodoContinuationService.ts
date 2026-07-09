@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { type PartListUnion, type Part } from '@google/genai';
+import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { AgentEventType } from './turn.js';
 import type { ServerAgentStreamEvent, ToolCallResponseInfo } from './turn.js';
@@ -23,7 +23,7 @@ const TODO_PROMPT_SUFFIX = 'Use TODO List to organize this effort.';
  * Narrows a runtime `Part` to a text-bearing part. Runtime payloads from
  * providers can include null or malformed entries despite declared types.
  */
-function asTextPart(part: Part): { text: string } | undefined {
+function asTextPart(part: ContentBlock): { text: string } | undefined {
   const candidate = part as unknown;
   if (
     typeof candidate === 'object' &&
@@ -70,15 +70,15 @@ function normalizeTodoForComparison(todo: Todo): {
   };
 }
 
-function toPartArray(request: PartListUnion): Part[] {
+function toPartArray(request: AgentMessageInput): ContentBlock[] {
   if (Array.isArray(request)) {
-    return [...request] as Part[];
+    return [...request] as ContentBlock[];
   }
   if (typeof request === 'string') {
-    return [{ text: request }];
+    return [{ type: 'text', text: request }];
   }
-  if ('text' in request) {
-    return [request];
+  if ('blocks' in request) {
+    return request.blocks;
   }
   return [];
 }
@@ -204,7 +204,7 @@ export class TodoContinuationService {
     return normalized === 'todo_write' || normalized === 'todo_read';
   }
 
-  appendTodoSuffixToRequest(request: PartListUnion): PartListUnion {
+  appendTodoSuffixToRequest(request: AgentMessageInput): AgentMessageInput {
     const parts = toPartArray(request);
 
     const suffixAlreadyPresent = parts.some((part) => {
@@ -216,7 +216,7 @@ export class TodoContinuationService {
       return parts;
     }
 
-    parts.push({ text: TODO_PROMPT_SUFFIX } as Part);
+    parts.push({ type: 'text', text: TODO_PROMPT_SUFFIX } as ContentBlock);
     return parts;
   }
 
@@ -327,15 +327,15 @@ export class TodoContinuationService {
   }
 
   appendSystemReminderToRequest(
-    request: PartListUnion,
+    request: AgentMessageInput,
     reminderText: string,
-  ): PartListUnion {
+  ): AgentMessageInput {
     const parts = toPartArray(request);
     const alreadyPresent = parts.some(
       (part) => asTextPart(part)?.text === reminderText,
     );
     if (!alreadyPresent) {
-      parts.push({ text: reminderText } as Part);
+      parts.push({ type: 'text', text: reminderText } as ContentBlock);
     }
     return parts;
   }
@@ -452,7 +452,9 @@ export class TodoContinuationService {
     this.lastTodoToolTurn = turn;
   }
 
-  async applyPendingReminder(request: PartListUnion): Promise<PartListUnion> {
+  async applyPendingReminder(
+    request: AgentMessageInput,
+  ): Promise<AgentMessageInput> {
     if (this.toolCallReminderLevel === 'none') return request;
 
     if (await this.readPausedState()) {

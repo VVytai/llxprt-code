@@ -15,7 +15,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { PartListUnion, Part } from '@google/genai';
+import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { AgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
 import type { AgentClientContract } from '@vybestack/llxprt-code-core/core/clientContract.js';
@@ -255,18 +256,20 @@ export function createStableDisplayCallbacks(
 }
 
 /**
- * Maps an AgentInput (string | readonly Part[] | structured {text, role?})
- * to a PartListUnion for run().
+ * Maps an AgentInput (string | readonly ContentBlock[] | structured {text, role?})
+ * to an AgentMessageInput for run().
  */
-function isPartArray(input: AgentInput): input is readonly Part[] {
+function isContentBlockArray(
+  input: AgentInput,
+): input is readonly ContentBlock[] {
   return Array.isArray(input);
 }
 
-export function toPartListUnion(input: AgentInput): PartListUnion {
+export function toPartListUnion(input: AgentInput): AgentMessageInput {
   if (typeof input === 'string') {
     return input;
   }
-  if (isPartArray(input)) {
+  if (isContentBlockArray(input)) {
     return [...input];
   }
   return input.text;

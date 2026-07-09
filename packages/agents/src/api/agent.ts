@@ -4,7 +4,7 @@
  * @plan:PLAN-20260621-COREAPIREMED.P06
  */
 
-import type { Content, Part } from '@google/genai';
+import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { UserTierId } from '@vybestack/llxprt-code-core/code_assist/types.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type {
@@ -39,12 +39,12 @@ import type {
 
 export type Unsubscribe = () => void;
 
-export type AgentMessage = Content;
+export type AgentMessage = IContent;
 export type AgentHistoryItem = IContent;
 
 export type AgentInput =
   | string
-  | readonly Part[]
+  | readonly ContentBlock[]
   | Readonly<{ readonly text: string; readonly role?: 'user' | 'system' }>;
 
 export type McpDiscoveryMode = 'await' | 'skip';

@@ -7,13 +7,39 @@
 // ChatSession — thin coordinator that wires up the decomposed modules.
 
 import type {
-  Content,
-  GenerateContentConfig,
-  SendMessageParameters,
-  Tool,
-  PartListUnion,
-} from '@google/genai';
-import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
+  ModelGenerationSettings,
+  ModelOutput,
+  AgentMessageInput,
+  ToolDeclaration,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
+
+/**
+ * Neutral generation config carried by ChatSession. Extends the neutral
+ * {@link ModelGenerationSettings} with the request-scoped fields the
+ * turn/stream pipeline references (abortSignal, tools, toolConfig).
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P27
+ * @requirement:REQ-005.5c
+ */
+export interface ChatSessionConfig extends ModelGenerationSettings {
+  abortSignal?: AbortSignal;
+  tools?: ToolDeclaration[];
+  toolConfig?: unknown;
+}
+
+/**
+ * Neutral send-message DTO replacing the provider-shaped
+ * `SendMessageParameters`. Carries a neutral {@link AgentMessageInput}
+ * message and an optional per-request config — never a provider Part/role
+ * shape.
+ *
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P27
+ * @requirement:REQ-005.5c
+ */
+export interface SendMessageParams {
+  message: AgentMessageInput;
+  config?: ChatSessionConfig;
+}
 import type { CompletedToolCall } from './coreToolScheduler.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -133,7 +159,7 @@ export class ChatSession {
   private readonly runtimeState: AgentRuntimeState;
   private readonly historyService: HistoryService;
   private readonly runtimeContext: AgentRuntimeContext;
-  private readonly generationConfig: GenerateContentConfig;
+  private readonly generationConfig: ChatSessionConfig;
 
   // Composed modules
   private readonly compressionHandler: CompressionHandler;
@@ -149,8 +175,8 @@ export class ChatSession {
   constructor(
     view: AgentRuntimeContext,
     contentGenerator: ContentGenerator,
-    generationConfig: GenerateContentConfig = {},
-    initialHistory: Content[] = [],
+    generationConfig: ChatSessionConfig = {},
+    initialHistory: IContent[] = [],
   ) {
     this.runtimeContext = view;
     this.runtimeState = view.state;
@@ -456,21 +482,21 @@ export class ChatSession {
   // ── Public API — thin delegation ─────────────────────────────────
 
   async sendMessage(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
   ): Promise<ModelOutput> {
     return this.turnProcessor.sendMessage(params, prompt_id);
   }
 
   async sendMessageStream(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
   ): Promise<AsyncGenerator<StreamEvent>> {
     return this.turnProcessor.sendMessageStream(params, prompt_id);
   }
 
   async generateDirectMessage(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     prompt_id: string,
   ): Promise<ModelOutput> {
     return this.directMessageProcessor.generateDirectMessage(params, prompt_id);
@@ -492,7 +518,7 @@ export class ChatSession {
     return this.runtimeContext.tools;
   }
 
-  setTools(tools: Tool[]): void {
+  setTools(tools: ToolDeclaration[]): void {
     this.generationConfig.tools = tools;
   }
 
@@ -554,7 +580,7 @@ export class ChatSession {
   }
 
   // Public conversion methods — delegated to standalone functions
-  convertPartListUnionToIContent(input: PartListUnion): IContent {
+  convertPartListUnionToIContent(input: AgentMessageInput): IContent {
     return convertPartListUnionToIContent(input);
   }
 

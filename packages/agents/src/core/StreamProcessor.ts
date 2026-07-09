@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import type { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
-import {
-  type SendMessageParameters,
-  type GenerateContentConfig,
-} from '@google/genai';
+import type { AgentClientGenerateConfig } from '@vybestack/llxprt-code-core/core/clientContract.js';
+import type { SendMessageParams } from './chatSession.js';
 import type {
   ModelStreamChunk,
   ModelOutput,
@@ -116,12 +114,12 @@ export class StreamProcessor {
       extras?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
     private readonly historyService: HistoryService,
-    private readonly generationConfig: GenerateContentConfig,
+    private readonly generationConfig: AgentClientGenerateConfig,
   ) {}
 
   /** Resolves the provider, sends the request with retry, and returns a response stream. */
   async makeApiCallAndProcessStream(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     promptId: string,
     userContent: IContent,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
@@ -217,7 +215,7 @@ export class StreamProcessor {
    * Split from makeApiCallAndProcessStream to keep methods under 80 lines.
    */
   private async _executeStreamApiCall(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     promptId: string,
     userContent: IContent,
     provider: IProvider,
@@ -234,7 +232,7 @@ export class StreamProcessor {
   }
 
   private async _buildAndSendStreamRequest(
-    params: SendMessageParameters,
+    params: SendMessageParams,
     promptId: string,
     userContent: IContent,
     provider: IProvider,
@@ -377,8 +375,8 @@ export class StreamProcessor {
 
   private _prepareRequestPayload(
     requestContents: IContent[],
-    tools: GenerateContentConfig['tools'],
-    params: SendMessageParameters,
+    tools: AgentClientGenerateConfig['tools'],
+    params: SendMessageParams,
   ): {
     requestPayload: { contents: IContent[]; tools: unknown };
     baseRuntimeContext: ProviderRuntimeContext;
@@ -406,7 +404,7 @@ export class StreamProcessor {
   // @requirement:REQ-001
   private _buildRuntimeContext(
     baseRuntimeContext: ProviderRuntimeContext,
-    params: SendMessageParameters,
+    params: SendMessageParams,
   ): ProviderRuntimeContext {
     // The runtime context's `config` MUST stay the live llxprt `Config`
     // class instance so provider-side resolution (ProviderManager
@@ -422,7 +420,7 @@ export class StreamProcessor {
     requestPayload: { contents: IContent[]; tools: unknown },
     runtimeContext: ProviderRuntimeContext,
     baseRuntimeContext: ProviderRuntimeContext,
-    params: SendMessageParameters,
+    params: SendMessageParams,
     promptId: string,
     hookRestrictedAllowedTools: string[] | undefined,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
@@ -495,14 +493,14 @@ export class StreamProcessor {
     return prependAsyncGenerator(firstChunk.value, convertedStream);
   }
   private _selectRequestTools(
-    params: SendMessageParameters,
-  ): GenerateContentConfig['tools'] {
+    params: SendMessageParams,
+  ): AgentClientGenerateConfig['tools'] {
     return selectRequestTools(params, this.generationConfig.tools);
   }
 
   private async _applyToolSelectionHook(
     configForHooks: AgentRuntimeContext['providerRuntime']['config'],
-    tools: GenerateContentConfig['tools'],
+    tools: AgentClientGenerateConfig['tools'],
   ): Promise<ToolSelectionHookResult> {
     if (configForHooks === undefined) {
       return { tools, allowedFunctionNames: undefined };

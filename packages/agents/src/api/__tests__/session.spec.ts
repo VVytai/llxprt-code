@@ -46,7 +46,12 @@ import { buildAgent } from './helpers/agentHarness.js';
 
 /** Builds a public AgentMessage (Content) with role + a single text part. */
 function textMessage(role: 'user' | 'model', text: string): AgentMessage {
-  return { role, parts: [{ text }] };
+  // Post-P21: produce neutral IContent shape { speaker, blocks }.
+  // AgentMessage is the public type but runtime objects are IContent.
+  return {
+    speaker: role === 'user' ? 'human' : 'ai',
+    blocks: [{ type: 'text', text }],
+  } as unknown as AgentMessage;
 }
 
 /**
