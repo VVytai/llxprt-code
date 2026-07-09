@@ -20,9 +20,10 @@
  */
 
 import type { HookGenerateContentResponse } from '@vybestack/llxprt-code-core/hooks/hookTranslator.js';
-import type {
-  ModelStreamChunk,
-  ModelOutput,
+import {
+  mapGeminiFinishReason,
+  type ModelStreamChunk,
+  type ModelOutput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type {
   ContentBlock,
@@ -78,6 +79,15 @@ function usageFromHookResponse(
   }
   return usage;
 }
+function finishReasonFromHookResponse(
+  response: HookGenerateContentResponse,
+): ModelStreamChunk['finishReason'] {
+  const finishReason = response.candidates?.[0]?.finishReason;
+  if (finishReason === undefined) {
+    return undefined;
+  }
+  return mapGeminiFinishReason(finishReason).finishReason;
+}
 
 /**
  * Maps a hook-modified JSON-wire response to a neutral ModelStreamChunk.
@@ -114,6 +124,11 @@ export function afterModelModifiedToChunk(
   const usage = usageFromHookResponse(modified);
   if (usage) {
     result.usage = usage;
+  }
+
+  const finishReason = finishReasonFromHookResponse(modified);
+  if (finishReason !== undefined) {
+    result.finishReason = finishReason;
   }
 
   return result;
@@ -154,6 +169,11 @@ export function afterModelModifiedToModelOutput(
   const usage = usageFromHookResponse(modified);
   if (usage) {
     result.usage = usage;
+  }
+
+  const finishReason = finishReasonFromHookResponse(modified);
+  if (finishReason !== undefined) {
+    result.finishReason = finishReason;
   }
 
   return result;

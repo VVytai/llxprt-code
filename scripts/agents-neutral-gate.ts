@@ -76,10 +76,7 @@ const CONTRACT_PREFIX_TYPES: readonly string[] = [
 ];
 
 /** Google enum names whose local re-declaration is flagged. */
-const GOOGLE_ENUM_NAMES: ReadonlySet<string> = new Set([
-  'FinishReason',
-  'Type',
-]);
+const GOOGLE_ENUM_NAMES: ReadonlySet<string> = new Set(['FinishReason']);
 
 /** Domain *Candidate[] suffixes EXCLUDED from checkF (false-positive guard). */
 const DOMAIN_CANDIDATE_SUFFIXES: readonly string[] = [
@@ -371,7 +368,7 @@ function parseArgs(argv: string[]): ParsedArgs {
       i--;
     } else if (arg === '--root') {
       i++;
-      if (i < argv.length) root = argv[i];
+      if (i < argv.length && !argv[i].startsWith('-')) root = argv[i];
     } else if (!arg.startsWith('-')) positional.push(arg);
     i++;
   }
@@ -522,7 +519,13 @@ function checkE_enumRedeclarations(sf: ts.SourceFile, filePath: string): Hit[] {
 // ─── checkF structural matchers (F1/F3/F5 — count mode) ────────────────────
 
 function isDomainCandidateType(text: string): boolean {
-  return DOMAIN_CANDIDATE_SUFFIXES.some((s) => text.endsWith(s));
+  const normalized = text
+    .trim()
+    .replace(/[,;)]$/, '')
+    .trim();
+  return DOMAIN_CANDIDATE_SUFFIXES.some((suffix) =>
+    normalized.endsWith(suffix),
+  );
 }
 
 /** F1: `candidates: [{ content: { role?, parts? } }]` — structural Gemini envelope. */
@@ -616,7 +619,7 @@ function checkF5_partsAccess(sf: ts.SourceFile, rel: string): Hit[] {
         line: getLine(sf, node.getStart()),
         subkind: 'F5-parts-access',
         contextSnippet: snippetOf(sf, node),
-        reason: 'spread + parts mutation on non-neutral value',
+        reason: 'spread assignment with sibling parts property',
       });
     }
     ts.forEachChild(node, visit);

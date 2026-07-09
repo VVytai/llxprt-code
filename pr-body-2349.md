@@ -18,7 +18,7 @@ This is a **multi-phase migration plan** (P01-P33). This PR contains the foundat
   - (a) raw `@google/genai` imports
   - (b) banned Google symbols (provenance-based: spares same-named identifiers from safe modules)
   - (c) `Contract*` payload-type aliases from `clientContract`
-  - (e) local `FinishReason`/`Type` enum re-declarations
+  - (e) local `FinishReason` enum re-declarations
 - Expensive structural checks (`checkD`/`checkG-barrel`/`checkH` + full `checkF` fail gate) mature at P31
 - Creates the ratchet baseline (count=38) that every migration slice must decrease
 - Fixtures proving green-on-clean, red-on-vectors, and provenance-based checkB

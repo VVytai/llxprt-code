@@ -39,6 +39,7 @@ import { HistoryService } from '@vybestack/llxprt-code-core/services/history/His
 import type {
   IContent,
   ContentBlock,
+  ThinkingBlock,
   UsageStats,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { createConfigParams } from '../chatSession-runtime-helpers.js';
@@ -58,14 +59,14 @@ export function thinkingIContent(
   thought: string,
   signature?: string,
 ): IContent {
-  const block: ContentBlock = {
+  const block: ThinkingBlock = {
     type: 'thinking',
     thought,
     isHidden: true,
     sourceField: 'thought',
   };
   if (signature !== undefined) {
-    (block as { signature?: string }).signature = signature;
+    block.signature = signature;
   }
   return { speaker: 'ai', blocks: [block] };
 }
@@ -97,10 +98,10 @@ export function terminalIContent(
   };
   if (usage) {
     content.metadata!.usage = {
+      ...usage,
       promptTokens: usage.promptTokens ?? 0,
       completionTokens: usage.completionTokens ?? 0,
       totalTokens: usage.totalTokens ?? 0,
-      ...usage,
     };
   }
   return content;

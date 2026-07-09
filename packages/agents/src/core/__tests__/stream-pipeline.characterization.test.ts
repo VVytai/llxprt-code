@@ -239,6 +239,11 @@ describe('Stream Pipeline Characterization', () => {
         events.push(event);
       }
 
+      const thoughtEvents = events.filter(
+        (event) => event.type === AgentEventType.Thought,
+      );
+      expect(thoughtEvents.length).toBeGreaterThan(0);
+
       const finished = findFinishedEvent(events);
       expect(finished).toBeDefined();
     });
@@ -264,8 +269,8 @@ describe('Stream Pipeline Characterization', () => {
       )) {
         events.push(event);
       }
-      // Stream completed without throwing — the key observable behavior
-      expect(events).toBeDefined();
+      // Empty provider stream completes without yielding any events.
+      expect(events).toHaveLength(0);
     });
   });
 
@@ -307,7 +312,9 @@ describe('Stream Pipeline Characterization', () => {
         // consume
       }
 
-      expect(turn.pendingToolCalls.length).toBeGreaterThan(0);
+      expect(turn.pendingToolCalls).toHaveLength(1);
+      expect(turn.pendingToolCalls[0].name).toBe('test_tool');
+      expect(turn.pendingToolCalls[0].args).toStrictEqual({});
     });
   });
 });

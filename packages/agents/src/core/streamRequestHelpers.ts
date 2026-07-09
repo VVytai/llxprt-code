@@ -17,7 +17,6 @@ import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { SendMessageParams } from './chatSession.js';
 import { logApiRequest } from './turnLogging.js';
-import type { ConversationManager } from './ConversationManager.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
@@ -52,14 +51,13 @@ export interface PreparedRequest {
  */
 export function buildRequestContentsResult(
   userContent: IContent,
-  conversationManager: ConversationManager,
   historyService: HistoryService,
 ): { contents: IContent[]; pending: IContent[] } {
   const turnKey = historyService.generateTurnKey();
   const idGen = historyService.getIdGeneratorCallback(turnKey);
   const userIContent: IContent = {
     ...userContent,
-    metadata: { ...userContent.metadata, id: idGen() },
+    metadata: { ...(userContent.metadata ?? {}), id: idGen(), turnId: turnKey },
   };
   return {
     contents: historyService.getCuratedForProvider([userIContent]),

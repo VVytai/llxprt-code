@@ -560,11 +560,7 @@ export class StreamProcessor {
     contents: IContent[];
     pending: IContent[];
   } {
-    return buildRequestContentsResult(
-      userContent,
-      this.conversationManager,
-      this.historyService,
-    );
+    return buildRequestContentsResult(userContent, this.historyService);
   }
 
   private async _handleBucketFailover(): Promise<boolean | null> {

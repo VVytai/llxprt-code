@@ -203,7 +203,6 @@ export class ChatSession {
       this.resolveProviderForRuntime(ctx);
     const providerRuntimeBuilder = (s: string, m?: Record<string, unknown>) =>
       this.buildProviderRuntime(s, m);
-    const makePositionMatcher = () => this._makePositionMatcher();
     const resolveBaseUrl = (p: IProvider) => this.resolveProviderBaseUrl(p);
 
     this.compressionHandler = new CompressionHandler(
@@ -247,7 +246,6 @@ export class ChatSession {
         view,
         providerResolver,
         providerRuntimeBuilder,
-        makePositionMatcher,
         resolveBaseUrl,
       );
     this.turnProcessor = turnProcessor;
@@ -261,9 +259,6 @@ export class ChatSession {
       s: string,
       m?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
-    makePositionMatcher: () =>
-      | (() => { historyId: string; toolName?: string })
-      | undefined,
     resolveBaseUrl: (p: IProvider) => string | undefined,
   ): {
     turnProcessor: TurnProcessor;
@@ -285,9 +280,7 @@ export class ChatSession {
       providerResolver,
       providerRuntimeBuilder,
       this.generationConfig,
-
       this.historyService,
-      makePositionMatcher,
     );
 
     return { turnProcessor, directMessageProcessor };
@@ -470,14 +463,6 @@ export class ChatSession {
         ...metadata,
       },
     };
-  }
-
-  // ── Position matcher (used by multiple modules) ──────────────────
-
-  private _makePositionMatcher():
-    | (() => { historyId: string; toolName?: string })
-    | undefined {
-    return this.conversationManager.makePositionMatcher();
   }
 
   // ── Public API — thin delegation ─────────────────────────────────

@@ -165,11 +165,7 @@ export class DirectMessageProcessor {
       extras?: Record<string, unknown>,
     ) => ProviderRuntimeContext,
     private readonly generationConfig: AgentClientGenerateConfig,
-
     private readonly historyService: HistoryService,
-    _makePositionMatcher: () =>
-      | (() => { historyId: string; toolName?: string })
-      | undefined,
   ) {}
 
   /**
@@ -237,12 +233,14 @@ export class DirectMessageProcessor {
    */
   private _convertUserInput(message: SendMessageParams['message']): IContent[] {
     const userContent = normalizeToolInteractionInput(message);
-    const idGen = this.historyService.getIdGeneratorCallback();
+    const turnKey = this.historyService.generateTurnKey();
+    const idGen = this.historyService.getIdGeneratorCallback(turnKey);
     const stamped: IContent = {
       ...userContent,
       metadata: {
-        ...userContent.metadata,
+        ...(userContent.metadata ?? {}),
         id: idGen(),
+        turnId: turnKey,
       },
     };
     return [stamped];

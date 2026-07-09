@@ -143,7 +143,7 @@ describe('accumulateModelStreamChunk afcHistory property-based', () => {
       afcHistory: afc,
     };
     const result = accumulateModelStreamChunk(emptyModelOutput(), chunk);
-    return JSON.stringify(result.afcHistory) === JSON.stringify(afc);
+    expect(result.afcHistory).toStrictEqual(afc);
   });
 });
 
@@ -244,14 +244,8 @@ describe('toModelStreamChunk providerMetadata property-based', () => {
         metadata: { providerMetadata: providerMeta },
       };
       const chunk = toModelStreamChunk(ic);
-      if (!chunk.providerMetadata) return false;
-      const resultKeys = Object.keys(chunk.providerMetadata);
-      const inputKeys = Object.keys(providerMeta);
-      if (resultKeys.length !== inputKeys.length) return false;
-      return inputKeys.every(
-        (k) =>
-          JSON.stringify(chunk.providerMetadata![k]) ===
-          JSON.stringify(providerMeta[k]),
+      expect(Object.entries(chunk.providerMetadata ?? {})).toStrictEqual(
+        Object.entries(providerMeta),
       );
     },
   );
@@ -285,8 +279,7 @@ describe('toModelStreamChunk providerMetadata property-based', () => {
         (b): b is { type: 'thinking'; providerMetadata?: unknown } =>
           b.type === 'thinking',
       );
-      if (!tb?.providerMetadata) return false;
-      return JSON.stringify(tb.providerMetadata) === JSON.stringify(blockMeta);
+      expect(tb?.providerMetadata).toStrictEqual(blockMeta);
     },
   );
 });

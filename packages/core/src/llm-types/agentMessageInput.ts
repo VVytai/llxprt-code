@@ -377,6 +377,19 @@ function humanText(text: string): IContent {
   return { speaker: 'human', blocks: [{ type: 'text', text }] };
 }
 
+function tryLegacyConversion(
+  convert: () => IContent[],
+): LegacyConversionResult {
+  try {
+    return okResult(convert());
+  } catch (e) {
+    if (e instanceof UnsupportedLegacyPartError) {
+      return errResult(e.message);
+    }
+    throw e;
+  }
+}
+
 /**
  * Lossless legacy PartListUnion/Content → IContent converter. Preserves
  * thoughtSignature/media/toolResponse/toolCallId. Returns a Result — the
@@ -394,48 +407,26 @@ export function iContentFromLegacyInput(
   }
 
   if (isLegacyPartArray(input)) {
-    try {
-      return okResult([{ speaker: 'human', blocks: mapLegacyParts(input) }]);
-    } catch (e) {
-      if (e instanceof UnsupportedLegacyPartError) {
-        return errResult(e.message);
-      }
-      throw e;
-    }
+    return tryLegacyConversion(() => [
+      { speaker: 'human', blocks: mapLegacyParts(input) },
+    ]);
   }
 
   // A single legacy part (not wrapped in an array) — wrap and convert.
   if (hasLegacyPartKey(input)) {
-    try {
-      return okResult([{ speaker: 'human', blocks: mapLegacyParts([input]) }]);
-    } catch (e) {
-      if (e instanceof UnsupportedLegacyPartError) {
-        return errResult(e.message);
-      }
-      throw e;
-    }
+    return tryLegacyConversion(() => [
+      { speaker: 'human', blocks: mapLegacyParts([input]) },
+    ]);
   }
 
   if (isLegacyContent(input)) {
-    try {
-      return okResult([legacyContentToIContent(input)]);
-    } catch (e) {
-      if (e instanceof UnsupportedLegacyPartError) {
-        return errResult(e.message);
-      }
-      throw e;
-    }
+    return tryLegacyConversion(() => [legacyContentToIContent(input)]);
   }
 
   if (isLegacyContentArray(input)) {
-    try {
-      return okResult(input.map((item) => legacyContentToIContent(item)));
-    } catch (e) {
-      if (e instanceof UnsupportedLegacyPartError) {
-        return errResult(e.message);
-      }
-      throw e;
-    }
+    return tryLegacyConversion(() =>
+      input.map((item) => legacyContentToIContent(item)),
+    );
   }
 
   return errResult('unsupported legacy input shape');

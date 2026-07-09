@@ -42,10 +42,10 @@ function textTerminalIContent(
   };
   if (usage) {
     content.metadata!.usage = {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
       ...usage,
+      promptTokens: usage.promptTokens ?? 0,
+      completionTokens: usage.completionTokens ?? 0,
+      totalTokens: usage.totalTokens ?? 0,
     };
   }
   return content;

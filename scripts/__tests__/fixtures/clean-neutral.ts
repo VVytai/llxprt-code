@@ -19,7 +19,7 @@
 import type {
   IContent,
   ContentBlock,
-} from '@vybestack/llxprt-code-core/llm-types.js';
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 
 export function buildNeutralMessage(): IContent {
   const block: ContentBlock = { type: 'text', text: 'ok' };

@@ -160,7 +160,7 @@ export function accumulateModelStreamChunk(
   // as neutral IContent[] (REQ-001.4).
   const afcHistory = chunk.afcHistory ?? acc.afcHistory;
   if (afcHistory !== undefined) {
-    result.afcHistory = afcHistory;
+    result.afcHistory = [...afcHistory];
   }
 
   return result;
