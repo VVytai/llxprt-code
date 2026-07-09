@@ -202,12 +202,13 @@ export function applyRequestModifications(
   // merged request carries usable contents.
   const modifiedRequest =
     beforeModelResult.applyLLMRequestModifications(target);
-  const modifiedContents = (modifiedRequest as { contents?: IContent[] | null })
-    .contents;
+  const modifiedContents = (modifiedRequest as { contents?: unknown }).contents;
   if (modifiedContents !== undefined && modifiedContents !== null) {
-    // modifiedContents comes from the hook wire adapter which already
-    // normalizes to IContent[] via toIContents at the boundary.
-    const converted = modifiedContents;
+    // The hook wire adapter returns Gemini-shaped contents; convert back
+    // to neutral IContent[] via toIContents at the boundary.
+    const converted = ContentConverters.toIContents(
+      modifiedContents as Parameters<typeof ContentConverters.toIContents>[0],
+    );
     // Guard: if the hook supplied llm_request.messages: [] (empty array) —
     // which converts to an empty contents array — treat it as "no
     // modification" and return the ORIGINAL reference. An empty contents
