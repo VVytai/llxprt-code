@@ -519,12 +519,10 @@ describe('useAgentEventStream loop integration', () => {
     expect(state.sendMessageStreamCalls).toHaveLength(2);
     expect(state.turnMessages).toHaveLength(2);
 
-    // The second turn's message contained a functionResponse part.
+    // The second turn's message contained a tool_response block.
     expect(hasFunctionResponse(state.history)).toBe(true);
-    const turn2Parts = agentRequestInputToBlocks(
-      state.turnMessages[1],
-    ) as unknown as Array<Record<string, unknown>>;
-    expect(turn2Parts.some((p) => 'functionResponse' in p)).toBe(true);
+    const turn2Blocks = agentRequestInputToBlocks(state.turnMessages[1]);
+    expect(turn2Blocks.some((b) => b.type === 'tool_response')).toBe(true);
 
     expect(tool.executeFn).toHaveBeenCalledTimes(1);
 

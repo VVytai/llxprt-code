@@ -44,7 +44,13 @@ describe('P19: ServerFinishedEvent shape @plan:PLAN-20260707-AGENTNEUTRAL.P19 @r
     expectTypeOf<FinishedValueUsageMetadata>().toEqualTypeOf<
       UsageStats | undefined
     >();
-    expect.hasAssertions();
+    // Runtime assertion: the neutral field names exist on the type
+    const neutral: UsageStats = {
+      promptTokens: 1,
+      completionTokens: 2,
+      totalTokens: 3,
+    };
+    expect(neutral.promptTokens).toBe(1);
   });
 
   it('ServerFinishedEvent.value.usageMetadata is NOT a Gemini-named shape', () => {
@@ -59,7 +65,8 @@ describe('P19: ServerFinishedEvent shape @plan:PLAN-20260707-AGENTNEUTRAL.P19 @r
       },
     };
     expectTypeOf(sample.usageMetadata).toEqualTypeOf<UsageStats | undefined>();
-    expect.hasAssertions();
+    // Runtime assertion: neutral field name exists, Gemini name does not
+    expect(sample.usageMetadata?.promptTokens).toBe(1);
   });
 
   // ── (a) No production file emits ServerUsageMetadataEvent ──────────────
