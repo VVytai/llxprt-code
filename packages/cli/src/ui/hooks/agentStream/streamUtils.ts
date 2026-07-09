@@ -72,13 +72,10 @@ type QueryPart = { text: string };
 /**
  * Adds a part (string or query-part object) to the result array.
  */
-function addPartToResult(
-  part: string | object,
-  resultParts: QueryPart[],
-): void {
+function addPartToResult(part: unknown, resultParts: QueryPart[]): void {
   if (typeof part === 'string') {
     resultParts.push({ text: part });
-  } else if ('text' in part) {
+  } else if (typeof part === 'object' && part !== null && 'text' in part) {
     resultParts.push({ text: String((part as { text: unknown }).text) });
   }
 }
