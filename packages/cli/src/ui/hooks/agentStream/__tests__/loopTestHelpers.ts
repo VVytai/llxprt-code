@@ -62,17 +62,17 @@ export function agentRequestInputToBlocks(
   return [req as ContentBlock];
 }
 
+function isIContentLike(req: unknown): req is IContent {
+  if (typeof req !== 'object' || req === null || Array.isArray(req)) {
+    return false;
+  }
+  return 'speaker' in req && 'blocks' in req;
+}
+
 export function agentRequestInputToIContent(req: AgentRequestInput): IContent {
   if (typeof req === 'string')
     return { speaker: 'human', blocks: [{ type: 'text', text: req }] };
-  if (
-    typeof req === 'object' &&
-    req !== null &&
-    !Array.isArray(req) &&
-    'speaker' in req &&
-    'blocks' in req
-  )
-    return req as IContent;
+  if (isIContentLike(req)) return req;
   const parts = (Array.isArray(req) ? req : [req]) as Array<
     Record<string, unknown>
   >;
