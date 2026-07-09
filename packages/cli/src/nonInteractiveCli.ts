@@ -22,8 +22,8 @@ import {
   type MessageBus,
   type AgentRequestInput,
   debugLogger,
+  PLACEHOLDER_MODEL,
 } from '@vybestack/llxprt-code-core';
-import { PLACEHOLDER_MODEL } from '@vybestack/llxprt-code-core/config/models.js';
 import { activateSettingsRuntimeContext } from '@vybestack/llxprt-code-core/runtime/settingsRuntimeAdapter.js';
 import {
   fromConfig,

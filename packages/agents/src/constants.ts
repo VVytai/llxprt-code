@@ -4,4 +4,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export { PLACEHOLDER_MODEL } from '@vybestack/llxprt-code-core/config/models.js';
+export { PLACEHOLDER_MODEL } from '@vybestack/llxprt-code-core';

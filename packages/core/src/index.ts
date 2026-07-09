@@ -9,6 +9,7 @@ export * from './safety/index.js';
 
 // Export config
 export * from './config/config.js';
+export * from './config/models.js';
 export * from './config/subagentManager.js';
 export * from './config/schedulerSingleton.js';
 export * from './policy/index.js';
