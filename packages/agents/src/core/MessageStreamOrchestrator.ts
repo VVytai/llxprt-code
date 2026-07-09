@@ -245,8 +245,15 @@ export class MessageStreamOrchestrator {
           type: 'text',
           text: additionalContext,
         };
-        const requestArray = Array.isArray(request) ? request : [request];
-        request = [...requestArray, additionalBlock] as AgentMessageInput;
+        // Normalize the request to ContentBlock[] so the resulting array is
+        // a valid AgentMessageInput (ContentBlock[]). Mixing a raw string
+        // with ContentBlock in a plain array produces an invalid union that
+        // iContentFromAgentMessageInput cannot classify, causing the context
+        // to be dropped ("unsupported legacy input: empty conversion").
+        const blocks = iContentFromAgentMessageInput(request).flatMap(
+          (c) => c.blocks,
+        );
+        request = [...blocks, additionalBlock] as AgentMessageInput;
       }
     } else {
       // Continuation / retry of the same prompt — emit ModelInfo only when
