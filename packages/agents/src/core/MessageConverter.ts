@@ -64,7 +64,10 @@ export function createUserContentWithFunctionResponseFix(
   const contents = iContentFromAgentMessageInput(message);
   if (contents.length > 0) {
     const allBlocks = contents.flatMap((c) => c.blocks);
-    return { speaker: contents[0].speaker, blocks: allBlocks };
+    const speaker = allBlocks.every((block) => block.type === 'tool_response')
+      ? 'tool'
+      : 'human';
+    return { speaker, blocks: allBlocks };
   }
   return {
     speaker: 'human',

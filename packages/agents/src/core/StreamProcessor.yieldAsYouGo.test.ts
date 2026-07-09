@@ -192,11 +192,6 @@ describe('StreamProcessor.processStreamResponse — yield-as-you-go (#1846)', ()
           parameters: { command: 'echo blocked' },
         },
       ],
-      metadata: {
-        hookRestrictions: {
-          allowedToolNames: ['not-a-allowed-tool'],
-        },
-      },
     } as IContent);
 
     neutralChunk.hookRestrictions = {

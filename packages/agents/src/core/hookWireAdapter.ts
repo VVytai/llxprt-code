@@ -118,6 +118,7 @@ export function afterModelModifiedToChunk(
     content: {
       speaker: base.content.speaker,
       blocks: extractBlocksFromHookResponse(modified, base.content.blocks),
+      metadata: base.content.metadata,
     },
   };
 
@@ -163,6 +164,7 @@ export function afterModelModifiedToModelOutput(
     content: {
       speaker: base.content.speaker,
       blocks: extractBlocksFromHookResponse(modified, base.content.blocks),
+      metadata: base.content.metadata,
     },
   };
 
