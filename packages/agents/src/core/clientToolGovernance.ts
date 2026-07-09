@@ -31,11 +31,12 @@ function toToolDeclaration(decl: {
   if (name.length === 0) {
     return null;
   }
-  const schema: JsonSchema = isJsonSchema(decl.parametersJsonSchema)
-    ? decl.parametersJsonSchema
-    : isJsonSchema(decl.parameters)
-      ? decl.parameters
-      : {};
+  let schema: JsonSchema = {};
+  if (isJsonSchema(decl.parametersJsonSchema)) {
+    schema = decl.parametersJsonSchema;
+  } else if (isJsonSchema(decl.parameters)) {
+    schema = decl.parameters;
+  }
   const result: ToolDeclaration = {
     name,
     parametersJsonSchema: schema,
@@ -118,12 +119,9 @@ export function buildToolDeclarationsFromView(
     );
     for (const name of allowedNames) {
       const declaration = declarationsByName.get(name);
-      if (declaration) {
-        const converted = toToolDeclaration(declaration);
-        if (converted) {
-          declarations.push(converted);
-        }
-      }
+      if (!declaration) continue;
+      const converted = toToolDeclaration(declaration);
+      if (converted) declarations.push(converted);
     }
     return declarations;
   }

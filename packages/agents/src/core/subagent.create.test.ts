@@ -285,7 +285,7 @@ describe('subagent.ts', () => {
       const generationConfig = callArgs[2];
       expect(generationConfig).toBeDefined();
       if (!generationConfig) throw new Error('generationConfig is undefined');
-      return generationConfig as ChatSessionConfig;
+      return generationConfig;
     };
 
     beforeEach(() => {

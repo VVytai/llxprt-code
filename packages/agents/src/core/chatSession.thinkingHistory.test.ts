@@ -74,11 +74,11 @@ interface ThoughtPart extends LegacyPart {
  * Helper to check if a part is a thought part (matches chatSession.ts isThoughtPart)
  */
 function isThoughtPart(part: Part | undefined): part is ThoughtPart {
-  return Boolean(
-    part &&
-      typeof part === 'object' &&
-      'thought' in part &&
-      part.thought === true,
+  return (
+    part !== undefined &&
+    typeof part === 'object' &&
+    'thought' in part &&
+    part.thought === true
   );
 }
 
@@ -414,7 +414,7 @@ describe('Issue #1150: Thinking blocks in history', () => {
             return {
               type: 'tool_call' as const,
               id: part.functionCall.id ?? '',
-              name: part.functionCall.name ?? '',
+              name: part.functionCall.name,
               parameters: part.functionCall.args ?? {},
             } as ToolCallBlock;
           }

@@ -499,10 +499,9 @@ export class AgentClient implements AgentClientContract {
           .map(
             (d): ToolDeclaration => ({
               name: d.name!,
-              parametersJsonSchema:
-                (d.parametersJsonSchema as Record<string, unknown>) ??
-                (d.parameters as Record<string, unknown>) ??
-                {},
+              parametersJsonSchema: (d.parametersJsonSchema ??
+                d.parameters ??
+                {}) as Record<string, unknown>,
               ...(typeof d.description === 'string'
                 ? { description: d.description }
                 : {}),

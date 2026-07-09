@@ -118,10 +118,21 @@ export function isValidContent(content: IContent): boolean {
 /**
  * Validates the history contains the correct speakers.
  */
-export function validateHistory(history: IContent[]): void {
-  // Speaker is typed as 'human' | 'ai' | 'tool' — no runtime check needed.
-  // Retained as a no-op for callers that expect validation entry points.
-  void history;
+export function validateHistory(history: readonly unknown[]): void {
+  for (const entry of history) {
+    const record = entry as Record<string, unknown>;
+    const speaker = record.speaker;
+    if (speaker !== 'human' && speaker !== 'ai' && speaker !== 'tool') {
+      throw new Error(
+        `Invalid history entry: missing or invalid speaker. Got: ${String(speaker)}`,
+      );
+    }
+    if (!Array.isArray(record.blocks)) {
+      throw new Error(
+        `Invalid history entry: blocks must be an array. Got: ${typeof record.blocks}`,
+      );
+    }
+  }
 }
 
 /**

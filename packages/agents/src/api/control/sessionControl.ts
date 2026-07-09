@@ -35,6 +35,7 @@ import {
   getProjectHash,
   type ResumeRequest,
   type LockHandle,
+  type CheckpointContent,
 } from '@vybestack/llxprt-code-core';
 import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
@@ -192,7 +193,10 @@ export class SessionControl implements AgentSessionControl {
     const history = await this.deps.resolveClient().getHistory();
     // Convert neutral IContent[] to the legacy checkpoint format ({role, parts}).
     const checkpointHistory = ContentConverters.toGeminiContents(history);
-    await logger.saveCheckpoint(checkpointHistory as never, tag);
+    await logger.saveCheckpoint(
+      checkpointHistory as unknown as CheckpointContent[],
+      tag,
+    );
     return {
       id: tag,
       createdAt: new Date().toISOString(),
@@ -214,7 +218,9 @@ export class SessionControl implements AgentSessionControl {
     const { history } = await logger.loadCheckpoint(id);
     // Checkpoint files store the legacy Google Content shape ({role, parts}).
     // Convert to neutral IContent[] at this boundary.
-    const items = ContentConverters.toIContents(history as never);
+    const items = ContentConverters.toIContents(
+      history as unknown as Parameters<typeof ContentConverters.toIContents>[0],
+    );
     await this.deps.resolveClient().restoreHistory(items);
   }
 

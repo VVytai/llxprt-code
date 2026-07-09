@@ -16,10 +16,6 @@ import { PolicyDecision } from '@vybestack/llxprt-code-core/policy/types.js';
 import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { ToolCallBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import type {
-  GeminiContent,
-  GeminiContentPart,
-} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
   createMockMessageBus,
   createMockPolicyEngine,

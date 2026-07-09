@@ -75,14 +75,17 @@ export type MockPart =
  * Converts a mock Part to a neutral ContentBlock.
  */
 function partToBlock(part: MockPart): ContentBlock {
-  if ('text' in part && part.text !== undefined) {
-    if (part.thought === true) {
-      return { type: 'thinking', thought: part.text };
+  const p = part as Record<string, unknown>;
+  if (typeof p.text === 'string') {
+    if (p.thought === true) {
+      return { type: 'thinking', thought: p.text };
     }
-    return { type: 'text', text: part.text };
+    return { type: 'text', text: p.text };
   }
-  if ('functionCall' in part && part.functionCall) {
-    const fc = part.functionCall;
+  const fc = p.functionCall as
+    | { id?: string; name: string; args?: Record<string, unknown> }
+    | undefined;
+  if (fc) {
     return {
       type: 'tool_call',
       id: fc.id ?? fc.name,
@@ -90,12 +93,15 @@ function partToBlock(part: MockPart): ContentBlock {
       parameters: fc.args ?? {},
     } as ToolCallBlock;
   }
-  if ('functionResponse' in part && part.functionResponse) {
+  const fr = p.functionResponse as
+    | { id?: string; name?: string; response?: unknown }
+    | undefined;
+  if (fr) {
     return {
       type: 'tool_response',
-      callId: part.functionResponse.id ?? part.functionResponse.name ?? '',
-      toolName: part.functionResponse.name ?? '',
-      result: part.functionResponse.response,
+      callId: fr.id ?? fr.name ?? '',
+      toolName: fr.name ?? '',
+      result: fr.response,
     };
   }
   // Fallback: wrap as text
@@ -114,11 +120,19 @@ export const createMockResponseChunk = (
   // Merge functionCalls into parts if not already present
   const existingCallNames = new Set(
     parts
-      .filter(
-        (p): p is MockPart & { functionCall: FunctionCall } =>
-          'functionCall' in p && p.functionCall !== undefined,
-      )
-      .map((p) => p.functionCall.id ?? p.functionCall.name),
+      .filter((p) => {
+        const v = p as Record<string, unknown>;
+        return (
+          'functionCall' in v &&
+          v['functionCall'] !== null &&
+          v['functionCall'] !== undefined
+        );
+      })
+      .map((p) => {
+        const fc = (p as { functionCall: { id?: string; name: string } })
+          .functionCall;
+        return fc.id ?? fc.name;
+      }),
   );
   const candidateParts = [...parts];
   if (functionCalls && functionCalls.length > 0) {

@@ -42,12 +42,15 @@ import type { ModelOutput } from '../llm-types/modelEnvelope.js';
 /**
  * Neutral request-input type for the agent-client send surface.
  *
- * Wider than both the provider-native PartListUnion (string | Part |
- * Array<string|Part>) and the neutral AgentMessageInput. This allows
- * concrete AgentClient implementations that still accept provider-native
- * types to satisfy the contract during the migration period.
+ * Neutral request-input type for the agent-client send surface.
+ *
+ * Intentionally wide to accept both neutral AgentMessageInput
+ * (string | ContentBlock[] | IContent | IContent[]) and provider-native
+ * PartListUnion (string | Part | Array<string|Part>) during the
+ * migration period. Callers should normalize to AgentMessageInput via
+ * iContentFromAgentMessageInput before processing.
  */
-export type AgentRequestInput = string | object | Array<string | object>;
+export type AgentRequestInput = unknown;
 
 /**
  * Neutral message parameters for the agent-client send surface.

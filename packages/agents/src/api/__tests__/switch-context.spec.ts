@@ -341,7 +341,7 @@ describe('Switch-context @plan:PLAN-20260617-COREAPI.P12 @requirement:REQ-004 @r
       // The model turn's thought text survives (only the signature
       // is stripped) — verify via direct structural read of the IContent
       // blocks, not substring, so the assertion is exact.
-      const normalizedItems = normalized as readonly AgentHistoryItem[];
+      const normalizedItems = normalized;
       const modelTurn = normalizedItems.find((c) => c.speaker === 'ai');
       expect(modelTurn).toBeDefined();
       const thoughtBlock = modelTurn?.blocks.find(

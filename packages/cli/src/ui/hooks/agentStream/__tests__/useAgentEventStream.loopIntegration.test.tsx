@@ -146,10 +146,10 @@ function agentRequestInputToIContent(req: AgentRequestInput): IContent {
     Record<string, unknown>
   >;
   const allFunctionResponses = parts.every(
-    (part) =>
-      typeof part === 'object' &&
-      'functionResponse' in part &&
-      part.functionResponse !== undefined,
+    (p) =>
+      typeof p === 'object' &&
+      'functionResponse' in p &&
+      p['functionResponse'] !== undefined,
   );
   if (allFunctionResponses) {
     const blocks: ContentBlock[] = parts.map((part) => {

@@ -9,9 +9,9 @@ import type { AgentRequestInput } from '@vybestack/llxprt-code-core/core/clientC
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   Turn,
-  type ServerAgentStreamEvent,
   AgentEventType,
   DEFAULT_AGENT_ID,
+  type ServerAgentStreamEvent,
   type ServerFinishedOutcome,
   type ModelInfo,
 } from './turn.js';
@@ -96,10 +96,6 @@ interface PostTurnResult {
   newBaseRequest: AgentMessageInput | undefined;
 }
 
-/**
- * Normalizes a runtime task-list entry for snapshot storage. Provider/tool-call
- * payloads can omit or null out fields despite the declared type.
- */
 function normalizeTodoSnapshotEntry(todo: Todo): Todo {
   const raw = todo as Partial<Todo>;
   return {
@@ -130,7 +126,6 @@ function narrowToAgentMessageInput(
 
 export class MessageStreamOrchestrator {
   #lastModelIdentity: string | null = null;
-
   constructor(private readonly deps: MessageStreamDeps) {}
 
   async *execute(
@@ -758,12 +753,7 @@ export class MessageStreamOrchestrator {
     }
 
     const textOnlyBase = Array.isArray(baseRequest)
-      ? (baseRequest as ContentBlock[]).filter(
-          (part) =>
-            typeof part === 'object' &&
-            'text' in part &&
-            !('functionResponse' in part),
-        )
+      ? (baseRequest as ContentBlock[]).filter((b) => b.type === 'text')
       : [];
     return todoContinuationService.appendSystemReminderToRequest(
       textOnlyBase,
@@ -865,40 +855,20 @@ export class MessageStreamOrchestrator {
   private _buildModelInfo(): ModelInfo {
     const model = this._resolveModelForInfo();
     const profileName = this._getProfileName();
-    return {
-      model,
-      providerName: this._getProviderName(),
-      profileName,
-      displayLabel: profileName && profileName !== '' ? profileName : model,
-    };
+    return { model, providerName: this._getProviderName(), profileName, displayLabel: profileName && profileName !== '' ? profileName : model };
   }
 
   private _modelIdentityKey(info: ModelInfo): string {
-    return JSON.stringify([
-      info.providerName ?? '',
-      info.profileName ?? '',
-      info.model,
-    ]);
+    return JSON.stringify([info.providerName ?? '', info.profileName ?? '', info.model]);
   }
 
-  private async *_emitModelInfoForNewSequence(): AsyncGenerator<
-    ServerAgentStreamEvent,
-    void
-  > {
+  private async *_emitModelInfoForNewSequence(): AsyncGenerator<ServerAgentStreamEvent, void> {
     const info = this._buildModelInfo();
     this.#lastModelIdentity = this._modelIdentityKey(info);
     yield { type: AgentEventType.ModelInfo, value: info };
   }
 
-  /**
-   * Emits a ModelInfo event only when the current composite identity
-   * (model/provider/profile) differs from the last emission.
-   * Suppresses duplicates for the same identity.
-   */
-  private async *_emitModelInfoIfChanged(): AsyncGenerator<
-    ServerAgentStreamEvent,
-    void
-  > {
+  private async *_emitModelInfoIfChanged(): AsyncGenerator<ServerAgentStreamEvent, void> {
     const info = this._buildModelInfo();
     const key = this._modelIdentityKey(info);
     if (key === this.#lastModelIdentity) return;

@@ -94,7 +94,7 @@ describe('Stream Pipeline Characterization', () => {
       );
 
       const events: ServerAgentStreamEvent[] = [];
-      const reqParts: { text: string }[] = [{ text: 'Hi' }];
+      const reqParts: Array<{ text: string }> = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -144,7 +144,7 @@ describe('Stream Pipeline Characterization', () => {
       );
 
       const events: ServerAgentStreamEvent[] = [];
-      const reqParts: { text: string }[] = [{ text: 'Hi' }];
+      const reqParts: Array<{ text: string }> = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -189,7 +189,7 @@ describe('Stream Pipeline Characterization', () => {
       );
 
       const events: ServerAgentStreamEvent[] = [];
-      const reqParts: { text: string }[] = [{ text: 'Hi' }];
+      const reqParts: Array<{ text: string }> = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -231,7 +231,7 @@ describe('Stream Pipeline Characterization', () => {
       );
 
       const events: ServerAgentStreamEvent[] = [];
-      const reqParts: { text: string }[] = [{ text: 'Hi' }];
+      const reqParts: Array<{ text: string }> = [{ text: 'Hi' }];
       for await (const event of turn.run(
         reqParts,
         new AbortController().signal,
@@ -256,7 +256,7 @@ describe('Stream Pipeline Characterization', () => {
       );
 
       const events: ServerAgentStreamEvent[] = [];
-      const reqParts: { text: string }[] = [{ text: 'Hi' }];
+      const reqParts: Array<{ text: string }> = [{ text: 'Hi' }];
       // Should not throw
       for await (const event of turn.run(
         reqParts,
@@ -299,7 +299,7 @@ describe('Stream Pipeline Characterization', () => {
         })(),
       );
 
-      const reqParts: { text: string }[] = [{ text: 'Hi' }];
+      const reqParts: Array<{ text: string }> = [{ text: 'Hi' }];
       for await (const _event of turn.run(
         reqParts,
         new AbortController().signal,
