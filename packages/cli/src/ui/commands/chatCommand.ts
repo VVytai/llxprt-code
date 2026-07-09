@@ -21,8 +21,11 @@ import {
   type EmojiFilterMode,
   INITIAL_HISTORY_LENGTH,
 } from '@vybestack/llxprt-code-core';
-import type { IContent, TextBlock } from '@vybestack/llxprt-code-core';
-import type { CheckpointContent } from '@vybestack/llxprt-code-core/core/logger.js';
+import type {
+  IContent,
+  TextBlock,
+  CheckpointContent,
+} from '@vybestack/llxprt-code-core';
 import path from 'path';
 import type {
   HistoryItemChatList,
