@@ -129,7 +129,7 @@ Return the summary string which should first contain an overall summarization of
       const calledWith = (mockAgentClient.generateContent as Mock).mock
         .calls[0];
       const contents = calledWith[0];
-      expect(contents[0].parts[0].text).toBe(expectedPrompt);
+      expect(contents[0].blocks[0].text).toBe(expectedPrompt);
     });
   });
 
@@ -183,7 +183,7 @@ Return the summary string which should first contain an overall summarization of
       const calledWith = (mockAgentClient.generateContent as Mock).mock
         .calls[0];
       const contents = calledWith[0];
-      expect(contents[0].parts[0].text).toContain(`"${longText}"`);
+      expect(contents[0].blocks[0].text).toContain(`"${longText}"`);
       expect(result).toBe(summary);
     });
   });
