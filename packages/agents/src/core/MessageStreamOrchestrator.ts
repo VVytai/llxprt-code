@@ -846,7 +846,7 @@ export class MessageStreamOrchestrator {
     const providerName = this._getProviderName();
     const profileName = this._getProfileName();
     const hasProfile = typeof profileName === 'string' && profileName !== '';
-    const displayLabel = hasProfile ? profileName : model;
+    const displayLabel = hasProfile ? `${profileName}:${model}` : model;
     return { model, providerName, profileName, displayLabel };
   }
 
