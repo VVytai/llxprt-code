@@ -260,6 +260,7 @@
         "@vybestack/llxprt-code-settings": "file:../settings",
         "@vybestack/llxprt-code-storage": "file:../storage",
         "@vybestack/llxprt-code-telemetry": "file:../telemetry",
+        "@vybestack/llxprt-code-tools": "file:../tools",
         "ansi-regex": "^6.2.2",
         "bun": "1.3.14",
         "chalk": "^5.3.0",
@@ -3550,6 +3551,8 @@
 
     "@vybestack/llxprt-code/@vybestack/llxprt-code-test-utils": ["@vybestack/llxprt-code-test-utils@file:packages/test-utils", { "dependencies": { "@vybestack/llxprt-code-storage": "file:../storage" }, "devDependencies": { "@lydell/node-pty": "1.1.0", "strip-ansi": "^7.1.0", "typescript": "^5.3.3", "vitest": "^3.2.6" } }],
 
+    "@vybestack/llxprt-code/@vybestack/llxprt-code-tools": ["@vybestack/llxprt-code-tools@file:packages/tools", { "dependencies": { "@ast-grep/lang-c": "^0.0.5", "@ast-grep/lang-cpp": "^0.0.5", "@ast-grep/lang-go": "^0.0.5", "@ast-grep/lang-java": "^0.0.6", "@ast-grep/lang-json": "^0.0.6", "@ast-grep/lang-python": "^0.0.5", "@ast-grep/lang-ruby": "^0.0.6", "@ast-grep/lang-rust": "^0.0.6", "@ast-grep/napi": "^0.40.5", "@google/genai": "1.30.0", "@lvce-editor/ripgrep": "^1.6.0", "ajv": "^8.17.1", "cheerio": "^1.1.2", "diff": "^8.0.3", "fast-glob": "^3.3.3", "glob": "^12.0.0", "html-to-text": "^9.0.5", "mime-types": "^2.1.35", "node-fetch": "^3.3.2", "shell-quote": "^1.8.4", "turndown": "^7.2.2", "zod": "^3.25.76", "zod-to-json-schema": "^3.25.1" }, "devDependencies": { "@types/mime-types": "^3.0.1", "@types/node": "^24.2.1", "@vybestack/llxprt-code-test-utils": "file:../test-utils", "typescript": "^5.3.3", "vitest": "^3.2.6" } }],
+
     "@vybestack/llxprt-code-a2a-server/@vybestack/llxprt-code-storage": ["@vybestack/llxprt-code-storage@file:packages/storage", { "dependencies": { "env-paths": "^4.0.0", "ignore": "^7.0.0" }, "devDependencies": { "@types/node": "^24.2.1", "typescript": "^5.3.3", "vitest": "^3.2.6" }, "optionalDependencies": { "@napi-rs/keyring": "^1.2.0" } }],
 
     "@vybestack/llxprt-code-a2a-server/dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
@@ -4070,6 +4073,10 @@
 
     "@vybestack/llxprt-code/@vybestack/llxprt-code-test-utils/@vybestack/llxprt-code-storage": ["@vybestack/llxprt-code-storage@file:packages/storage", {}],
 
+    "@vybestack/llxprt-code/@vybestack/llxprt-code-tools/@vybestack/llxprt-code-test-utils": ["@vybestack/llxprt-code-test-utils@file:packages/test-utils", {}],
+
+    "@vybestack/llxprt-code/@vybestack/llxprt-code-tools/mime-types": ["mime-types@2.1.35", "", { "dependencies": { "mime-db": "1.52.0" } }, "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw=="],
+
     "ansi-align/string-width/emoji-regex": ["emoji-regex@8.0.0", "", {}, "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A=="],
 
     "ansi-align/string-width/is-fullwidth-code-point": ["is-fullwidth-code-point@3.0.0", "", {}, "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg=="],
@@ -4315,6 +4322,8 @@
     "@vybestack/llxprt-code/@vybestack/llxprt-code-ide-integration/fast-check/pure-rand": ["pure-rand@8.4.1", "", {}, "sha512-c58R2+SPFcSIPXoU834QN/KPDDOSd8sXcSrqf6e83Me6Rrp1EYkxukkjXMVrKvKaADs1SOyNkWdfvLf6zY8qLQ=="],
 
     "@vybestack/llxprt-code/@vybestack/llxprt-code-telemetry/fast-check/pure-rand": ["pure-rand@8.4.1", "", {}, "sha512-c58R2+SPFcSIPXoU834QN/KPDDOSd8sXcSrqf6e83Me6Rrp1EYkxukkjXMVrKvKaADs1SOyNkWdfvLf6zY8qLQ=="],
+
+    "@vybestack/llxprt-code/@vybestack/llxprt-code-tools/mime-types/mime-db": ["mime-db@1.52.0", "", {}, "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg=="],
 
     "ansi-align/string-width/strip-ansi/ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 
