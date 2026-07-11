@@ -124,7 +124,7 @@ describe('subagentToolProcessing', () => {
           ? {
               name,
               description: '',
-              parameterSchema: { type: 'OBJECT', properties: {} },
+              parameterSchema: { type: 'object', properties: {} },
             }
           : undefined,
     };

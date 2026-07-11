@@ -45,7 +45,9 @@ export type AgentHistoryItem = IContent;
 export type AgentInput =
   | string
   | readonly ContentBlock[]
-  | Readonly<{ readonly text: string; readonly role?: 'user' | 'system' }>;
+  | Readonly<{ readonly text: string; readonly role?: 'user' | 'system' }>
+  | IContent
+  | readonly IContent[];
 
 export type McpDiscoveryMode = 'await' | 'skip';
 

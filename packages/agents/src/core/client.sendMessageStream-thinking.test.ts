@@ -11,14 +11,18 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
-  GeminiContentPart,
+  ContentBlock,
   AgentMessageInput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
 import { AgentEventType } from './turn.js';
-import { fromAsync, setupGeminiClient } from './client-test-helpers.js';
+import {
+  fromAsync,
+  setupGeminiClient,
+  type MockResponseShape,
+} from './client-test-helpers.js';
 
 // Mock prompts module before imports
 vi.mock('@vybestack/llxprt-code-core/core/prompts.js', () => ({
@@ -135,7 +139,7 @@ vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
 vi.mock(
   '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js',
   () => ({
-    getResponseText: (result: GenerateContentResponse) =>
+    getResponseText: (result: MockResponseShape) =>
       result.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)
         .join('') ?? undefined,
@@ -175,7 +179,7 @@ vi.mock('@vybestack/llxprt-code-core/telemetry/uiTelemetry.js', () => ({
   },
 }));
 
-describe('Gemini Client (client.ts)', () => {
+describe('AgentClient (client.ts)', () => {
   let client: AgentClient;
 
   beforeEach(async () => {
@@ -211,11 +215,11 @@ describe('Gemini Client (client.ts)', () => {
     });
 
     it('should auto-continue when model generates thinking-only output', async () => {
-      const forwardedRequests: GeminiContentPart[][] = [];
+      const forwardedRequests: ContentBlock[][] = [];
       let callCount = 0;
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as GeminiContentPart[]);
+        forwardedRequests.push(req as ContentBlock[]);
         callCount++;
         if (callCount === 1) {
           return (async function* () {
@@ -261,7 +265,7 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadMock.mockResolvedValue([]);
 
       const stream = client.sendMessageStream(
-        [{ text: 'Do something' }],
+        [{ type: 'text', text: 'Do something' }],
         new AbortController().signal,
         'prompt-thinking-only',
       );
@@ -326,7 +330,7 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadMock.mockResolvedValue([]);
 
       const stream = client.sendMessageStream(
-        [{ text: 'Do something' }],
+        [{ type: 'text', text: 'Do something' }],
         new AbortController().signal,
         'prompt-thinking-content',
       );
@@ -374,7 +378,7 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadMock.mockResolvedValue([]);
 
       const stream = client.sendMessageStream(
-        [{ text: 'Do something' }],
+        [{ type: 'text', text: 'Do something' }],
         new AbortController().signal,
         'prompt-thinking-tools',
       );
@@ -415,7 +419,7 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadMock.mockResolvedValue([]);
 
       const stream = client.sendMessageStream(
-        [{ text: 'Do something' }],
+        [{ type: 'text', text: 'Do something' }],
         new AbortController().signal,
         'prompt-thinking-max-retries',
       );

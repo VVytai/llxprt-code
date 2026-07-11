@@ -16,7 +16,10 @@
 
 import { randomUUID } from 'node:crypto';
 import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import type {
+  ContentBlock,
+  IContent,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { AgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
 import type { AgentClientContract } from '@vybestack/llxprt-code-core/core/clientContract.js';
@@ -301,8 +304,39 @@ function isLegacyPartTextArray(
   return Array.isArray(input) && input.every(isLegacyPartText);
 }
 
+/**
+ * True when a value is an IContent object (has a valid `speaker` and `blocks`
+ * array). Used to detect IContent input and pass it through unchanged so
+ * speaker and turn boundaries are preserved.
+ *
+ * Accepts `unknown` so every runtime check (typeof, null, Array.isArray,
+ * property presence) is structurally meaningful — the type system cannot
+ * prove any branch impossible, avoiding no-unnecessary-condition violations.
+ */
+function isIContent(input: unknown): input is IContent {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return false;
+  }
+  return 'speaker' in input && 'blocks' in input;
+}
+
+/**
+ * True when an array value is an IContent[] (every element is an IContent).
+ */
+function isIContentArray(input: AgentInput): input is readonly IContent[] {
+  return Array.isArray(input) && input.every(isIContent);
+}
+
 export function toPartListUnion(input: AgentInput): AgentMessageInput {
   if (typeof input === 'string') {
+    return input;
+  }
+  // IContent[] — pass through directly to preserve speaker and turn boundaries.
+  if (isIContentArray(input)) {
+    return [...input];
+  }
+  // Single IContent — pass through directly.
+  if (isIContent(input)) {
     return input;
   }
   if (isContentBlockArray(input)) {

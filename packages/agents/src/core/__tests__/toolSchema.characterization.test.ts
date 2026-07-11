@@ -8,12 +8,9 @@
  * @plan:PLAN-20260707-AGENTNEUTRAL.P16
  * @requirement:REQ-006.1
  *
- * CATEGORY (a): CHARACTERIZATION tests that PASS NOW (against current code
- * using the Type enum) and MUST stay GREEN through P17 (where Type.OBJECT
- * → 'OBJECT', Type.STRING → 'STRING', Type.ARRAY → 'ARRAY' replacements
- * occur). The string values produced by the Type enum are identical to the
- * plain string literals that replace them, so these tests lock in behavior
- * across the migration.
+ * CATEGORY (a): CHARACTERIZATION tests that assert the production code emits
+ * lowercase JSON Schema type strings (issue #2349 — replaced Gemini-style
+ * uppercase Type enum values with standard lowercase JSON Schema values).
  *
  * Covers:
  *  - Executor tool declarations (buildCompleteTaskDeclaration)
@@ -40,12 +37,11 @@ const outputConfigWithOutputs: OutputConfig = {
 // ---------------------------------------------------------------------------
 
 describe('toolSchema characterization — executor (buildCompleteTaskDeclaration)', () => {
-  it('produces Type.OBJECT ("OBJECT") for the complete_task parameters type', () => {
+  it('produces lowercase "object" for the complete_task parameters type', () => {
     const decl = buildCompleteTaskDeclaration(undefined);
     const schema = decl.parametersJsonSchema as Record<string, unknown>;
 
-    expect(schema['type']).toBe('OBJECT');
-    expect(schema['type']).toBe('OBJECT');
+    expect(schema['type']).toBe('object');
   });
 
   it('produces correct JSON-schema properties and required array', () => {
@@ -69,16 +65,15 @@ describe('toolSchema characterization — executor (buildCompleteTaskDeclaration
 // ---------------------------------------------------------------------------
 
 describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () => {
-  it('produces Type.OBJECT ("OBJECT") for self_emitvalue parameters', () => {
+  it('produces lowercase "object" for self_emitvalue parameters', () => {
     const decls = getScopeLocalFuncDefs(outputConfigWithOutputs);
 
     expect(decls).toHaveLength(1);
     const schema = decls[0].parametersJsonSchema as Record<string, unknown>;
-    expect(schema['type']).toBe('OBJECT');
-    expect(schema['type']).toBe('OBJECT');
+    expect(schema['type']).toBe('object');
   });
 
-  it('produces Type.STRING ("STRING") for emit_variable_name property', () => {
+  it('produces lowercase "string" for emit_variable_name property', () => {
     const decls = getScopeLocalFuncDefs(outputConfigWithOutputs);
     const schema = decls[0].parametersJsonSchema as Record<string, unknown>;
     const properties = schema['properties'] as Record<string, unknown>;
@@ -87,11 +82,10 @@ describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () 
       unknown
     >;
 
-    expect(nameProp['type']).toBe('STRING');
-    expect(nameProp['type']).toBe('STRING');
+    expect(nameProp['type']).toBe('string');
   });
 
-  it('produces Type.STRING ("STRING") for emit_variable_value property', () => {
+  it('produces lowercase "string" for emit_variable_value property', () => {
     const decls = getScopeLocalFuncDefs(outputConfigWithOutputs);
     const schema = decls[0].parametersJsonSchema as Record<string, unknown>;
     const properties = schema['properties'] as Record<string, unknown>;
@@ -100,8 +94,7 @@ describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () 
       unknown
     >;
 
-    expect(valueProp['type']).toBe('STRING');
-    expect(valueProp['type']).toBe('STRING');
+    expect(valueProp['type']).toBe('string');
   });
 
   it('has correct required array', () => {
@@ -121,7 +114,7 @@ describe('toolSchema characterization — subagent (getScopeLocalFuncDefs)', () 
 });
 
 describe('toolSchema characterization — subagent (convertMetadataToFunctionDeclaration)', () => {
-  it('defaults parameter type to Type.OBJECT ("OBJECT") when schema omits type', () => {
+  it('defaults parameter type to lowercase "object" when schema omits type', () => {
     const decl = convertMetadataToFunctionDeclaration('test_tool', {
       name: 'test_tool',
       description: 'A test tool',
@@ -129,19 +122,18 @@ describe('toolSchema characterization — subagent (convertMetadataToFunctionDec
     });
 
     const schema = decl.parametersJsonSchema as Record<string, unknown>;
-    expect(schema['type']).toBe('OBJECT');
-    expect(schema['type']).toBe('OBJECT');
+    expect(schema['type']).toBe('object');
   });
 
   it('preserves explicit type from parameterSchema', () => {
     const decl = convertMetadataToFunctionDeclaration('test_tool', {
       name: 'test_tool',
       description: 'A test tool',
-      parameterSchema: { type: 'STRING', properties: {} },
+      parameterSchema: { type: 'string', properties: {} },
     });
 
     const schema = decl.parametersJsonSchema as Record<string, unknown>;
-    expect(schema['type']).toBe('STRING');
+    expect(schema['type']).toBe('string');
   });
 
   it('falls back to fallbackName when metadata.name is absent', () => {
@@ -164,48 +156,46 @@ describe('toolSchema characterization — subagent (convertMetadataToFunctionDec
 });
 
 // ---------------------------------------------------------------------------
-// Property-based: Type enum values equal their string representation
+// Property-based: JSON Schema type values are lowercase strings
 // ---------------------------------------------------------------------------
 
 describe('toolSchema characterization — property-based type mappings', () => {
-  // The legacy Type enum maps enum members to uppercase string literals.
-  // These property-based tests verify that every common type value equals
-  // its corresponding uppercase string literal.
+  // Standard JSON Schema type values (lowercase per JSON Schema spec).
 
   const typeMappings: ReadonlyArray<readonly [string, string]> = [
-    ['STRING', 'STRING'],
-    ['OBJECT', 'OBJECT'],
-    ['ARRAY', 'ARRAY'],
-    ['NUMBER', 'NUMBER'],
-    ['INTEGER', 'INTEGER'],
-    ['BOOLEAN', 'BOOLEAN'],
+    ['string', 'string'],
+    ['object', 'object'],
+    ['array', 'array'],
+    ['number', 'number'],
+    ['integer', 'integer'],
+    ['boolean', 'boolean'],
   ];
 
-  it('every type value equals its uppercase string literal', () => {
+  it('every type value is a lowercase string literal', () => {
     fc.assert(
       fc.property(
         fc.constantFrom(...typeMappings),
-        ([enumValue, expectedString]) => {
-          expect(enumValue).toBe(expectedString);
-          expect(typeof enumValue).toBe('string');
+        ([typeValue, expectedString]) => {
+          expect(typeValue).toBe(expectedString);
+          expect(typeof typeValue).toBe('string');
         },
       ),
     );
   });
 
-  it('Type enum values are strings (not numbers) so JSON-schema stays valid', () => {
+  it('JSON Schema type values are lowercase strings', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom(...typeMappings.map(([e]) => e)),
+        fc.constantFrom(...typeMappings.map(([t]) => t)),
         (typeValue) => {
           expect(typeof typeValue).toBe('string');
-          expect(typeValue).toBe(typeValue.toUpperCase());
+          expect(typeValue).toBe(typeValue.toLowerCase());
         },
       ),
     );
   });
 
-  it('producing a JSON-schema with a valid type value yields the expected string', () => {
+  it('producing a JSON-schema with a valid type value yields the expected lowercase string', () => {
     fc.assert(
       fc.property(
         fc.constantFrom(...typeMappings.map(([, s]) => s)),

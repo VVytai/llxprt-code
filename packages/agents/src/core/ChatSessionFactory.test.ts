@@ -65,7 +65,7 @@ vi.mock(
   '@vybestack/llxprt-code-core/services/history/ContentConverters.js',
   () => ({
     ContentConverters: {
-      toIContent: vi.fn().mockReturnValue({ role: 'user', parts: [] }),
+      toIContent: vi.fn().mockReturnValue({ speaker: 'human', blocks: [] }),
     },
   }),
 );
@@ -441,7 +441,7 @@ describe('createChatSession', () => {
     );
 
     const extraHistory = [
-      { role: 'user' as const, parts: [{ text: 'hello' }] },
+      { speaker: 'human' as const, blocks: [{ type: 'text', text: 'hello' }] },
     ];
 
     await createChatSession({

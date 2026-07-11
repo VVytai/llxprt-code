@@ -61,17 +61,27 @@ export function analyzeBlocksOutcome(
 
 /**
  * Validates stream completion and throws on invalid responses.
+ *
+ * The canonical finishReason `'error'` maps from multiple raw provider stop
+ * reasons (MALFORMED_FUNCTION_CALL, UNEXPECTED_TOOL_CALL, others). To avoid
+ * mislabeling every `'error'` as MALFORMED_FUNCTION_CALL, the caller passes
+ * `rawStopReason` from the accumulated ModelOutput. MALFORMED is retained
+ * only when the raw reason is explicitly MALFORMED_FUNCTION_CALL (or absent
+ * for backward compat). Other error sub-reasons are classified neutrally.
+ *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P09
  */
 export function validateStreamCompletion(
   logger: DebugLogger,
-  userInput: IContent,
+  userInput: IContent | IContent[],
   outcome: ResponseOutcome,
   finishReason: string | undefined,
   responseText: string,
+  rawStopReason?: string,
 ): void {
-  const isToolContinuationInput = userInput.blocks.some(
-    (b) => b.type === 'tool_response',
+  const inputArray = Array.isArray(userInput) ? userInput : [userInput];
+  const isToolContinuationInput = inputArray.some((content) =>
+    content.blocks.some((b) => b.type === 'tool_response'),
   );
 
   const hasMissingFinishAndNoText =
@@ -118,7 +128,10 @@ export function validateStreamCompletion(
     );
   }
 
-  if (finishReason === 'error') {
+  const isMalformedError =
+    rawStopReason === undefined || rawStopReason === 'MALFORMED_FUNCTION_CALL';
+
+  if (finishReason === 'error' && isMalformedError) {
     logger.warn(
       () =>
         `[stream:terminal] validation failed: malformed function call finishReason`,
@@ -127,6 +140,7 @@ export function validateStreamCompletion(
         hasTextResponse: outcome.hasVisibleText,
         hasThinkingResponse: outcome.hasThinking,
         finishReason,
+        rawStopReason,
         responseTextLength: responseText.length,
         isToolContinuationInput,
       },

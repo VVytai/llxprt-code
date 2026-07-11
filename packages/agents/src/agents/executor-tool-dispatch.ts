@@ -23,10 +23,6 @@ import type { ToolRegistry } from '@vybestack/llxprt-code-tools';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import type { MessageBus } from '@vybestack/llxprt-code-core/confirmation-bus/message-bus.js';
 import { type ToolCallRequestInfo } from '@vybestack/llxprt-code-core/core/turn.js';
-import {
-  getHookRestrictedAllowedToolsForFunctionCall,
-  isHookRestrictedToolCall,
-} from '../core/hookRestrictionsLegacyCompat.js';
 import { debugLogger } from '@vybestack/llxprt-code-core/utils/debugLogger.js';
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { TASK_COMPLETE_TOOL_NAME } from './recovery.js';
@@ -75,7 +71,7 @@ export function buildCompleteTaskDeclaration(
   outputConfig: OutputConfig | undefined,
 ): FunctionDeclaration {
   const parametersJsonSchema: Record<string, unknown> = {
-    type: 'OBJECT',
+    type: 'object',
     properties: {},
     required: [],
   };
@@ -149,9 +145,7 @@ export async function processFunctionCalls(
       taskCompleted,
       submittedOutput,
     );
-    if (dispatch.kind === 'skip') {
-      // Hook-restricted or otherwise filtered; do nothing.
-    } else if (dispatch.kind === 'complete-task') {
+    if (dispatch.kind === 'complete-task') {
       executableFunctionCallCount += 1;
       taskCompleted = dispatch.taskCompleted;
       submittedOutput = dispatch.submittedOutput;
@@ -176,7 +170,6 @@ export async function processFunctionCalls(
 
 /** Discriminated result for dispatching a single function call. */
 type FunctionCallDispatch =
-  | { kind: 'skip' }
   | {
       kind: 'complete-task';
       taskCompleted: boolean;
@@ -207,11 +200,6 @@ function dispatchSingleFunctionCall(
 ): FunctionCallDispatch {
   const callId = functionCall.id ?? `${promptId}-${index}`;
   const args = functionCall.args ?? {};
-  const hookAllowedTools =
-    getHookRestrictedAllowedToolsForFunctionCall(functionCall);
-  if (isHookRestrictedToolCall(functionCall, hookAllowedTools)) {
-    return { kind: 'skip' };
-  }
 
   emitActivity('TOOL_CALL_START', { name: functionCall.name, args });
 
@@ -427,17 +415,12 @@ function createToolExecutionPromise(
   messageBus: MessageBus,
   emitActivity: EmitActivityFn,
 ): Promise<ToolExecutionResult | void> {
-  const hookAllowedTools =
-    getHookRestrictedAllowedToolsForFunctionCall(functionCall);
   const requestInfo: ToolCallRequestInfo = {
     callId,
     name: functionCall.name,
     args,
     isClientInitiated: true,
     prompt_id: promptId,
-    ...(hookAllowedTools !== undefined
-      ? { hookRestrictedAllowedTools: hookAllowedTools }
-      : {}),
   };
 
   return (async () => {

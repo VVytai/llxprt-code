@@ -10,10 +10,7 @@ import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
 import type { ChatSession } from './chatSession.js';
 import { StreamEventType } from './chatSession.js';
 import type { ModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import {
-  type MockedChatInstance,
-  mockResponseToChunk,
-} from './turn-test-helpers.js';
+import { type MockedChatInstance, mockChunk } from './turn-test-helpers.js';
 import { DEFAULT_STREAM_FIRST_RESPONSE_TIMEOUT_MS } from '@vybestack/llxprt-code-core/utils/streamIdleTimeout.js';
 
 const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
@@ -105,9 +102,7 @@ function createStreamWithStalledFirstNext(): AsyncGenerator<{
     await new Promise<void>(() => {});
     yield {
       type: StreamEventType.CHUNK,
-      value: mockResponseToChunk({
-        candidates: [{ content: { parts: [{ text: 'never' }] } }],
-      }),
+      value: mockChunk({ text: 'never' }),
     };
   })();
 }
@@ -280,9 +275,7 @@ describe('Turn - first-response timeout (issue #2379)', () => {
           done: false,
           value: {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [{ content: { parts: [{ text: 'late' }] } }],
-            }),
+            value: mockChunk({ text: 'late' }),
           },
         };
       },
@@ -368,9 +361,7 @@ describe('Turn - first-response timeout (issue #2379)', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Hello' }] } }],
-        }),
+        value: mockChunk({ text: 'Hello' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -402,16 +393,12 @@ describe('Turn - first-response timeout (issue #2379)', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Hel' }] } }],
-        }),
+        value: mockChunk({ text: 'Hel' }),
       };
       await new Promise((resolve) => setTimeout(resolve, 60));
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'lo' }] } }],
-        }),
+        value: mockChunk({ text: 'lo' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -475,9 +462,7 @@ describe('Turn - first-response timeout (issue #2379)', () => {
           });
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [{ content: { parts: [{ text: 'never' }] } }],
-            }),
+            value: mockChunk({ text: 'never' }),
           };
         })();
         return Promise.resolve(stream);

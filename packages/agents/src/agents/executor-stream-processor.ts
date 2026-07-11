@@ -183,6 +183,24 @@ function isToolCallBlock(block: ContentBlock): block is ToolCallBlock {
   return block.type === 'tool_call';
 }
 
+/**
+ * Normalizes ToolCallBlock.parameters (typed `unknown`) into a plain record.
+ * Returns `{}` for null, arrays, and primitives so downstream dispatch
+ * always receives a well-formed argument object.
+ */
+function normalizeToolCallParameters(
+  parameters: unknown,
+): Record<string, unknown> {
+  if (
+    typeof parameters === 'object' &&
+    parameters !== null &&
+    !Array.isArray(parameters)
+  ) {
+    return parameters as Record<string, unknown>;
+  }
+  return {};
+}
+
 /** Checks if a block is a TextBlock. */
 function isTextBlock(block: ContentBlock): block is TextBlock {
   return block.type === 'text';
@@ -224,7 +242,7 @@ function processStreamChunk(
     functionCalls.push({
       id: tc.id,
       name: tc.name,
-      args: tc.parameters as Record<string, unknown>,
+      args: normalizeToolCallParameters(tc.parameters),
     });
   }
 

@@ -11,7 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
-  GeminiContentPart,
+  ContentBlock,
   AgentMessageInput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
@@ -20,7 +20,11 @@ import type { ChatSession } from './chatSession.js';
 import { AgentEventType, Turn } from './turn.js';
 import { ideContext } from '@vybestack/llxprt-code-ide-integration';
 import { TodoReminderService } from '@vybestack/llxprt-code-core/services/todo-reminder-service.js';
-import { fromAsync, setupGeminiClient } from './client-test-helpers.js';
+import {
+  fromAsync,
+  setupGeminiClient,
+  type MockResponseShape,
+} from './client-test-helpers.js';
 
 // Mock prompts module before imports
 vi.mock('@vybestack/llxprt-code-core/core/prompts.js', () => ({
@@ -137,7 +141,7 @@ vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
 vi.mock(
   '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js',
   () => ({
-    getResponseText: (result: GenerateContentResponse) =>
+    getResponseText: (result: MockResponseShape) =>
       result.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)
         .join('') ?? undefined,
@@ -242,10 +246,10 @@ describe('Gemini Client (client.ts)', () => {
         },
       ]);
 
-      const forwardedRequests: GeminiContentPart[][] = [];
+      const forwardedRequests: ContentBlock[][] = [];
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as GeminiContentPart[]);
+        forwardedRequests.push(req as ContentBlock[]);
         return (async function* () {
           yield {
             type: AgentEventType.Content,
@@ -304,10 +308,10 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadPausedMock.mockResolvedValue(true);
       client['lastPromptId'] = 'prompt-paused-current';
 
-      const forwardedRequests: GeminiContentPart[][] = [];
+      const forwardedRequests: ContentBlock[][] = [];
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as GeminiContentPart[]);
+        forwardedRequests.push(req as ContentBlock[]);
         return (async function* () {
           yield {
             type: AgentEventType.Content,
@@ -427,12 +431,11 @@ describe('Gemini Client (client.ts)', () => {
               callId: 'pause-1',
               responseParts: [
                 {
-                  functionResponse: {
-                    name: 'todo_pause',
-                    id: 'pause-1',
-                    response: {},
-                  },
-                } as unknown as GeminiContentPart,
+                  type: 'tool_response',
+                  callId: 'pause-1',
+                  toolName: 'todo_pause',
+                  result: {},
+                },
               ],
               resultDisplay: undefined,
               error: undefined,

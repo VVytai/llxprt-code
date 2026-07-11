@@ -277,7 +277,9 @@ function useSubmitQueryEffects(
   useEffect(() => {
     const isAgentBusy = () => deps.streamingState !== StreamingState.Idle;
     const triggerAgentTurn = async (message: string) => {
-      deps.queuedSubmissionsRef.current.push({ query: [{ text: message }] });
+      deps.queuedSubmissionsRef.current.push({
+        query: [{ type: 'text', text: message }],
+      });
       scheduleNextQueuedSubmission();
     };
 

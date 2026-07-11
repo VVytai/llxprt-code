@@ -24,7 +24,7 @@ import type { ChatSession } from '../chatSession.js';
 import { StreamEventType } from '../chatSession.js';
 import {
   type MockedChatInstance,
-  mockResponseToChunk,
+  mockChunk,
   findFinishedEvent,
 } from '../turn-test-helpers.js';
 
@@ -70,23 +70,17 @@ describe('Stream Pipeline Characterization', () => {
         (async function* () {
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [{ content: { parts: [{ text: 'Hello world' }] } }],
-            }),
+            value: mockChunk({ text: 'Hello world' }),
           };
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [
-                {
-                  content: { parts: [{ text: 'Hello world' }] },
-                  finishReason: 'STOP',
-                },
-              ],
-              usageMetadata: {
-                promptTokenCount: 10,
-                candidatesTokenCount: 5,
-                totalTokenCount: 15,
+            value: mockChunk({
+              text: 'Hello world',
+              finishReason: 'STOP',
+              usage: {
+                promptTokens: 10,
+                completionTokens: 5,
+                totalTokens: 15,
               },
             }),
           };
@@ -131,13 +125,9 @@ describe('Stream Pipeline Characterization', () => {
         (async function* () {
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [
-                {
-                  content: { parts: [{ text: 'done' }] },
-                  finishReason: 'STOP',
-                },
-              ],
+            value: mockChunk({
+              text: 'done',
+              finishReason: 'STOP',
             }),
           };
         })(),
@@ -167,22 +157,9 @@ describe('Stream Pipeline Characterization', () => {
         (async function* () {
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [
-                {
-                  content: {
-                    parts: [
-                      {
-                        functionCall: {
-                          name: 'test_tool',
-                          args: { input: 'value' },
-                        },
-                      },
-                    ],
-                  },
-                  finishReason: 'STOP',
-                },
-              ],
+            value: mockChunk({
+              toolCalls: [{ name: 'test_tool', args: { input: 'value' } }],
+              finishReason: 'STOP',
             }),
           };
         })(),
@@ -213,18 +190,10 @@ describe('Stream Pipeline Characterization', () => {
         (async function* () {
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [
-                {
-                  content: {
-                    parts: [
-                      { thought: true, text: 'Let me think...' },
-                      { text: 'Answer' },
-                    ],
-                  },
-                  finishReason: 'STOP',
-                },
-              ],
+            value: mockChunk({
+              thought: 'Let me think...',
+              text: 'Answer',
+              finishReason: 'STOP',
             }),
           };
         })(),
@@ -283,22 +252,9 @@ describe('Stream Pipeline Characterization', () => {
         (async function* () {
           yield {
             type: StreamEventType.CHUNK,
-            value: mockResponseToChunk({
-              candidates: [
-                {
-                  content: {
-                    parts: [
-                      {
-                        functionCall: {
-                          name: 'test_tool',
-                          args: {},
-                        },
-                      },
-                    ],
-                  },
-                  finishReason: 'STOP',
-                },
-              ],
+            value: mockChunk({
+              toolCalls: [{ name: 'test_tool', args: {} }],
+              finishReason: 'STOP',
             }),
           };
         })(),

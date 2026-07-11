@@ -19,7 +19,6 @@ import type {
 import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
   iContentFromAgentMessageInput,
-  iContentFromLegacyInput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
 /**
@@ -49,9 +48,14 @@ export function aggregateTextWithSpacing(
 }
 
 /**
- * Builds an IContent{speaker:'human'} from neutral AgentMessageInput,
- * properly handling function response arrays (each response as a separate
- * ToolResponseBlock in the same IContent).
+ * Builds IContent[] from neutral AgentMessageInput, preserving turn
+ * boundaries/speakers/metadata. Each IContent from the neutral converter
+ * is kept as a separate entry so downstream history recording and provider
+ * submission retain distinct turns.
+ *
+ * Properly handles function response arrays (each response as a separate
+ * ToolResponseBlock in the same IContent) and classifies speaker based on
+ * block composition.
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P09
  * @requirement:REQ-002.4
@@ -60,28 +64,71 @@ export function aggregateTextWithSpacing(
  */
 export function createUserContentWithFunctionResponseFix(
   message: AgentMessageInput,
-): IContent {
+): IContent[] {
   const contents = iContentFromAgentMessageInput(message);
   if (contents.length > 0) {
-    const allBlocks = contents.flatMap((c) => c.blocks);
-    const speaker =
-      allBlocks.length > 0 &&
-      allBlocks.every((block) => block.type === 'tool_response')
-        ? 'tool'
-        : 'human';
-    return { speaker, blocks: allBlocks };
+    // Split each entry that mixes tool-response blocks with non-tool blocks
+    // (continuation text) into separate semantic turns. After this split,
+    // every entry is either purely tool-response (speaker: 'tool') or purely
+    // non-tool (speaker preserved, typically 'human'). This prevents
+    // ambiguous mixed-speaker turns from reaching the provider or history.
+    return contents.flatMap((c) => splitMixedEntry(c));
   }
-  return {
-    speaker: 'human',
-    blocks: [
-      { type: 'text', text: 'unsupported legacy input: empty conversion' },
-    ],
-  };
+  // Empty input → empty output. No fabricated placeholder (#2410):
+  // callers must skip the provider turn entirely when contents is empty.
+  return [];
+}
+
+/**
+ * Splits a single IContent entry into separate tool and non-tool semantic
+ * turns when it contains a mix of tool-response blocks and non-tool blocks
+ * (e.g. text continuation). Tool-response blocks become a `tool` turn;
+ * surviving non-tool blocks become a `human` turn. Order is preserved:
+ * tool responses first (they are the result of a prior tool call), then
+ * continuation text.
+ *
+ * Entries with only tool-response blocks become a single `tool` turn.
+ * Entries with no tool-response blocks are returned unchanged (preserving
+ * the original speaker).
+ */
+function splitMixedEntry(content: IContent): IContent[] {
+  const toolResponseBlocks = content.blocks.filter(
+    (block) => block.type === 'tool_response',
+  );
+  const nonToolBlocks = content.blocks.filter(
+    (block) => block.type !== 'tool_response',
+  );
+
+  // No tool responses — entry is purely non-tool; return unchanged.
+  if (toolResponseBlocks.length === 0) {
+    return [content];
+  }
+  // All tool responses — single tool turn.
+  if (nonToolBlocks.length === 0) {
+    return [
+      { ...content, speaker: 'tool' as const, blocks: toolResponseBlocks },
+    ];
+  }
+  // Mixed: split into tool turn (tool responses) then human turn
+  // (continuation text). Order: tool responses come first because they
+  // answer a prior AI tool call; the continuation text follows.
+  return [
+    {
+      ...content,
+      speaker: 'tool' as const,
+      blocks: toolResponseBlocks,
+    },
+    {
+      ...content,
+      speaker: 'human' as const,
+      blocks: nonToolBlocks,
+    },
+  ];
 }
 
 /**
  * Normalizes tool interaction input for the provider.
- * Packages tool responses as human-speaker IContent.
+ * Returns IContent[] preserving turn boundaries, speakers, and metadata.
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P09
  * @requirement:REQ-002.4
@@ -89,7 +136,7 @@ export function createUserContentWithFunctionResponseFix(
  */
 export function normalizeToolInteractionInput(
   message: AgentMessageInput,
-): IContent {
+): IContent[] {
   return createUserContentWithFunctionResponseFix(message);
 }
 
@@ -245,20 +292,13 @@ export function convertPartListUnionToIContent(
     };
   }
 
-  // Fallback: try legacy converter for Part/Part[] shapes.
-  const legacyResult = iContentFromLegacyInput(input);
-  if (legacyResult.ok) {
-    return {
-      speaker: 'human',
-      blocks: legacyResult.value.flatMap((c) => c.blocks),
-    };
-  }
-
+  // Empty array — iContentFromAgentMessageInput already routed any
+  // legacy PartListUnion through the lossless converter. Reaching here
+  // with zero contents means the input was genuinely empty. No
+  // fabricated placeholder content (#2410).
   return {
     speaker: 'human',
-    blocks: [
-      { type: 'text', text: `unsupported input: ${legacyResult.error}` },
-    ],
+    blocks: [],
   };
 }
 

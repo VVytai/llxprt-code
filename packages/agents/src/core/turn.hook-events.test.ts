@@ -10,10 +10,7 @@ import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
 import type { ChatSession } from './chatSession.js';
 import { StreamEventType } from './chatSession.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import {
-  type MockedChatInstance,
-  mockResponseToChunk,
-} from './turn-test-helpers.js';
+import { type MockedChatInstance, mockChunk } from './turn-test-helpers.js';
 
 const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
   mockSendMessageStream: vi.fn(),
@@ -84,20 +81,18 @@ describe('Turn - hook execution control events', () => {
   });
 
   it('should yield AgentExecutionBlocked event and continue processing', async () => {
-    const resp = {
-      candidates: [
-        {
-          content: { parts: [{ text: 'Synthetic response after block' }] },
-          finishReason: 'STOP',
-        },
-      ],
-    };
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.AGENT_EXECUTION_BLOCKED,
         reason: 'Hook blocked execution',
       };
-      yield { type: StreamEventType.CHUNK, value: mockResponseToChunk(resp) };
+      yield {
+        type: StreamEventType.CHUNK,
+        value: mockChunk({
+          text: 'Synthetic response after block',
+          finishReason: 'STOP',
+        }),
+      };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
     const reqParts: ContentBlock[] = [{ type: 'text', text: 'test message' }];
@@ -189,21 +184,19 @@ describe('Turn - hook execution control events', () => {
   });
 
   it('should propagate contextCleared=true in AgentExecutionBlocked event', async () => {
-    const resp = {
-      candidates: [
-        {
-          content: { parts: [{ text: 'Response after block' }] },
-          finishReason: 'STOP',
-        },
-      ],
-    };
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.AGENT_EXECUTION_BLOCKED,
         reason: 'Hook blocked execution',
         contextCleared: true,
       };
-      yield { type: StreamEventType.CHUNK, value: mockResponseToChunk(resp) };
+      yield {
+        type: StreamEventType.CHUNK,
+        value: mockChunk({
+          text: 'Response after block',
+          finishReason: 'STOP',
+        }),
+      };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
     const reqParts: ContentBlock[] = [{ type: 'text', text: 'test message' }];

@@ -18,7 +18,10 @@ import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/Ag
 import type { ProviderRuntimeContext } from '@vybestack/llxprt-code-core/runtime/providerRuntimeContext.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type { ModelOutput } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import {
+  toModelStreamChunk,
+  emptyModelOutput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { isProviderApiError } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import {
@@ -89,15 +92,6 @@ async function readNextStreamChunk(
     },
     createTimeoutError: () => createAbortError(),
   });
-}
-
-function getIContentAfcHistory(content: IContent): IContent[] | undefined {
-  const metadataValue =
-    content.metadata?.providerMetadata?.['automaticFunctionCallingHistory'];
-  if (Array.isArray(metadataValue)) {
-    return metadataValue as IContent[];
-  }
-  return undefined;
 }
 
 /**
@@ -185,6 +179,13 @@ export class DirectMessageProcessor {
 
     const userIContents = this._convertUserInput(params.message);
 
+    // #2410: when the user message converts to zero IContent turns (e.g.
+    // empty array), skip the provider call entirely — never submit a
+    // fabricated placeholder to the provider.
+    if (userIContents.length === 0) {
+      return emptyModelOutput();
+    }
+
     logApiRequest(
       this.runtimeContext,
       this.runtimeContext.state,
@@ -229,21 +230,21 @@ export class DirectMessageProcessor {
   }
 
   /**
-   * Converts user input message to IContent array.
+   * Converts user input message to IContent array, preserving turn boundaries
+   * and stamping each turn with metadata.
    */
   private _convertUserInput(message: SendMessageParams['message']): IContent[] {
-    const userContent = normalizeToolInteractionInput(message);
+    const userContents = normalizeToolInteractionInput(message);
     const turnKey = this.historyService.generateTurnKey();
     const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-    const stamped: IContent = {
-      ...userContent,
+    return userContents.map((content) => ({
+      ...content,
       metadata: {
-        ...(userContent.metadata ?? {}),
+        ...(content.metadata ?? {}),
         id: idGen(),
         turnId: turnKey,
       },
-    };
-    return [stamped];
+    }));
   }
 
   /**
@@ -357,6 +358,11 @@ export class DirectMessageProcessor {
   }
 
   /**
+   * Filters streamed IContent chunks for hook-restricted tool blocks.
+   *
+   * P13 AFC boundary: AFC extraction/stripping is handled by
+   * `toModelStreamChunk` at the core conversion boundary, NOT here.
+   *
    * @plan:PLAN-20260707-AGENTNEUTRAL.P13
    * @requirement:REQ-004.1
    */
@@ -372,27 +378,7 @@ export class DirectMessageProcessor {
       ...iContent,
       blocks: filteredBlocks,
     };
-
-    const afcHistory = getIContentAfcHistory(iContent);
-    const filteredAfc =
-      afcHistory !== undefined
-        ? filterAfcByHookRestrictions(afcHistory, allowedFunctionNames)
-        : undefined;
-
-    const response: IContent = {
-      ...filteredIContent,
-      metadata: {
-        ...filteredIContent.metadata,
-        ...iContent.metadata,
-        providerMetadata: {
-          ...filteredIContent.metadata?.providerMetadata,
-          ...(filteredAfc !== undefined
-            ? { automaticFunctionCallingHistory: filteredAfc }
-            : {}),
-        },
-      },
-    };
-    return { filteredIContent, response };
+    return { filteredIContent, response: filteredIContent };
   }
 
   /**
@@ -736,10 +722,12 @@ export class DirectMessageProcessor {
       },
     };
 
-    const afcHistory = getIContentAfcHistory(lastResponse);
-    if (afcHistory) {
+    // P13 AFC boundary: toModelStreamChunk already extracted AFC into
+    // afcHistory and stripped it from providerMetadata. Apply hook-restriction
+    // filtering to the first-class afcHistory field. No raw metadata access.
+    if (directOutput.afcHistory !== undefined) {
       directOutput.afcHistory = filterAfcByHookRestrictions(
-        afcHistory,
+        directOutput.afcHistory,
         allowedFunctionNames,
       );
     }
@@ -851,8 +839,29 @@ export class DirectMessageProcessor {
    */
   private _ensureResponseText(output: ModelOutput, text: string): void {
     const blocks = output.content.blocks;
-    const nonTextBlocks = blocks.filter((block) => block.type !== 'text');
-    output.content.blocks = [...nonTextBlocks, { type: 'text' as const, text }];
+    const hasText = blocks.some((b) => b.type === 'text');
+    if (hasText) {
+      // Replace existing text blocks in-place, preserving the position of
+      // the first text block and removing subsequent text blocks so the
+      // aggregated text occupies the correct position in the interleaved
+      // order.
+      let textPlaced = false;
+      output.content.blocks = blocks
+        .filter((b) => {
+          if (b.type === 'text') {
+            if (!textPlaced) {
+              textPlaced = true;
+              return true;
+            }
+            return false;
+          }
+          return true;
+        })
+        .map((b) => (b.type === 'text' ? { type: 'text' as const, text } : b));
+    } else {
+      // No text block present — append at end, preserving all existing blocks.
+      output.content.blocks = [...blocks, { type: 'text' as const, text }];
+    }
   }
 
   /**

@@ -16,6 +16,7 @@ import {
   toModelStreamChunk,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import { stampAiTurnModel } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   isRetryableError,
   retryWithBackoff,
@@ -132,7 +133,7 @@ export class StreamProcessor {
   async makeApiCallAndProcessStream(
     params: SendMessageParams,
     promptId: string,
-    userContent: IContent,
+    userContent: IContent | IContent[],
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
     const provider = this.providerResolver('stream');
 
@@ -167,7 +168,7 @@ export class StreamProcessor {
 
   private _createCancellableStream(
     streamResponse: AsyncGenerator<ModelStreamChunk>,
-    userContent: IContent,
+    userContent: IContent | IContent[],
   ): AsyncGenerator<ModelStreamChunk> {
     let processedStream: AsyncGenerator<ModelStreamChunk> | undefined;
     const ensureProcessedStream = (): AsyncGenerator<ModelStreamChunk> => {
@@ -228,7 +229,7 @@ export class StreamProcessor {
   private async _executeStreamApiCall(
     params: SendMessageParams,
     promptId: string,
-    userContent: IContent,
+    userContent: IContent | IContent[],
     provider: IProvider,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
     const apiCall = () =>
@@ -245,7 +246,7 @@ export class StreamProcessor {
   private async _buildAndSendStreamRequest(
     params: SendMessageParams,
     promptId: string,
-    userContent: IContent,
+    userContent: IContent | IContent[],
     provider: IProvider,
   ): Promise<AsyncGenerator<ModelStreamChunk>> {
     const { contents: requestContents, pending: pendingUserIContents } =
@@ -567,7 +568,7 @@ export class StreamProcessor {
     return { tools: toolsFromConfig, allowedFunctionNames: undefined };
   }
 
-  private _buildRequestContents(userContent: IContent): {
+  private _buildRequestContents(userContent: IContent | IContent[]): {
     contents: IContent[];
     pending: IContent[];
   } {
@@ -780,7 +781,7 @@ export class StreamProcessor {
    */
   async *processStreamResponse(
     streamResponse: AsyncGenerator<ModelStreamChunk>,
-    userInput: IContent,
+    userInput: IContent | IContent[],
   ): AsyncGenerator<ModelStreamChunk> {
     let acc = emptyModelOutput();
     const includeThoughts =
@@ -808,7 +809,7 @@ export class StreamProcessor {
 
   private async _finalizeStreamProcessing(
     acc: ModelOutput,
-    userInput: IContent,
+    userInput: IContent | IContent[],
     includeThoughts: boolean,
   ): Promise<void> {
     const finishReason = acc.finishReason;
@@ -839,12 +840,35 @@ export class StreamProcessor {
       outcome,
       finishReason,
       responseText,
+      acc.rawStopReason,
     );
 
     const preparedHistoryUserInput = prepareHistoryUserInput(
       userInput,
       this.eagerlyRecordedToolResponseCallIds,
     );
+
+    // P13 AFC boundary: commit AFC history as intermediate turns before the
+    // model output. The acc.afcHistory is populated by toModelStreamChunk
+    // at the core conversion boundary (NOT extracted from providerMetadata here).
+    const afcHistory =
+      acc.afcHistory !== undefined && acc.afcHistory.length > 0
+        ? acc.afcHistory.filter(
+            (content: IContent) => content.blocks.length > 0,
+          )
+        : undefined;
+    if (afcHistory !== undefined && afcHistory.length > 0) {
+      const currentModel = this.runtimeContext.state.model;
+      const curatedHistory = this.historyService.getCurated();
+      const startIndex = curatedHistory.length;
+      const newEntries = afcHistory.slice(startIndex);
+      for (const content of newEntries) {
+        this.historyService.add(
+          stampAiTurnModel(content, currentModel),
+          currentModel,
+        );
+      }
+    }
 
     try {
       await recordHistoryWithUsage(

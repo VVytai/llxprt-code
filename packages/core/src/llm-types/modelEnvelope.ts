@@ -32,6 +32,10 @@ import {
   GEMINI_FINISH_MAP,
 } from './finishReasons.js';
 import { isRecord } from './jsonSchema.js';
+import {
+  extractAfcHistory,
+  stripAfcFromProviderMetadata,
+} from './afcHistory.js';
 
 /**
  * @plan PLAN-20260702-LLMTYPES.P04
@@ -203,15 +207,47 @@ export function getToolCalls(output: ModelOutput): ToolCallRequest[] {
  * providerMetadata already lives on each `ContentBlock` inside
  * `icontent.blocks` and is carried by reference (no extra work; NOT stripped).
  *
+ * P13 AFC boundary (PLAN-20260707-AGENTNEUTRAL): extracts
+ * `automaticFunctionCallingHistory` from provider metadata HERE at the
+ * conversion boundary, populating the first-class `result.afcHistory` field.
+ * The raw AFC key is stripped from BOTH `result.providerMetadata` AND
+ * `result.content.metadata.providerMetadata` (immutable copy) so agents never
+ * see `providerMetadata.automaticFunctionCallingHistory` — they consume only
+ * `afcHistory`. The original icontent is never mutated.
+ *
  * @plan PLAN-20260702-LLMTYPES.P04
  * @plan:PLAN-20260707-AGENTNEUTRAL.P05
- * @requirement REQ-005.5, REQ-001.5
+ * @plan:PLAN-20260707-AGENTNEUTRAL.P13
+ * @requirement REQ-005.5, REQ-001.5, REQ-001.4
  * @pseudocode lines 38-48 (P04), lines 52-66 (P05)
  */
 export function toModelStreamChunk(icontent: IContent): ModelStreamChunk {
   const meta = icontent.metadata;
 
-  const result: ModelStreamChunk = { content: icontent };
+  // P13 AFC boundary: extract AFC from provider metadata at the conversion
+  // boundary into the first-class afcHistory field. Agents consume ONLY
+  // afcHistory, never providerMetadata.automaticFunctionCallingHistory.
+  const afcHistory = extractAfcHistory(icontent);
+
+  // Build a sanitized content object: strip the raw AFC key from the embedded
+  // content.metadata.providerMetadata so it never leaks to agents. This is
+  // done immutably — the original icontent is never mutated.
+  const providerMeta = meta?.providerMetadata;
+  const content: IContent =
+    providerMeta !== undefined &&
+    'automaticFunctionCallingHistory' in providerMeta
+      ? {
+          ...icontent,
+          metadata: {
+            ...meta,
+            providerMetadata: stripAfcFromProviderMetadata({
+              ...providerMeta,
+            }),
+          },
+        }
+      : icontent;
+
+  const result: ModelStreamChunk = { content };
 
   const raw = meta?.stopReason ?? meta?.finishReason;
   if (raw !== undefined) {
@@ -230,10 +266,17 @@ export function toModelStreamChunk(icontent: IContent): ModelStreamChunk {
     result.responseId = meta.id;
   }
 
+  if (afcHistory !== undefined) {
+    result.afcHistory = afcHistory;
+  }
+
   // OQ-16: preserve response-level provider metadata onto the chunk. Shallow
-  // copy; gemini.* keys pass through untouched.
+  // copy; gemini.* keys pass through untouched. P13: strip the raw AFC key
+  // so it never leaks through providerMetadata to agents.
   if (meta?.providerMetadata) {
-    result.providerMetadata = { ...meta.providerMetadata };
+    result.providerMetadata = stripAfcFromProviderMetadata({
+      ...meta.providerMetadata,
+    });
   }
 
   return result;

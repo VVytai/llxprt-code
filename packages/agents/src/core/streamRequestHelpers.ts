@@ -50,18 +50,21 @@ export interface PreparedRequest {
  * explicitly (issue #2304).
  */
 export function buildRequestContentsResult(
-  userContent: IContent,
+  userContents: IContent | IContent[],
   historyService: HistoryService,
 ): { contents: IContent[]; pending: IContent[] } {
   const turnKey = historyService.generateTurnKey();
   const idGen = historyService.getIdGeneratorCallback(turnKey);
-  const userIContent: IContent = {
-    ...userContent,
-    metadata: { ...(userContent.metadata ?? {}), id: idGen(), turnId: turnKey },
-  };
+  const inputArray = Array.isArray(userContents)
+    ? userContents
+    : [userContents];
+  const userIContents: IContent[] = inputArray.map((content) => ({
+    ...content,
+    metadata: { ...(content.metadata ?? {}), id: idGen(), turnId: turnKey },
+  }));
   return {
-    contents: historyService.getCuratedForProvider([userIContent]),
-    pending: [userIContent],
+    contents: historyService.getCuratedForProvider(userIContents),
+    pending: userIContents,
   };
 }
 

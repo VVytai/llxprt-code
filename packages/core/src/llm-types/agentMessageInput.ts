@@ -167,9 +167,18 @@ function mapTextPart(p: Record<string, unknown>): ContentBlock {
 }
 
 function mapThoughtPart(p: Record<string, unknown>): ContentBlock {
+  const thoughtText = readThoughtText(p);
+  // Boolean thought:true must carry its content in the `text` field.
+  // When thought is true but text is missing, non-string, or empty, the part
+  // is malformed and must NOT silently produce an empty ThinkingBlock.
+  if (p.thought === true && thoughtText.length === 0) {
+    throw new UnsupportedLegacyPartError(
+      'unsupported legacy part: boolean thought:true requires non-empty string text',
+    );
+  }
   const block: ThinkingBlock = {
     type: 'thinking',
-    thought: readString(p, 'thought'),
+    thought: thoughtText,
     sourceField: 'thought',
   };
   const sig = readString(p, 'thoughtSignature');
@@ -261,8 +270,8 @@ function mapSingleLegacyPart(p: unknown): ContentBlock {
       'unsupported legacy part: not a record',
     );
   }
-  if (hasText(p)) return mapTextPart(p);
   if (hasThought(p)) return mapThoughtPart(p);
+  if (hasText(p)) return mapTextPart(p);
   if (hasInlineData(p)) return mapInlineDataPart(p);
   if (hasFileData(p)) return mapFileDataPart(p);
   if (hasFunctionCall(p)) return mapFunctionCallPart(p);
@@ -291,8 +300,26 @@ function hasText(p: Record<string, unknown>): boolean {
   return typeof p.text === 'string';
 }
 
+/**
+ * Detects a Google-style thinking part. Matches two shapes:
+ * - {thought: "text content", ...} (string form, legacy)
+ * - {thought: true, text: "text content", ...} (boolean form, Google API)
+ */
 function hasThought(p: Record<string, unknown>): boolean {
-  return 'thought' in p && typeof p.thought === 'string';
+  return (
+    'thought' in p && (typeof p.thought === 'string' || p.thought === true)
+  );
+}
+
+/**
+ * Read the text content from a thought part, handling both Google-style
+ * {thought:true, text} (text is in `text`) and legacy {thought:"text"}
+ * (text is in `thought`).
+ */
+function readThoughtText(p: Record<string, unknown>): string {
+  if (typeof p.thought === 'string') return p.thought;
+  // Google-style: thought is boolean true, content is in `text`
+  return readString(p, 'text');
 }
 
 function hasInlineData(p: Record<string, unknown>): boolean {
@@ -357,8 +384,19 @@ export function iContentFromAgentMessageInput(
     return [{ speaker: 'human', blocks: input }];
   }
 
-  // Unreachable by type; defensively empty.
-  return [];
+  // Legacy PartListUnion fallback: a non-empty array that is NOT
+  // IContent[] or ContentBlock[] may be a Google-shaped PartListUnion
+  // (e.g. [{text:'hello'}]). Route it through the lossless legacy
+  // converter so the content is preserved. Conversion errors are
+  // explicit — never fabricated or silently dropped (ES-2).
+  const legacy = iContentFromLegacyInput(input);
+  if (legacy.ok) {
+    return legacy.value;
+  }
+
+  throw new Error(
+    `iContentFromAgentMessageInput: unsupported input shape — ${legacy.error}`,
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -446,6 +446,10 @@
       "bun": "./src/utils/generateContentResponseUtilities.ts",
       "import": "./dist/src/utils/generateContentResponseUtilities.js"
     },
+    "./utils/getFolderStructure.js": {
+      "bun": "./src/utils/getFolderStructure.ts",
+      "import": "./dist/src/utils/getFolderStructure.js"
+    },
     "./utils/messageInspectors.js": {
       "bun": "./src/utils/messageInspectors.ts",
       "import": "./dist/src/utils/messageInspectors.js"
@@ -461,6 +465,10 @@
     "./utils/terminalSerializer.js": {
       "bun": "./src/utils/terminalSerializer.ts",
       "import": "./dist/src/utils/terminalSerializer.js"
+    },
+    "./utils/testUtils.js": {
+      "bun": "./src/utils/testUtils.ts",
+      "import": "./dist/src/utils/testUtils.js"
     },
     "./utils/thoughtUtils.js": {
       "bun": "./src/utils/thoughtUtils.ts",

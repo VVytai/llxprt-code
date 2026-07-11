@@ -121,7 +121,7 @@ describe('subagent.ts', () => {
 
     it('does not preflight tools even when they request confirmation', async () => {
       const mockTool = {
-        schema: { parameters: { type: 'OBJECT', properties: {} } },
+        schema: { parameters: { type: 'object', properties: {} } },
         build: vi.fn().mockReturnValue({
           shouldConfirmExecute: vi.fn().mockResolvedValue({
             type: 'exec',
@@ -141,7 +141,7 @@ describe('subagent.ts', () => {
           getToolMetadata: () => ({
             name: 'risky_tool',
             description: 'Risky tool',
-            parameterSchema: { type: 'OBJECT', properties: {} },
+            parameterSchema: { type: 'object', properties: {} },
           }),
         },
       });
@@ -169,7 +169,7 @@ describe('subagent.ts', () => {
 
     it('avoids eagerly building tools when confirmation is not required', async () => {
       const mockTool = {
-        schema: { parameters: { type: 'OBJECT', properties: {} } },
+        schema: { parameters: { type: 'object', properties: {} } },
         build: vi.fn().mockReturnValue({
           shouldConfirmExecute: vi.fn().mockResolvedValue(null),
         }),
@@ -184,7 +184,7 @@ describe('subagent.ts', () => {
           getToolMetadata: () => ({
             name: 'safe_tool',
             description: 'Safe tool',
-            parameterSchema: { type: 'OBJECT', properties: {} },
+            parameterSchema: { type: 'object', properties: {} },
           }),
         },
       });
@@ -218,9 +218,9 @@ describe('subagent.ts', () => {
       const mockToolWithParams = {
         schema: {
           parameters: {
-            type: 'OBJECT',
+            type: 'object',
             properties: {
-              path: { type: 'STRING' },
+              path: { type: 'string' },
             },
             required: ['path'],
           },
@@ -240,9 +240,9 @@ describe('subagent.ts', () => {
             name: 'tool_with_params',
             description: 'Tool with params',
             parameterSchema: {
-              type: 'OBJECT',
+              type: 'object',
               properties: {
-                path: { type: 'STRING' },
+                path: { type: 'string' },
               },
             },
           }),
@@ -369,7 +369,7 @@ describe('subagent.ts', () => {
           {
             name: 'stateless.tool',
             description: 'Foreground registry description',
-            parameters: { type: 'OBJECT', properties: {} },
+            parameters: { type: 'object', properties: {} },
           },
         ]),
       });

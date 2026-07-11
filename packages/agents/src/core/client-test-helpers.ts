@@ -49,6 +49,17 @@ export interface ClientTestContext {
   mockConfig: Config;
 }
 
+/**
+ * Neutral structural type for the vi.mock of generateContentResponseUtilities.
+ * Used by all client test files to type the mocked `getResponseText` parameter
+ * without importing any Google provider type.
+ */
+export interface MockResponseShape {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+}
+
 export interface ClientMockFns {
   mockChatCreateFn: ReturnType<typeof vi.fn>;
   mockGenerateContentFn: ReturnType<typeof vi.fn>;

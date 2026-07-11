@@ -445,8 +445,8 @@ describe('Switch-context @plan:PLAN-20260617-COREAPI.P12 @requirement:REQ-004 @r
           try {
             // seed history with generated messages via the public setHistory
             const seeded: AgentMessage[] = generatedTurns.map((t) => ({
-              role: t.role,
-              parts: [{ text: t.text }],
+              speaker: 'human' as const,
+              blocks: [{ type: 'text' as const, text: t.text }],
             }));
             await agent.setHistory(seeded);
 
@@ -469,13 +469,16 @@ describe('Switch-context @plan:PLAN-20260617-COREAPI.P12 @requirement:REQ-004 @r
             expect(history.length).toBeGreaterThanOrEqual(seeded.length);
 
             // every seeded text is present in the returned history (checked
-            // via direct text-part extraction, not JSON serialization, since
-            // JSON.stringify escapes backslashes and other characters making
-            // substring matching unreliable for arbitrary fc.string inputs)
+            // via direct text-block extraction from the neutral IContent
+            // blocks, not JSON serialization, since JSON.stringify escapes
+            // backslashes and other characters making substring matching
+            // unreliable for arbitrary fc.string inputs)
             const historyTexts = history.flatMap((m) =>
-              m.parts
-                .map((p) => ('text' in p ? p.text : ''))
-                .filter((txt) => txt.length > 0),
+              Array.isArray(m.blocks)
+                ? m.blocks.map((b) =>
+                    b.type === 'text' && b.text.length > 0 ? b.text : '',
+                  )
+                : [],
             );
             for (const t of generatedTurns) {
               expect(historyTexts.includes(t.text)).toBe(true);

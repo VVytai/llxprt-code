@@ -12,6 +12,12 @@
  *
  * After the neutral-type migration, these functions return IContent with
  * speaker/blocks instead of Google-shaped Content with role/parts.
+ *
+ * CRITICAL (#2410 restore): empty AgentMessageInput (e.g. [] after hook
+ * restriction) must produce [] from the converter — NOT a fabricated
+ * placeholder text block. Callers skip the provider turn entirely when the
+ * result is empty. This proves no provider-visible placeholder or history
+ * contamination.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -23,61 +29,64 @@ import {
 
 describe('issue #2410 – empty message arrays must not create zero-block IContent', () => {
   describe('createUserContentWithFunctionResponseFix', () => {
-    it('returns a human-speaker IContent for an empty array (with fallback text, not zero blocks)', () => {
+    it('returns [] for an empty array — NO fabricated placeholder (#2410)', () => {
       const result = createUserContentWithFunctionResponseFix([]);
-      expect(result.speaker).toBe('human');
-      // Empty array falls back to a placeholder text block — not a zero-block
-      // content that would cause provider 400 errors.
-      expect(result.blocks.length).toBeGreaterThan(0);
+      expect(result).toStrictEqual([]);
     });
 
-    it('converts a non-empty function-response array into a human IContent', () => {
+    it('returns [] for an empty ContentBlock[] — NO fabricated placeholder (#2410)', () => {
+      const result = createUserContentWithFunctionResponseFix(
+        [] as unknown as Parameters<
+          typeof createUserContentWithFunctionResponseFix
+        >[0],
+      );
+      expect(result).toStrictEqual([]);
+    });
+
+    it('converts a non-empty function-response array into IContent[] preserving tool speaker', () => {
       const parts = [
         {
-          functionResponse: {
-            id: 'call_1',
-            name: 'read_file',
-            response: { output: 'hello' },
-          },
+          type: 'tool_response' as const,
+          callId: 'call_1',
+          toolName: 'read_file',
+          result: { output: 'hello' },
         },
       ];
       const result = createUserContentWithFunctionResponseFix(parts);
-      expect(result.speaker).toBe('human');
-      // The functionResponse is converted via iContentFromAgentMessageInput,
-      // which maps it to a ToolResponseBlock in the merged blocks.
-      expect(result.blocks.length).toBeGreaterThan(0);
+      expect(result.length).toBeGreaterThan(0);
+      // The tool_response block is preserved and gets speaker 'tool'.
+      const allBlocks = result.flatMap((c) => c.blocks);
+      expect(allBlocks.length).toBeGreaterThan(0);
     });
   });
 
   describe('normalizeToolInteractionInput', () => {
-    it('returns a human-speaker IContent for an empty array (not zero blocks)', () => {
+    it('returns [] for an empty array — NO fabricated placeholder (#2410)', () => {
       const result = normalizeToolInteractionInput([]);
-      // After migration, this delegates to createUserContentWithFunctionResponseFix
-      // which returns a single IContent (not an array).
-      expect(result.speaker).toBe('human');
-      expect(result.blocks.length).toBeGreaterThan(0);
+      expect(result).toStrictEqual([]);
     });
 
     it('still handles a non-empty function-response array correctly', () => {
       const parts = [
         {
-          functionResponse: {
-            id: 'call_1',
-            name: 'read_file',
-            response: { output: 'hello' },
-          },
+          type: 'tool_response' as const,
+          callId: 'call_1',
+          toolName: 'read_file',
+          result: { output: 'hello' },
         },
       ];
       const result = normalizeToolInteractionInput(parts);
-      expect(result.speaker).toBe('human');
-      expect(result.blocks.length).toBeGreaterThan(0);
+      expect(result.length).toBeGreaterThan(0);
+      const allBlocks = result.flatMap((c) => c.blocks);
+      expect(allBlocks.length).toBeGreaterThan(0);
     });
 
     it('still handles string input correctly', () => {
       const result = normalizeToolInteractionInput('hello');
-      expect(result.speaker).toBe('human');
-      expect(result.blocks).toHaveLength(1);
-      expect(result.blocks[0].type).toBe('text');
+      expect(result).toHaveLength(1);
+      expect(result[0].speaker).toBe('human');
+      expect(result[0].blocks).toHaveLength(1);
+      expect(result[0].blocks[0].type).toBe('text');
     });
   });
 
@@ -110,5 +119,41 @@ describe('issue #2410 – empty message arrays must not create zero-block IConte
       expect(result.blocks).toHaveLength(1);
       expect(result.blocks[0].type).toBe('text');
     });
+  });
+});
+
+describe('issue #2410 — no provider-visible placeholder or history contamination', () => {
+  it('createUserContentWithFunctionResponseFix([]) produces zero turns — no text block', () => {
+    const result = createUserContentWithFunctionResponseFix([]);
+    expect(result).toStrictEqual([]);
+    // Crucially: no fabricated "unsupported legacy input" or any placeholder.
+    const allBlocks = result.flatMap((c) => c.blocks);
+    expect(allBlocks).toHaveLength(0);
+  });
+
+  it('normalizeToolInteractionInput([]) produces zero turns — no text block', () => {
+    const result = normalizeToolInteractionInput([]);
+    expect(result).toStrictEqual([]);
+    const allBlocks = result.flatMap((c) => c.blocks);
+    expect(allBlocks).toHaveLength(0);
+  });
+
+  it('no placeholder text leaks into the JSON serialization of the result', () => {
+    const result = normalizeToolInteractionInput([]);
+    const json = JSON.stringify(result);
+    expect(json).toBe('[]');
+    expect(json).not.toContain('placeholder');
+    expect(json).not.toContain('unsupported');
+    expect(json).not.toContain('empty conversion');
+  });
+
+  it('empty result from [] does not contaminate multi-turn arrays', () => {
+    const result1 = normalizeToolInteractionInput([]);
+    const result2 = normalizeToolInteractionInput('hello');
+    // The empty result is truly empty; it does not carry forward any
+    // fabricated speaker/blocks into subsequent conversions.
+    expect(result1).toStrictEqual([]);
+    expect(result2).toHaveLength(1);
+    expect(result2[0].blocks[0]).toMatchObject({ type: 'text', text: 'hello' });
   });
 });

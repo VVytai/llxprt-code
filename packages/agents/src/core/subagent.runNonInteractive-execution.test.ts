@@ -277,7 +277,7 @@ describe('subagent.ts', () => {
       const listFilesToolDef: FunctionDeclaration = {
         name: 'list_files',
         description: 'Lists files',
-        parameters: { type: 'OBJECT', properties: {} },
+        parameters: { type: 'object', properties: {} },
       };
 
       const { config } = await createMockConfig({
@@ -523,10 +523,10 @@ describe('subagent.ts', () => {
             name: 'write_file',
             description: 'Write files to disk',
             parameters: {
-              type: 'OBJECT',
+              type: 'object',
               properties: {
-                path: { type: 'STRING' },
-                content: { type: 'STRING' },
+                path: { type: 'string' },
+                content: { type: 'string' },
               },
             },
           } as FunctionDeclaration,

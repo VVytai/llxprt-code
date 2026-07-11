@@ -273,14 +273,15 @@ export function throwMissingResponseError(
  * @pseudocode lines 28-31
  */
 export function validateStreamCompletion(
-  userInput: IContent,
+  userInput: IContent | IContent[],
   outcome: ResponseOutcome,
   finishReason: CanonicalFinishReason | undefined,
   responseText: string,
   logger: DebugLogger,
 ): void {
-  const isToolContinuationInput = userInput.blocks.some(
-    (b) => b.type === 'tool_response',
+  const inputArray = Array.isArray(userInput) ? userInput : [userInput];
+  const isToolContinuationInput = inputArray.some((content) =>
+    content.blocks.some((b) => b.type === 'tool_response'),
   );
 
   const validationContext = {
@@ -423,7 +424,7 @@ export function clearMatchedEagerToolResponseCallIds(
 }
 
 interface RecordHistoryParams {
-  userInput: IContent;
+  userInput: IContent | IContent[];
   consolidatedBlocks: ContentBlock[];
   allChunks: ModelStreamChunk[];
   conversationManager: ConversationManager;

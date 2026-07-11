@@ -79,14 +79,19 @@ function usageFromHookResponse(
   }
   return usage;
 }
-function finishReasonFromHookResponse(
-  response: HookGenerateContentResponse,
-): ModelStreamChunk['finishReason'] {
+function finishReasonFromHookResponse(response: HookGenerateContentResponse): {
+  finishReason: ModelStreamChunk['finishReason'];
+  rawStopReason?: string;
+} {
   const finishReason = response.candidates?.[0]?.finishReason;
   if (finishReason === undefined) {
-    return undefined;
+    return { finishReason: undefined };
   }
-  return mapGeminiFinishReason(finishReason).finishReason;
+  const mapped = mapGeminiFinishReason(finishReason);
+  return {
+    finishReason: mapped.finishReason,
+    rawStopReason: mapped.rawStopReason,
+  };
 }
 
 /**
@@ -127,9 +132,12 @@ export function afterModelModifiedToChunk(
     result.usage = usage;
   }
 
-  const finishReason = finishReasonFromHookResponse(modified);
-  if (finishReason !== undefined) {
-    result.finishReason = finishReason;
+  const fr = finishReasonFromHookResponse(modified);
+  if (fr.finishReason !== undefined) {
+    result.finishReason = fr.finishReason;
+  }
+  if (fr.rawStopReason !== undefined) {
+    result.rawStopReason = fr.rawStopReason;
   }
 
   return result;
@@ -173,9 +181,12 @@ export function afterModelModifiedToModelOutput(
     result.usage = usage;
   }
 
-  const finishReason = finishReasonFromHookResponse(modified);
-  if (finishReason !== undefined) {
-    result.finishReason = finishReason;
+  const fr = finishReasonFromHookResponse(modified);
+  if (fr.finishReason !== undefined) {
+    result.finishReason = fr.finishReason;
+  }
+  if (fr.rawStopReason !== undefined) {
+    result.rawStopReason = fr.rawStopReason;
   }
 
   return result;

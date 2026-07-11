@@ -38,26 +38,23 @@ import type { ContentGenerator } from './contentGenerator.js';
 import type { ToolSchedulerFactory } from './toolSchedulerContract.js';
 import type { TaskToolRegistration } from '../config/toolRegistryFactory.js';
 import type { ModelOutput } from '../llm-types/modelEnvelope.js';
+import type { AgentMessageInput } from '../llm-types/agentMessageInput.js';
 
 /**
  * Neutral request-input type for the agent-client send surface.
  *
- * Neutral request-input type for the agent-client send surface.
- *
- * Intentionally wide to accept both neutral AgentMessageInput
- * (string | ContentBlock[] | IContent | IContent[]) and provider-native
- * PartListUnion (string | Part | Array<string|Part>) during the
- * migration period. Callers should normalize to AgentMessageInput via
- * iContentFromAgentMessageInput before processing.
+ * Aliases the neutral {@link AgentMessageInput} contract — accepts text,
+ * neutral ContentBlock[], or pre-built IContent turn(s). Never a provider
+ * Part/role shape; legacy input must be converted via
+ * iContentFromLegacyInput at the boundary before reaching this type.
  */
-export type AgentRequestInput = unknown;
+export type AgentRequestInput = AgentMessageInput;
 
 /**
  * Neutral message parameters for the agent-client send surface.
  *
  * Replaces the former ContractSendMessageParameters. The message field
- * accepts AgentRequestInput which covers both neutral AgentMessageInput
- * and provider-native PartListUnion.
+ * accepts AgentRequestInput (neutral AgentMessageInput).
  */
 export interface AgentClientMessageParams {
   message: AgentRequestInput;

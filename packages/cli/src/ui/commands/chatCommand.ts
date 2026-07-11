@@ -21,7 +21,6 @@ import {
   type EmojiFilterMode,
   INITIAL_HISTORY_LENGTH,
   type IContent,
-  type ContentBlock,
   type TextBlock,
   type CheckpointContent,
 } from '@vybestack/llxprt-code-core';
@@ -34,24 +33,10 @@ import type {
 import { MessageType } from '../types.js';
 import { type CommandArgumentSchema } from './schema/types.js';
 import { withFuzzyFilter } from '../utils/fuzzyFilter.js';
-
-type CheckpointPart = NonNullable<CheckpointContent['parts']>[number];
-
-function isCheckpointContentBlock(
-  part: CheckpointPart,
-): part is CheckpointPart & ContentBlock {
-  return typeof part.type === 'string';
-}
-
-function checkpointPartToContentBlock(part: CheckpointPart): ContentBlock {
-  if (part.type === 'text' && typeof part.text === 'string') {
-    return { type: 'text', text: part.text };
-  }
-  if (isCheckpointContentBlock(part)) {
-    return { ...part };
-  }
-  return { type: 'text', text: part.text ?? '' };
-}
+import {
+  iContentToCheckpoint,
+  checkpointToIContent,
+} from './checkpointContentValidation.js';
 
 /**
  * Resolve emoji filter mode setting, defaulting to 'auto' for invalid values.
@@ -198,12 +183,8 @@ const saveCommand: SlashCommand = {
     const chat = client.getChat();
     const history = chat.getHistory();
     if (history.length > INITIAL_HISTORY_LENGTH) {
-      const checkpointData: CheckpointContent[] = history.map((ic) => ({
-        role: ic.speaker === 'human' ? 'user' : 'model',
-        parts: ic.blocks.map((b) =>
-          b.type === 'text' ? { text: b.text } : { ...b },
-        ),
-      }));
+      const checkpointData: CheckpointContent[] =
+        history.map(iContentToCheckpoint);
       await logger.saveCheckpoint(checkpointData, tag);
       return {
         type: 'message',
@@ -252,12 +233,9 @@ const resumeCommand: SlashCommand = {
         : undefined;
 
     const checkpoint = await logger.loadCheckpoint(tag);
-    let conversation: IContent[] = checkpoint.history.map((item) => ({
-      speaker: item.role === 'user' ? 'human' : 'ai',
-      blocks: (item.parts ?? []).map((part) =>
-        checkpointPartToContentBlock(part),
-      ),
-    }));
+    let conversation: IContent[] = checkpoint.history.map((item) =>
+      checkpointToIContent(item),
+    );
 
     // Apply emoji filtering if needed
     if (emojiFilter) {

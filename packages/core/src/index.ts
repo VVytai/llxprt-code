@@ -509,6 +509,7 @@ export * from './telemetry/uiTelemetry.js';
 export { sessionId } from './utils/session.js';
 // Export content interfaces
 export * from './services/history/IContent.js';
+export { ContentConverters } from './services/history/ContentConverters.js';
 
 // @plan PLAN-20260702-LLMTYPES.P04
 // @requirement REQ-013.1

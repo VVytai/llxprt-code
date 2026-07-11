@@ -56,10 +56,13 @@ export function agentRequestInputToBlocks(
   req: AgentRequestInput,
 ): ContentBlock[] {
   if (typeof req === 'string') return [{ type: 'text', text: req }];
-  if (Array.isArray(req)) return req as ContentBlock[];
-  if (typeof req === 'object' && req !== null && 'blocks' in req)
-    return (req as { blocks: ContentBlock[] }).blocks;
-  return [req as ContentBlock];
+  if (Array.isArray(req)) {
+    if (req.length > 0 && typeof req[0] === 'object' && 'blocks' in req[0]) {
+      return (req as IContent[]).flatMap((c) => c.blocks);
+    }
+    return req as ContentBlock[];
+  }
+  return req.blocks;
 }
 
 function isIContentLike(req: unknown): req is IContent {
@@ -73,28 +76,11 @@ export function agentRequestInputToIContent(req: AgentRequestInput): IContent {
   if (typeof req === 'string')
     return { speaker: 'human', blocks: [{ type: 'text', text: req }] };
   if (isIContentLike(req)) return req;
-  const parts = (Array.isArray(req) ? req : [req]) as Array<
-    Record<string, unknown>
-  >;
-  const allFunctionResponses = parts.every(
-    (p) =>
-      typeof p === 'object' &&
-      'functionResponse' in p &&
-      p['functionResponse'] !== undefined,
-  );
-  if (allFunctionResponses) {
-    const blocks: ContentBlock[] = parts.map((part) => {
-      const fr = (part as { functionResponse: Record<string, unknown> })
-        .functionResponse;
-      return {
-        type: 'tool_response',
-        callId: fr.id as string,
-        toolName: fr.name as string,
-        result: fr.response as Record<string, unknown>,
-        error: undefined,
-      } as ContentBlock;
-    });
-    return { speaker: 'tool', blocks };
+  if (Array.isArray(req)) {
+    if (req.length > 0 && typeof req[0] === 'object' && 'blocks' in req[0]) {
+      return req[0];
+    }
+    return iContentFromBlocks(req as ContentBlock[], 'human');
   }
   return iContentFromBlocks(agentRequestInputToBlocks(req), 'human');
 }

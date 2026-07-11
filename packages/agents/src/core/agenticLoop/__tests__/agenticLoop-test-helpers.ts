@@ -59,13 +59,20 @@ export type TurnScript = ServerAgentStreamEvent[];
 
 /** Converts an AgentRequestInput into a ContentBlock[] (string → [{text}]). */
 export function partListUnionToParts(req: AgentRequestInput): ContentBlock[] {
-  if (Array.isArray(req)) {
-    return req as ContentBlock[];
-  }
   if (typeof req === 'string') {
     return [{ type: 'text', text: req }];
   }
-  return [req as ContentBlock];
+  if (Array.isArray(req)) {
+    if (req.length > 0 && typeof req[0] === 'object' && 'blocks' in req[0]) {
+      return (req as IContent[]).flatMap((c) => c.blocks);
+    }
+    return req as ContentBlock[];
+  }
+  // Single IContent — flatten to its blocks.
+  if (typeof req === 'object' && 'blocks' in req) {
+    return req.blocks;
+  }
+  return [];
 }
 
 /** Shared mutable state for a scripted agent client. */
@@ -151,7 +158,7 @@ function buildScriptedClient(state: ScriptedClientState): AgentClientContract {
     ): AsyncGenerator<ServerAgentStreamEvent> {
       turnMessages.push(req);
       promptIds.push(promptId);
-      history.push(convertPartListUnionToIContent(req as AgentMessageInput));
+      history.push(convertPartListUnionToIContent(req));
       const script = scriptQueue.shift();
       if (!script) {
         return;

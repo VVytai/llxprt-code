@@ -11,7 +11,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
-  GeminiContentPart,
+  ContentBlock,
   AgentMessageInput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
@@ -20,7 +20,11 @@ import type { ChatSession } from './chatSession.js';
 import { AgentEventType, PerformCompressionResult } from './turn.js';
 import { uiTelemetryService } from '@vybestack/llxprt-code-core/telemetry/uiTelemetry.js';
 import { tokenLimit } from '@vybestack/llxprt-code-core/core/tokenLimits.js';
-import { fromAsync, setupGeminiClient } from './client-test-helpers.js';
+import {
+  fromAsync,
+  setupGeminiClient,
+  type MockResponseShape,
+} from './client-test-helpers.js';
 
 // Mock prompts module before imports
 vi.mock('@vybestack/llxprt-code-core/core/prompts.js', () => ({
@@ -137,7 +141,7 @@ vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
 vi.mock(
   '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js',
   () => ({
-    getResponseText: (result: GenerateContentResponse) =>
+    getResponseText: (result: MockResponseShape) =>
       result.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)
         .join('') ?? undefined,
@@ -177,7 +181,7 @@ vi.mock('@vybestack/llxprt-code-core/telemetry/uiTelemetry.js', () => ({
   },
 }));
 
-describe('Gemini Client (client.ts)', () => {
+describe('AgentClient (client.ts)', () => {
   let client: AgentClient;
 
   beforeEach(async () => {
@@ -306,7 +310,7 @@ describe('Gemini Client (client.ts)', () => {
       client['contentGenerator'] = mockGenerator as ContentGenerator;
 
       // A small "continue" request — remaining is -49,442.
-      const request: GeminiContentPart[] = [{ text: 'continue' }];
+      const request: ContentBlock[] = [{ type: 'text', text: 'continue' }];
 
       const mockStream = (async function* () {
         yield { type: AgentEventType.Content, value: 'ok' };
@@ -359,13 +363,13 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['contentGenerator'] = mockGenerator as ContentGenerator;
 
-      // Pure functionResponse continuation — 0 tokens by text estimate.
-      const request: GeminiContentPart[] = [
+      // Pure tool_response continuation — 0 tokens by text estimate.
+      const request: ContentBlock[] = [
         {
-          functionResponse: {
-            name: 'someTool',
-            response: { result: 'done' },
-          },
+          type: 'tool_response',
+          callId: 'someTool',
+          toolName: 'someTool',
+          result: { result: 'done' },
         },
       ];
 
@@ -466,7 +470,7 @@ describe('Gemini Client (client.ts)', () => {
 
       // Act
       const stream = client.sendMessageStream(
-        [{ text: 'continue' }],
+        [{ type: 'text', text: 'continue' }],
         new AbortController().signal,
         'prompt-id-tokenizer-skipped-negative',
       );
@@ -607,13 +611,13 @@ describe('Gemini Client (client.ts)', () => {
       })();
       mockTurnRunFn.mockReturnValue(mockStream);
 
-      const request: GeminiContentPart[] = [
-        { text: 'short' }, // 5 chars → 1 token
+      const request: ContentBlock[] = [
+        { type: 'text', text: 'short' }, // 5 chars → 1 token
         {
-          inlineData: {
-            mimeType: 'application/pdf',
-            data: 'A'.repeat(11 * 1024 * 1024), // ignored
-          },
+          type: 'media',
+          mimeType: 'application/pdf',
+          data: 'A'.repeat(11 * 1024 * 1024), // ignored
+          encoding: 'base64',
         },
       ];
 
@@ -714,13 +718,13 @@ describe('Gemini Client (client.ts)', () => {
       // In the old implementation, this would incorrectly estimate ~2.7M tokens
       // In the new implementation, only the text part is counted
       const largePdfBase64 = 'A'.repeat(11 * 1024 * 1024);
-      const request: GeminiContentPart[] = [
-        { text: 'Please analyze this PDF document' }, // ~35 chars = ~8 tokens
+      const request: ContentBlock[] = [
+        { type: 'text', text: 'Please analyze this PDF document' }, // ~35 chars = ~8 tokens
         {
-          inlineData: {
-            mimeType: 'application/pdf',
-            data: largePdfBase64, // This should be ignored in token estimation
-          },
+          type: 'media',
+          mimeType: 'application/pdf',
+          data: largePdfBase64, // This should be ignored in token estimation
+          encoding: 'base64',
         },
       ];
 
@@ -774,7 +778,7 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['chat'] = mockChat as ChatSession;
 
-      const initialRequest = [{ text: 'Hi' }];
+      const initialRequest = [{ type: 'text', text: 'Hi' }];
       const promptId = 'prompt-id-invalid-stream';
       const signal = new AbortController().signal;
 
@@ -833,7 +837,7 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['chat'] = mockChat as ChatSession;
 
-      const initialRequest = [{ text: 'Hi' }];
+      const initialRequest = [{ type: 'text', text: 'Hi' }];
       const promptId = 'prompt-id-invalid-stream';
       const signal = new AbortController().signal;
 
@@ -863,10 +867,10 @@ describe('Gemini Client (client.ts)', () => {
         false,
       );
 
-      const forwardedRequests: GeminiContentPart[][] = [];
+      const forwardedRequests: ContentBlock[][] = [];
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as GeminiContentPart[]);
+        forwardedRequests.push(req as ContentBlock[]);
         return (async function* () {
           yield {
             type: AgentEventType.Thought,
@@ -896,7 +900,7 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadMock.mockResolvedValue([]);
 
       const stream = client.sendMessageStream(
-        [{ text: 'Do something' }],
+        [{ type: 'text', text: 'Do something' }],
         new AbortController().signal,
         'prompt-thinking-invalid-stream-no-continue',
       );
@@ -955,7 +959,7 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['chat'] = mockChat as ChatSession;
 
-      const initialRequest = [{ text: 'Hi' }];
+      const initialRequest = [{ type: 'text', text: 'Hi' }];
       const promptId = 'prompt-id-infinite-invalid-stream';
       const signal = new AbortController().signal;
 

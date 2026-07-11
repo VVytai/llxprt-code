@@ -8,6 +8,7 @@ import {
   DEFAULT_AGENT_ID,
   debugLogger,
   getErrorMessage,
+  type ContentBlock,
   type DiscoveredMCPResource,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -30,7 +31,7 @@ export type McpClientManagerForResources =
 
 export interface ResourceReadParams {
   resourceAttachments: DiscoveredMCPResource[];
-  processedQueryParts: Array<{ text: string } | string>;
+  processedQueryParts: ContentBlock[];
   addItem: UseHistoryManagerReturn['addItem'];
   userMessageTimestamp: number;
   mcpClientManager: McpClientManagerForResources;
@@ -87,7 +88,7 @@ async function readSingleResource(
   resource: DiscoveredMCPResource,
   uri: string,
   mcpClientManager: McpClientManagerForResources,
-  processedQueryParts: Array<{ text: string } | string>,
+  processedQueryParts: ContentBlock[],
   index: number,
 ): Promise<IndividualToolCallDisplay> {
   const client = getResourceClient(mcpClientManager, resource.serverName);
@@ -104,6 +105,7 @@ async function readSingleResource(
       );
     }
     processedQueryParts.push({
+      type: 'text',
       text: `\nContent from @${resource.serverName}:${uri}:\n`,
     });
     processedQueryParts.push(...contentParts);
@@ -254,12 +256,12 @@ export function addToolGroup(
 
 function convertResourceContentsToParts(
   response: ResourceResponse,
-): Array<{ text: string } | string> {
-  const parts: Array<{ text: string } | string> = [];
+): ContentBlock[] {
+  const parts: ContentBlock[] = [];
   for (const content of response.contents ?? []) {
     const candidate = content.resource ?? content;
     if (candidate.text) {
-      parts.push({ text: candidate.text });
+      parts.push({ type: 'text', text: candidate.text });
       continue;
     }
     // Preserve the legacy text marker instead of inlining opaque binary payloads into prompt history.
@@ -267,6 +269,7 @@ function convertResourceContentsToParts(
       const mimeType = candidate.mimeType ?? 'application/octet-stream';
       const sizeBytes = computeBase64ByteLength(candidate.blob);
       parts.push({
+        type: 'text',
         text: `[Binary resource content ${mimeType}, ${sizeBytes} bytes]`,
       });
     }

@@ -13,6 +13,7 @@ import {
   isNodeError,
   validatePathWithinWorkspace,
   type AgentRequestInput,
+  type ContentBlock,
   type DiscoveredMCPResource,
 } from '@vybestack/llxprt-code-core';
 import type {
@@ -93,7 +94,7 @@ interface FileReadParams {
   pathSpecsToRead: string[];
   contentLabelsForDisplay: string[];
   absoluteToRelativePathMap: Map<string, string>;
-  processedQueryParts: Array<{ text: string } | string>;
+  processedQueryParts: ContentBlock[];
   resourceReadDisplays: IndividualToolCallDisplay[];
   readManyFilesTool: NonNullable<MaybeToolHandle>;
   respectFileIgnore: ReturnType<
@@ -615,7 +616,7 @@ function buildReadErrorDisplay(
 
 function appendReadManyFilesContent(
   llmContent: unknown,
-  processedQueryParts: Array<{ text: string } | string>,
+  processedQueryParts: ContentBlock[],
   absoluteToRelativePathMap: Map<string, string>,
   config: AtCommandHelperRuntime,
   onDebugMessage: (message: string) => void,
@@ -626,7 +627,10 @@ function appendReadManyFilesContent(
     );
     return;
   }
-  processedQueryParts.push({ text: '\n--- Content from referenced files ---' });
+  processedQueryParts.push({
+    type: 'text',
+    text: '\n--- Content from referenced files ---',
+  });
   for (const part of llmContent)
     processReadManyFilesPart(
       part,
@@ -638,23 +642,30 @@ function appendReadManyFilesContent(
 
 function processReadManyFilesPart(
   part: unknown,
-  processedQueryParts: Array<{ text: string } | string>,
+  processedQueryParts: ContentBlock[],
   absoluteToRelativePathMap: Map<string, string>,
   config: AtCommandHelperRuntime,
 ): void {
   if (typeof part !== 'string') {
-    processedQueryParts.push(part as { text: string } | string);
+    processedQueryParts.push({
+      type: 'text',
+      text:
+        typeof part === 'object' && part !== null && 'text' in part
+          ? String((part as { text: unknown }).text)
+          : String(part),
+    });
     return;
   }
   const parsed = parseFileContentPart(part, absoluteToRelativePathMap, config);
   if (parsed === undefined) {
-    processedQueryParts.push({ text: part });
+    processedQueryParts.push({ type: 'text', text: part });
     return;
   }
   processedQueryParts.push({
+    type: 'text',
     text: `\nContent from @${parsed.displayPath}:\n`,
   });
-  processedQueryParts.push({ text: parsed.content });
+  processedQueryParts.push({ type: 'text', text: parsed.content });
 }
 
 function parseFileContentPart(

@@ -21,7 +21,6 @@ import {
   snapshotMatches,
 } from '../boundaryRecovery.js';
 import { applyRequestModifications } from '../streamRequestHelpers.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import { BeforeModelHookOutput } from '@vybestack/llxprt-code-core/hooks/types.js';
 
 // ---------------------------------------------------------------------------
@@ -53,13 +52,17 @@ function pendingUser(text: string): IContent {
 }
 
 /**
- * Simulate the hook translator text-only round-trip: convert to Gemini
- * Content (text-only, fresh IDs dropped) and back to IContent.
+ * Simulate the observable effect of the hook wire boundary round-trip:
+ * metadata and ids are stripped, fresh object identities are produced,
+ * and block-level text content is preserved. This mirrors what the
+ * production applyRequestModifications path does when it rebuilds
+ * contents from hook-supplied messages (neutral IContent, no ids).
  */
 function roundTrip(contents: IContent[]): IContent[] {
-  return ContentConverters.toIContents(
-    ContentConverters.toGeminiContents(contents),
-  );
+  return contents.map((c) => ({
+    speaker: c.speaker,
+    blocks: c.blocks.map((b) => ({ ...b })),
+  }));
 }
 
 // ---------------------------------------------------------------------------

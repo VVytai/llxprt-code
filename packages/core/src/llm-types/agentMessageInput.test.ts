@@ -109,6 +109,85 @@ describe('iContentFromAgentMessageInput', () => {
       });
     }
   });
+// ---------------------------------------------------------------------------
+// iContentFromAgentMessageInput — legacy PartListUnion boundary (REQ-001.1)
+// ---------------------------------------------------------------------------
+
+describe('iContentFromAgentMessageInput — legacy PartListUnion routing', () => {
+  it('non-empty legacy [{text}] → lossless human TextBlock', () => {
+    const result = iContentFromAgentMessageInput([
+      { text: 'hello' },
+    ] as unknown as AgentMessageInput);
+    expect(result).toStrictEqual<IContent[]>([
+      { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+    ]);
+  });
+
+  it('non-empty legacy [{text}, {text}] → multiple TextBlocks in one turn', () => {
+    const result = iContentFromAgentMessageInput([
+      { text: 'first' },
+      { text: 'second' },
+    ] as unknown as AgentMessageInput);
+    expect(result).toHaveLength(1);
+    expect(result[0].speaker).toBe('human');
+    expect(result[0].blocks).toStrictEqual([
+      { type: 'text', text: 'first' },
+      { type: 'text', text: 'second' },
+    ]);
+  });
+
+  it('non-empty legacy [{thought, thoughtSignature}] → ThinkingBlock preserved', () => {
+    const result = iContentFromAgentMessageInput([
+      { thought: 'reasoning', thoughtSignature: 'sig123' },
+    ] as unknown as AgentMessageInput);
+    expect(result).toHaveLength(1);
+    const block = result[0].blocks[0] as ThinkingBlock;
+    expect(block.type).toBe('thinking');
+    expect(block.thought).toBe('reasoning');
+    expect(block.signature).toBe('sig123');
+  });
+
+  it('non-empty legacy [{functionCall}] → ToolCallBlock preserved', () => {
+    const result = iContentFromAgentMessageInput([
+      {
+        functionCall: {
+          id: 'call-1',
+          name: 'search',
+          args: { q: 'test' },
+        },
+      },
+    ] as unknown as AgentMessageInput);
+    expect(result).toHaveLength(1);
+    const block = result[0].blocks[0] as ToolCallBlock;
+    expect(block.type).toBe('tool_call');
+    expect(block.id).toBe('call-1');
+    expect(block.name).toBe('search');
+    expect(block.parameters).toStrictEqual({ q: 'test' });
+  });
+
+  it('empty array [] remains a no-op (returns [])', () => {
+    const result = iContentFromAgentMessageInput([]);
+    expect(result).toStrictEqual<IContent[]>([]);
+  });
+
+  it('unsupported non-empty array throws explicit error (never silent)', () => {
+    expect(() =>
+      iContentFromAgentMessageInput([
+        { weird: 1 },
+      ] as unknown as AgentMessageInput),
+    ).toThrow(/unsupported input shape/);
+  });
+
+  it('result has NO role/parts/candidates keys for legacy input', () => {
+    const result = iContentFromAgentMessageInput([
+      { text: 'hello' },
+    ] as unknown as AgentMessageInput);
+    result.forEach((item) => {
+      expect(hasNoGoogleKeys(item)).toBe(true);
+    });
+  });
+});
+
 });
 
 // ---------------------------------------------------------------------------
@@ -169,6 +248,73 @@ describe('iContentFromLegacyInput', () => {
       expect(thinking).toBeDefined();
       expect(thinking?.thought).toBe('I should think about this');
       expect(thinking?.signature).toBe('sig-abc-123');
+    }
+  });
+
+  it('Google-style {thought:true, text, thoughtSignature} → ThinkingBlock (not TextBlock)', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+      text: 'my thinking content',
+      thoughtSignature: 'sig-xyz',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const items = result.value;
+      const blocks = items.flatMap((i) => i.blocks);
+      const thinking = blocks.find(
+        (b): b is ThinkingBlock => b.type === 'thinking',
+      );
+      expect(thinking).toBeDefined();
+      expect(thinking?.thought).toBe('my thinking content');
+      expect(thinking?.signature).toBe('sig-xyz');
+      expect(thinking?.sourceField).toBe('thought');
+      // must NOT produce a TextBlock — thought:true has thinking semantics
+      const text = blocks.find((b) => b.type === 'text');
+      expect(text).toBeUndefined();
+    }
+  });
+
+  it('Google-style {thought:true, text} without signature → ThinkingBlock with no signature', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+      text: 'just thinking',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const blocks = result.value.flatMap((i) => i.blocks);
+      const thinking = blocks.find(
+        (b): b is ThinkingBlock => b.type === 'thinking',
+      );
+      expect(thinking).toBeDefined();
+      expect(thinking?.thought).toBe('just thinking');
+      expect(thinking?.signature).toBeUndefined();
+    }
+  });
+
+  it('Google-style thought part inside legacy Content parts[] is converted correctly', () => {
+    const result = iContentFromLegacyInput([
+      {
+        role: 'model',
+        parts: [
+          { thought: true, text: 'reasoning here', thoughtSignature: 's1' },
+          { text: 'visible answer' },
+        ],
+      },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const blocks = result.value.flatMap((i) => i.blocks);
+      const thinking = blocks.find(
+        (b): b is ThinkingBlock => b.type === 'thinking',
+      );
+      const text = blocks.find((b) => b.type === 'text');
+      expect(thinking).toBeDefined();
+      expect(thinking?.thought).toBe('reasoning here');
+      expect(thinking?.signature).toBe('s1');
+      expect(text).toBeDefined();
+      if (text?.type === 'text') {
+        expect(text.text).toBe('visible answer');
+      }
     }
   });
 
@@ -478,4 +624,74 @@ describe('sendParamsToRequest property-based', () => {
       return requestKeys.every((k) => !googleKeys.includes(k));
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// iContentFromLegacyInput — boolean thought:true must require string text
+// (Finding #6: malformed boolean thought parts must not silently produce
+//  empty thinking blocks; they must return {ok:false}).
+// ---------------------------------------------------------------------------
+
+describe('iContentFromLegacyInput — boolean thought:true text requirement', () => {
+  it('{thought:true} with string text → ThinkingBlock (valid)', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+      text: 'my reasoning',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const blocks = result.value.flatMap((i) => i.blocks);
+      const thinking = blocks.find(
+        (b): b is ThinkingBlock => b.type === 'thinking',
+      );
+      expect(thinking).toBeDefined();
+      expect(thinking?.thought).toBe('my reasoning');
+    }
+  });
+
+  it('{thought:true} WITHOUT text → {ok:false} (malformed)', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('{thought:true, text:123} (non-string text) → {ok:false} (malformed)', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+      text: 123,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('{thought:true, text:null} → {ok:false} (malformed)', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+      text: null,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('{thought:"some text"} (string form, no boolean) → still valid (legacy form)', () => {
+    const result = iContentFromLegacyInput({
+      thought: 'some reasoning text',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const blocks = result.value.flatMap((i) => i.blocks);
+      const thinking = blocks.find(
+        (b): b is ThinkingBlock => b.type === 'thinking',
+      );
+      expect(thinking).toBeDefined();
+      expect(thinking?.thought).toBe('some reasoning text');
+    }
+  });
+
+  it('{thought:true, text:""} (empty string) → {ok:false} (malformed)', () => {
+    const result = iContentFromLegacyInput({
+      thought: true,
+      text: '',
+    });
+    expect(result.ok).toBe(false);
+  });
 });

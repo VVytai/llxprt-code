@@ -33,6 +33,7 @@ import type {
   ToolCall,
   AgentRequestInput,
   ContentBlock,
+  IContent,
 } from '@vybestack/llxprt-code-core';
 import { DebugLogger } from '@vybestack/llxprt-code-core';
 import type { UseHistoryManagerReturn } from '../useHistoryManager.js';
@@ -256,27 +257,33 @@ export function useAgentEventStream(
  * ends or the signal aborts.
  */
 /**
- * Normalizes an AgentRequestInput to AgentInput without type escapes:
+ * Normalizes an AgentRequestInput (neutral AgentMessageInput) to AgentInput
+ * without type escapes:
  * - string passes through;
- * - arrays may contain string elements (AgentRequestInput allows
- *   object | string), which AgentInput's readonly Part[] does not
- *   accept — convert them to text Parts;
- * - a bare single object is wrapped in an array (AgentInput has no
- *   single-object variant), fixing a latent type gap for single-object submissions.
+ * - ContentBlock[] passes through directly;
+ * - IContent passes through directly (preserving speaker);
+ * - IContent[] passes through directly (preserving speaker and turn
+ *   boundaries — no flattening, so the agent loop sees each turn as a
+ *   distinct IContent entry, not a single flat block array).
  */
 function toAgentInput(message: AgentRequestInput): AgentInput {
   if (typeof message === 'string') {
     return message;
   }
   if (Array.isArray(message)) {
-    return message.map(
-      (part): ContentBlock =>
-        typeof part === 'string'
-          ? { type: 'text', text: part }
-          : (part as ContentBlock),
-    );
+    if (message.length === 0) {
+      return [];
+    }
+    const first = message[0];
+    if (typeof first === 'object' && 'speaker' in first && 'blocks' in first) {
+      // IContent[] — pass through directly to preserve turn boundaries.
+      return message as IContent[];
+    }
+    // ContentBlock[] — pass through directly.
+    return message as ContentBlock[];
   }
-  return [message as ContentBlock];
+  // Single IContent — pass through directly to preserve speaker.
+  return message;
 }
 
 function iterateAgentStream(

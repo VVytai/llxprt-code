@@ -17,8 +17,7 @@ import { StreamEventType } from './chatSession.js';
 import {
   type MockedChatInstance,
   findFinishedEvent,
-  mockResponseToChunk,
-  mockChunkWithRestrictions,
+  mockChunk,
 } from './turn-test-helpers.js';
 
 const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
@@ -59,33 +58,21 @@ describe('Turn run - hook tool restrictions', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockChunkWithRestrictions(
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      functionCall: {
-                        id: 'allowed-call',
-                        name: 'read_file',
-                        args: { file_path: 'file.txt' },
-                      },
-                    },
-                    {
-                      functionCall: {
-                        id: 'blocked-call',
-                        name: 'run_shell_command',
-                        args: { command: 'echo blocked' },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          } as never,
-          ['read_file'],
-        ),
+        value: mockChunk({
+          toolCalls: [
+            {
+              id: 'allowed-call',
+              name: 'read_file',
+              args: { file_path: 'file.txt' },
+            },
+            {
+              id: 'blocked-call',
+              name: 'run_shell_command',
+              args: { command: 'echo blocked' },
+            },
+          ],
+          hookRestrictions: { allowedToolNames: ['read_file'] },
+        }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -119,26 +106,16 @@ describe('Turn run - hook tool restrictions', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockChunkWithRestrictions(
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      functionCall: {
-                        id: 'blocked-call',
-                        name: 'read_file',
-                        args: { file_path: 'file.txt' },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          } as never,
-          [],
-        ),
+        value: mockChunk({
+          toolCalls: [
+            {
+              id: 'blocked-call',
+              name: 'read_file',
+              args: { file_path: 'file.txt' },
+            },
+          ],
+          hookRestrictions: { allowedToolNames: [] },
+        }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -162,27 +139,17 @@ describe('Turn run - hook tool restrictions', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockChunkWithRestrictions(
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      functionCall: {
-                        id: 'blocked-call',
-                        name: 'run_shell_command',
-                        args: { command: 'echo blocked' },
-                      },
-                    },
-                  ],
-                },
-                finishReason: 'STOP',
-              },
-            ],
-          } as never,
-          ['read_file'],
-        ),
+        value: mockChunk({
+          toolCalls: [
+            {
+              id: 'blocked-call',
+              name: 'run_shell_command',
+              args: { command: 'echo blocked' },
+            },
+          ],
+          finishReason: 'STOP',
+          hookRestrictions: { allowedToolNames: ['read_file'] },
+        }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -211,53 +178,30 @@ describe('Turn run - hook tool restrictions', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockChunkWithRestrictions(
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      functionCall: {
-                        id: 'part-call',
-                        name: 'read_file',
-                        args: { file_path: 'part.txt' },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-            // Top-level functionCalls accessor is carried via content
-            // blocks in the neutral pipeline. The second call is added
-            // as an extra tool_call block in the chunk content.
-          } as never,
-          ['read_file'],
-        ),
+        value: mockChunk({
+          toolCalls: [
+            {
+              id: 'part-call',
+              name: 'read_file',
+              args: { file_path: 'part.txt' },
+            },
+          ],
+          hookRestrictions: { allowedToolNames: ['read_file'] },
+        }),
       };
       // Second chunk carries the top-level call as a content block
       yield {
         type: StreamEventType.CHUNK,
-        value: mockChunkWithRestrictions(
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      functionCall: {
-                        id: 'top-level-call',
-                        name: 'read_file',
-                        args: { file_path: 'top.txt' },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          } as never,
-          ['read_file'],
-        ),
+        value: mockChunk({
+          toolCalls: [
+            {
+              id: 'top-level-call',
+              name: 'read_file',
+              args: { file_path: 'top.txt' },
+            },
+          ],
+          hookRestrictions: { allowedToolNames: ['read_file'] },
+        }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -288,43 +232,25 @@ describe('Turn run - hook tool restrictions', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockChunkWithRestrictions(
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [
-                    {
-                      functionCall: {
-                        id: 'blocked-call',
-                        name: 'run_shell_command',
-                        args: { command: 'echo blocked' },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          } as never,
-          ['read_file'],
-        ),
+        value: mockChunk({
+          toolCalls: [
+            {
+              id: 'blocked-call',
+              name: 'run_shell_command',
+              args: { command: 'echo blocked' },
+            },
+          ],
+          hookRestrictions: { allowedToolNames: ['read_file'] },
+        }),
       };
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [
+        value: mockChunk({
+          toolCalls: [
             {
-              content: {
-                parts: [
-                  {
-                    functionCall: {
-                      id: 'unrestricted-call',
-                      name: 'run_shell_command',
-                      args: { command: 'echo allowed' },
-                    },
-                  },
-                ],
-              },
+              id: 'unrestricted-call',
+              name: 'run_shell_command',
+              args: { command: 'echo allowed' },
             },
           ],
         }),

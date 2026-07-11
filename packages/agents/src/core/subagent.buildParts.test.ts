@@ -167,7 +167,7 @@ describe('subagent.ts', () => {
         name: 'run_shell_command',
         displayName: 'Shell',
         canUpdateOutput: true,
-        schema: { parameters: { type: 'OBJECT', properties: {} } },
+        schema: { parameters: { type: 'object', properties: {} } },
         build: vi.fn(),
       };
 
@@ -234,7 +234,7 @@ describe('subagent.ts', () => {
         name: 'read_file',
         displayName: 'Read File',
         canUpdateOutput: false,
-        schema: { parameters: { type: 'OBJECT', properties: {} } },
+        schema: { parameters: { type: 'object', properties: {} } },
         build: vi.fn(),
       };
 
@@ -300,7 +300,7 @@ describe('subagent.ts', () => {
         name: 'run_shell_command',
         displayName: 'Shell',
         canUpdateOutput: true,
-        schema: { parameters: { type: 'OBJECT', properties: {} } },
+        schema: { parameters: { type: 'object', properties: {} } },
         build: vi.fn(),
       };
 

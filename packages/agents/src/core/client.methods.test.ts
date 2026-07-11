@@ -11,17 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { GeminiContentPart } from '@vybestack/llxprt-code-core/llm-types/index.js';
-
-/**
- * Local structural type mirroring the legacy Google GenerateContentResponse
- * shape used purely for the vi.mock of generateContentResponseUtilities.
- */
-interface LegacyGenerateContentResponse {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-  }>;
-}
+import type { ContentBlock } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { AgentClient } from './client.js';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
@@ -33,7 +23,10 @@ import {
   getEnabledToolNamesForPrompt,
   shouldIncludeSubagentDelegationForConfig,
 } from './clientToolGovernance.js';
-import { setupGeminiClient } from './client-test-helpers.js';
+import {
+  setupGeminiClient,
+  type MockResponseShape,
+} from './client-test-helpers.js';
 
 // Mock prompts module before imports
 vi.mock('@vybestack/llxprt-code-core/core/prompts.js', () => ({
@@ -150,7 +143,7 @@ vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
 vi.mock(
   '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js',
   () => ({
-    getResponseText: (result: LegacyGenerateContentResponse) =>
+    getResponseText: (result: MockResponseShape) =>
       result.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)
         .join('') ?? undefined,
@@ -190,7 +183,7 @@ vi.mock('@vybestack/llxprt-code-core/telemetry/uiTelemetry.js', () => ({
   },
 }));
 
-describe('Gemini Client (client.ts)', () => {
+describe('AgentClient (client.ts)', () => {
   let client: AgentClient;
 
   beforeEach(async () => {
@@ -658,9 +651,9 @@ sub memory
       };
       client['chat'] = mockChat as ChatSession;
 
-      const newContent = {
-        role: 'user',
-        parts: [{ text: 'New history item' }],
+      const newContent: IContent = {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'New history item' }],
       };
       await client.addHistory(newContent);
 
@@ -687,9 +680,9 @@ sub memory
       const initialChat = client.getChat();
       const initialHistory = await client.getHistory();
       await client.addHistory({
-        role: 'user',
-        parts: [{ text: 'some old message' }],
-      } as Content);
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'some old message' }],
+      });
       const historyWithOldMessage = await client.getHistory();
       expect(historyWithOldMessage.length).toBeGreaterThan(
         initialHistory.length,
@@ -700,7 +693,7 @@ sub memory
         historyState = [];
         // Create a new mock chat instance
         const newMockChat = {
-          addHistory: vi.fn().mockImplementation((content: Content) => {
+          addHistory: vi.fn().mockImplementation((content: IContent) => {
             historyState.push(content);
             return Promise.resolve();
           }),
@@ -763,7 +756,7 @@ sub memory
           type: AgentEventType.ToolCallResponse,
           value: {
             callId: `call-${i}`,
-            responseParts: [] as GeminiContentPart[],
+            responseParts: [] as ContentBlock[],
             resultDisplay: undefined,
             error: undefined,
             errorType: undefined,

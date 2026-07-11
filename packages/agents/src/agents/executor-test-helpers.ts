@@ -72,82 +72,38 @@ export type MockPart =
     };
 
 /**
- * Converts a mock Part to a neutral ContentBlock.
- */
-function partToBlock(part: MockPart): ContentBlock {
-  const p = part as Record<string, unknown>;
-  if (typeof p.text === 'string') {
-    if (p.thought === true) {
-      return { type: 'thinking', thought: p.text };
-    }
-    return { type: 'text', text: p.text };
-  }
-  const fc = p.functionCall as
-    | { id?: string; name: string; args?: Record<string, unknown> }
-    | undefined;
-  if (fc) {
-    return {
-      type: 'tool_call',
-      id: fc.id ?? fc.name,
-      name: fc.name,
-      parameters: fc.args ?? {},
-    } as ToolCallBlock;
-  }
-  const fr = p.functionResponse as
-    | { id?: string; name?: string; response?: unknown }
-    | undefined;
-  if (fr) {
-    return {
-      type: 'tool_response',
-      callId: fr.id ?? fr.name ?? '',
-      toolName: fr.name ?? '',
-      result: fr.response,
-    };
-  }
-  // Fallback: wrap as text
-  return { type: 'text', text: JSON.stringify(part) };
-}
-
-/**
- * Creates a mock API response chunk by converting mock Parts to
- * a neutral ModelStreamChunk.
+ * Creates a mock response chunk from neutral content blocks.
+ * The optional functionCalls are merged as tool_call blocks when not
+ * already present by id/name.
  */
 export const createMockResponseChunk = (
-  parts: MockPart[],
+  blocks: ContentBlock[],
   functionCalls?: FunctionCall[],
   allowedTools?: readonly string[],
 ): ModelStreamChunk => {
-  // Merge functionCalls into parts if not already present
   const existingCallNames = new Set(
-    parts
-      .filter((p) => {
-        const v = p as Record<string, unknown>;
-        return (
-          'functionCall' in v &&
-          v['functionCall'] !== null &&
-          v['functionCall'] !== undefined
-        );
-      })
-      .map((p) => {
-        const fc = (p as { functionCall: { id?: string; name: string } })
-          .functionCall;
-        return fc.id ?? fc.name;
-      }),
+    blocks
+      .filter((b): b is ToolCallBlock => b.type === 'tool_call')
+      .map((b) => b.id),
   );
-  const candidateParts = [...parts];
+  const candidateBlocks = [...blocks];
   if (functionCalls && functionCalls.length > 0) {
     for (const call of functionCalls) {
       const key = call.id ?? call.name;
       if (!existingCallNames.has(key)) {
-        candidateParts.push({ functionCall: call });
+        candidateBlocks.push({
+          type: 'tool_call',
+          id: call.id ?? call.name,
+          name: call.name,
+          parameters: call.args ?? {},
+        });
       }
     }
   }
 
-  const blocks = candidateParts.map(partToBlock);
   const chunk = toModelStreamChunk({
     speaker: 'ai',
-    blocks,
+    blocks: candidateBlocks,
   });
 
   if (allowedTools !== undefined) {
@@ -168,16 +124,16 @@ export const mockModelResponse = (
   thought?: string,
   text?: string,
 ): void => {
-  const parts: MockPart[] = [];
+  const blocks: ContentBlock[] = [];
   if (thought) {
-    parts.push({
-      text: `**${thought}** This is the reasoning part.`,
-      thought: true,
+    blocks.push({
+      type: 'thinking',
+      thought: `**${thought}** This is the reasoning part.`,
     });
   }
-  if (text) parts.push({ text });
+  if (text) blocks.push({ type: 'text', text });
 
-  const responseChunk = createMockResponseChunk(parts, functionCalls);
+  const responseChunk = createMockResponseChunk(blocks, functionCalls);
 
   mockSendMessageStream.mockImplementationOnce(async () =>
     (async function* () {

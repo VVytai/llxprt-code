@@ -42,32 +42,54 @@ Each entry is a markdown table row:
 <!-- @plan:PLAN-20260707-AGENTNEUTRAL.P13 -->
 <!-- @requirement:REQ-012.2 -->
 
-| File                                          | Subkind                 | Context Pattern                    | Justification                                                                                                                                                    |
-| --------------------------------------------- | ----------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `afterModelModifiedToChunk`        | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral ModelStreamChunk; P07 boundary, AST-context-keyed                                |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `afterModelModifiedToModelOutput`  | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral ModelOutput; P13 direct-path boundary, AST-context-keyed                         |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `beforeModelBlockingToModelOutput` | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral blocking ModelOutput; P13 before-model boundary, AST-context-keyed               |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `afterModelBlockingToModelOutput`  | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral blocking ModelOutput; P13 streaming AfterModel BLOCK boundary, AST-context-keyed |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `afterModelModifiedToChunk`        | Named external-wire mapping: reads hook JSON-wire parts to produce neutral ModelStreamChunk; P07 boundary, AST-context-keyed                                     |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `afterModelModifiedToModelOutput`  | Named external-wire mapping: reads hook JSON-wire parts to produce neutral ModelOutput; P13 direct-path boundary, AST-context-keyed                              |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `beforeModelBlockingToModelOutput` | Named external-wire mapping: reads hook JSON-wire parts to produce neutral blocking ModelOutput; P13 before-model boundary, AST-context-keyed                    |
-| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `afterModelBlockingToModelOutput`  | Named external-wire mapping: reads hook JSON-wire parts to produce neutral blocking ModelOutput; P13 streaming AfterModel BLOCK boundary, AST-context-keyed      |
+| File                                          | Subkind                 | Context Pattern                    | Justification                                                                                                                                                         |
+| --------------------------------------------- | ----------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `afterModelModifiedToChunk`        | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral ModelStreamChunk; P07 boundary, AST-context-keyed                                     |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `afterModelModifiedToModelOutput`  | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral ModelOutput; P13 direct-path boundary, AST-context-keyed                              |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `beforeModelBlockingToModelOutput` | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral blocking ModelOutput; P13 before-model boundary, AST-context-keyed                    |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F1-candidates-content` | `afterModelBlockingToModelOutput`  | Named external-wire mapping: reads hook JSON-wire candidates to produce neutral blocking ModelOutput; P13 streaming AfterModel BLOCK boundary, AST-context-keyed      |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `afterModelModifiedToChunk`        | Named external-wire mapping: reads hook JSON-wire parts to produce neutral ModelStreamChunk; P07 boundary, AST-context-keyed                                          |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `afterModelModifiedToModelOutput`  | Named external-wire mapping: reads hook JSON-wire parts to produce neutral ModelOutput; P13 direct-path boundary, AST-context-keyed                                   |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `beforeModelBlockingToModelOutput` | Named external-wire mapping: reads hook JSON-wire parts to produce neutral blocking ModelOutput; P13 before-model boundary, AST-context-keyed                         |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `afterModelBlockingToModelOutput`  | Named external-wire mapping: reads hook JSON-wire parts to produce neutral blocking ModelOutput; P13 streaming AfterModel BLOCK boundary, AST-context-keyed           |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `extractBlocksFromHookResponse`    | Named hook-wire helper: reads candidate.content.parts from HookGenerateContentResponse wire to extract neutral ContentBlocks; called by all P07/P13 boundary adapters |
+| `packages/agents/src/core/hookWireAdapter.ts` | `F5-parts-access`       | `candidate.content.parts`          | Named hook-wire helper: reads candidate.content.parts inside extractBlocksFromHookResponse to build neutral ContentBlocks; AST-context: same function body            |
 
-### P11 — Legacy hook restrictions compat (allow-listed bounded adapter)
+### P31 — Removed: Legacy hook restrictions compat
 
-| File                                                       | Subkind              | Context Pattern | Justification                                                                                                                                                                              |
-| ---------------------------------------------------------- | -------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `A-raw-genai-import` | `*`             | Bounded hook-wire legacy compat: WeakMap/Part[]/FunctionCall restriction helpers; sole remaining raw @google/genai importer, explicitly allow-listed as the external-wire boundary adapter |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `B-banned-symbol`    | `*`             | Bounded hook-wire legacy compat: Content/FunctionCall/GenerateContentResponse/Part used solely for the WeakMap restriction bridge to unmigrated hook JSON wire                             |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F3-role-parts`      | `content.parts` | Legacy Part[]-based filtering; bounded to this file                                                                                                                                        |
-| `packages/agents/src/core/hookRestrictionsLegacyCompat.ts` | `F5-parts-access`    | `*`             | Legacy Part[]-based access for content filtering; bounded to this file                                                                                                                     |
+The `hookRestrictionsLegacyCompat.ts` file (formerly allow-listed as a bounded
+Google-shaped adapter) has been DELETED. Its consumers (`executor-tool-dispatch.ts`
+and `subagent.ts`) now use the neutral `hookToolRestrictions.ts` API
+(`isToolNameRestricted`). No equivalent shim exists under any other name.
 
 ### P25 — Bounded structural adapters (toGeminiContents calls)
 
-| File                                                | Subkind                  | Context Pattern    | Justification                                                                                                                     |
-| --------------------------------------------------- | ------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agents/src/core/streamRequestHelpers.ts`  | `G-call-toGeminiContent` | `toGeminiContents` | G3 hook-wire adapter: converts neutral IContent[] to Gemini shape ONLY for the hook JSON wire; loop re-enters neutral IContent[]  |
-| `packages/agents/src/api/control/sessionControl.ts` | `G-call-toGeminiContent` | `toGeminiContents` | Checkpoint save boundary: converts IContent[] to Gemini shape for checkpoint serialization; restore converts back via toIContents |
+| File                                                | Subkind                  | Context Pattern                            | Justification                                                                                                                                                      |
+| --------------------------------------------------- | ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/agents/src/core/streamRequestHelpers.ts`  | `G-call-toGeminiContent` | `toGeminiContents`                         | G3 hook-wire adapter: converts neutral IContent[] to Gemini shape ONLY for the hook JSON wire; loop re-enters neutral IContent[]                                   |
+| `packages/agents/src/api/control/sessionControl.ts` | `G-call-toGeminiContent` | `toGeminiContents`                         | Checkpoint save boundary: converts IContent[] to Gemini shape for checkpoint serialization; restore converts back via toIContents                                  |
+| `packages/agents/src/core/streamRequestHelpers.ts`  | `F5-parts-access`        | `extractSystemInstructionText`             | G3 hook-wire adapter: reads `.parts` from Gemini-shaped systemInstruction (ContentUnion) to extract plain-text instruction for provider forwarding                 |
+| `packages/agents/src/core/streamRequestHelpers.ts`  | `F5-parts-access`        | `value.parts`                              | G3 hook-wire adapter: reads `.parts` from Gemini-shaped systemInstruction ContentUnion; AST-context: inside extractSystemInstructionText only                      |
+| `packages/agents/src/core/turn.ts`                  | `D-roundtrip-symbol`     | `providerStopReason = chunk.rawStopReason` | Pre-existing local variable name `providerStopReason` reads chunk.rawStopReason; NOT the deleted helper module — reads the neutral ModelStreamChunk field directly |
+
+### P31 — checkH Gemini usage-key boundary exemptions (AST-context-keyed, NOT file-level)
+
+<!-- @plan:PLAN-20260707-AGENTNEUTRAL.P31 -->
+<!-- @requirement:REQ-012.1 -->
+
+> **Major 4 (round 8):** these exemptions are AST-CONTEXT keyed. A usage-key
+> literal ANYWHERE ELSE in these files (outside the named function/schema/type)
+> STILL fires. A bare file-path allow-list key is REJECTED.
+
+| File                                          | Subkind       | Context Pattern                   | Justification                                                                                                                                                       |
+| --------------------------------------------- | ------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agents/src/api/event-types.ts`      | `H-usage-key` | `promptTokenCount`                | Declared `UsageMetadataValue` type member (committed §7A option C public wire type); AST-context: PropertySignature inside type alias only                          |
+| `packages/agents/src/api/event-types.ts`      | `H-usage-key` | `candidatesTokenCount`            | Declared `UsageMetadataValue` type member (committed §7A option C public wire type); AST-context: PropertySignature inside type alias only                          |
+| `packages/agents/src/api/event-types.ts`      | `H-usage-key` | `totalTokenCount`                 | Declared `UsageMetadataValue` type member (committed §7A option C public wire type); AST-context: PropertySignature inside type alias only                          |
+| `packages/agents/src/api/event-types.ts`      | `H-usage-key` | `cachedContentTokenCount`         | Declared `UsageMetadataValue` type member (committed §7A option C public wire type); AST-context: PropertySignature inside type alias only                          |
+| `packages/agents/src/api/event-schema.ts`     | `H-usage-key` | `UsageMetadataValueSchema`        | Declared `UsageMetadataValueSchema` zod schema member (runtime equivalent of the committed §7A option C public type); AST-context: inside schema const only         |
+| `packages/agents/src/api/eventAdapter.ts`     | `H-usage-key` | `usageStatsToPublicUsageMetadata` | Sole boundary mapper: converts neutral UsageStats to Gemini-named public UsageMetadataValue (committed option-C boundary); AST-context: mapper function body only   |
+| `packages/agents/src/core/hookWireAdapter.ts` | `H-usage-key` | `usageFromHookResponse`           | Named hook-wire boundary: reads Gemini-named usageMetadata from the HookGenerateContentResponse wire to produce neutral UsageStats; AST-context: function body only |
 
 ### Expected entries at target state (added by migration slices)
 
@@ -86,3 +108,29 @@ Each entry is a markdown table row:
   OQ-3t is COMMITTED NEUTRAL (turnLogging.ts must carry ZERO Gemini usage
   keys).
 - Test allow-list: the named characterization tests (added by P28/P30).
+
+### P31 — External hook-wire characterization tests
+
+These tests intentionally construct the public hook JSON wire contract. They
+exercise the named production boundary adapters and are not agents-internal
+model fixtures.
+
+| File                                                                        | Subkind                 | Context Pattern | Justification                                                                                         |
+| --------------------------------------------------------------------------- | ----------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| `packages/agents/src/core/__tests__/directMessage.characterization.test.ts` | `test-structural-allow` | `hook-wire`     | Characterizes AfterModel `llm_response` wire modification through the direct-message boundary adapter |
+| `packages/agents/src/core/chatSession.hook-control.test.ts`                 | `test-structural-allow` | `hook-wire`     | Characterizes BeforeModel blocking `llm_response` wire conversion                                     |
+| `packages/agents/src/core/chatSession.issue1749.test.ts`                    | `test-structural-allow` | `hook-wire`     | Regression coverage for hook-provided `llm_response` wire conversion                                  |
+| `packages/agents/src/core/__tests__/hookWireAdapter.test.ts`                | `test-structural-allow` | `hook-wire`     | Direct characterization of the named external hook JSON-wire adapter                                  |
+
+### P31 — Legacy rejection tests (precise context-allowlist)
+
+These tests construct intentionally malformed/legacy Google-shaped fixtures
+inside named test blocks to prove that `getValidatedAfcHistory` rejects them
+(fail-closed). The keyword auto-exemption was removed; these are now allowed
+via exact file + context-pattern entries (the enclosing `it` block label
+identifies the rejection test).
+
+| File                                                              | Subkind                 | Context Pattern                                              | Justification                                                                                     |
+| ----------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `packages/agents/src/core/__tests__/afcHistoryValidation.test.ts` | `test-structural-allow` | `rejects ENTIRE payload when any entry lacks a blocks array` | Constructs legacy `{role,parts}` to prove validation rejects non-IContent entries (fail-closed)   |
+| `packages/agents/src/core/__tests__/afcHistoryValidation.test.ts` | `test-structural-allow` | `returns undefined when ALL entries are malformed`           | Constructs legacy `{role,parts}` to prove validation rejects all-malformed payloads (fail-closed) |

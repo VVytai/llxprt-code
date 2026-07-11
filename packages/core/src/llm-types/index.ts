@@ -37,6 +37,7 @@ export * from './providerApiError.js';
 export * from './tokensAndEmbeddings.js';
 export * from './grounding.js';
 export * from './geminiContent.js';
+export * from './afcHistory.js';
 
 /**
  * Neutral tool-call/tool-response ID canonicalization contract.

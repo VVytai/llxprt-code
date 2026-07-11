@@ -21,7 +21,7 @@ import type {
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
 import { type ChatSession } from './chatSession.js';
-import { isHookRestrictedToolCall } from './hookRestrictionsLegacyCompat.js';
+import { isToolNameRestricted } from './hookToolRestrictions.js';
 import type {
   AgentRuntimeContext,
   ToolRegistryView,
@@ -597,12 +597,7 @@ export class SubAgentScope {
 
     for (const request of toolRequests) {
       const hookRestrictedAllowedTools = request.hookRestrictedAllowedTools;
-      const functionCall = {
-        name: request.name,
-        args: request.args,
-        id: request.callId,
-      };
-      if (isHookRestrictedToolCall(functionCall, hookRestrictedAllowedTools)) {
+      if (isToolNameRestricted(request.name, hookRestrictedAllowedTools)) {
         continue;
       }
       if (request.name === 'self_emitvalue') {

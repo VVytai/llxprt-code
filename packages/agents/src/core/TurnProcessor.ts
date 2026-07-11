@@ -51,7 +51,10 @@ import type {
   ModelStreamChunk,
   ModelOutput,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import { toModelStreamChunk } from '@vybestack/llxprt-code-core/llm-types/index.js';
+import {
+  toModelStreamChunk,
+  emptyModelOutput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { iContentFromBlocks } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { isProviderApiError } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
@@ -63,35 +66,6 @@ type ToolGroupArray = Array<{
 interface ToolSelectionHookResult {
   tools: ToolGroupArray | undefined;
   allowedFunctionNames: string[] | undefined;
-}
-
-/**
- * Extracts neutral AFC history from an IContent's provider metadata.
- * Shared extraction logic for the non-streaming send path.
- */
-function getIContentAfcHistory(content: IContent): IContent[] | undefined {
-  const metadataValue =
-    content.metadata?.providerMetadata?.['automaticFunctionCallingHistory'];
-  if (Array.isArray(metadataValue)) {
-    return metadataValue as IContent[];
-  }
-  return undefined;
-}
-
-/**
- * Strips the raw (unfiltered) AFC from provider metadata so disallowed
- * tool calls cannot leak through the JSON-serialized response.
- */
-function stripAfcFromMeta(
-  meta: Record<string, unknown> | undefined,
-): Record<string, unknown> | undefined {
-  if (meta === undefined) return undefined;
-  if ('automaticFunctionCallingHistory' in meta) {
-    const { automaticFunctionCallingHistory: _removed, ...rest } = meta;
-    void _removed;
-    return rest;
-  }
-  return meta;
 }
 
 /**
@@ -160,6 +134,13 @@ export class TurnProcessor {
 
     const prepared = this._prepareSendMessage(params);
 
+    // #2410: when the user message converts to zero IContent turns (e.g.
+    // empty array after hook-restriction filtering), skip the provider call
+    // entirely — never submit a fabricated placeholder to the provider.
+    if (prepared.userIContents.length === 0) {
+      return emptyModelOutput();
+    }
+
     const provider = this.providerResolver('sendMessage');
     const response = await this._executeSendWithRetry(
       params,
@@ -170,7 +151,7 @@ export class TurnProcessor {
 
     this.sendPromise = this._commitSendResult(
       response,
-      prepared.userContent,
+      prepared.userContents,
       params,
       prompt_id,
     );
@@ -193,7 +174,7 @@ export class TurnProcessor {
     await this.sendPromise;
     this.lastPromptTokenCount = null;
 
-    const userContent = this._normalizeUserContent(params);
+    const userContents = this._normalizeUserContent(params);
 
     let streamDoneResolver: () => void;
     this.sendPromise = new Promise<void>((resolve) => {
@@ -214,7 +195,7 @@ export class TurnProcessor {
       }
     }
 
-    return this._createStreamGenerator(params, prompt_id, userContent, () => {
+    return this._createStreamGenerator(params, prompt_id, userContents, () => {
       abortSignal?.removeEventListener('abort', onAbort);
       streamDoneResolver!();
     });
@@ -223,7 +204,7 @@ export class TurnProcessor {
   private async *_createStreamGenerator(
     params: SendMessageParams,
     prompt_id: string,
-    userContent: IContent,
+    userContents: IContent[],
     onDone: () => void,
   ): AsyncGenerator<StreamEvent> {
     try {
@@ -234,7 +215,7 @@ export class TurnProcessor {
         const outcome = yield* this._runStreamAttempt(
           params,
           prompt_id,
-          userContent,
+          userContents,
           attempt,
         );
         lastError = outcome.error;
@@ -264,7 +245,7 @@ export class TurnProcessor {
   private async *_runStreamAttempt(
     params: SendMessageParams,
     prompt_id: string,
-    userContent: IContent,
+    userContents: IContent[],
     attempt: number,
   ): AsyncGenerator<StreamEvent, { error: unknown; action: 'retry' | 'stop' }> {
     if (attempt > 0) {
@@ -276,7 +257,7 @@ export class TurnProcessor {
       const stream = await this.streamProcessor.makeApiCallAndProcessStream(
         currentParams,
         prompt_id,
-        userContent,
+        userContents,
       );
       for await (const chunk of stream) {
         yield wrapChunk(chunk);
@@ -332,20 +313,19 @@ export class TurnProcessor {
     };
   }
 
-  private _normalizeUserContent(params: SendMessageParams): IContent {
+  private _normalizeUserContent(params: SendMessageParams): IContent[] {
     return normalizeToolInteractionInput(params.message);
   }
 
-  private _convertToIContents(userContent: IContent): IContent[] {
+  private _stampTurnMetadata(contents: IContent[]): IContent[] {
     const idGen = this.historyService.getIdGeneratorCallback();
-    const stamped: IContent = {
-      ...userContent,
+    return contents.map((content) => ({
+      ...content,
       metadata: {
-        ...userContent.metadata,
+        ...content.metadata,
         id: idGen(),
       },
-    };
-    return [stamped];
+    }));
   }
 
   /**
@@ -381,13 +361,13 @@ export class TurnProcessor {
    * Prepares user message: validates and converts input before provider enforcement.
    */
   private _prepareSendMessage(params: SendMessageParams): {
-    userContent: IContent;
+    userContents: IContent[];
     userIContents: IContent[];
   } {
-    const userContent = this._normalizeUserContent(params);
-    const userIContents = this._convertToIContents(userContent);
+    const userContents = this._normalizeUserContent(params);
+    const userIContents = this._stampTurnMetadata(userContents);
 
-    return { userContent, userIContents };
+    return { userContents, userIContents };
   }
 
   /**
@@ -568,7 +548,7 @@ export class TurnProcessor {
 
   private _applyHookToolFiltering(
     output: ModelStreamChunk,
-    lastResponse: IContent,
+    _lastResponse: IContent,
     allowedFunctionNames: string[] | undefined,
   ): void {
     if (allowedFunctionNames === undefined) return;
@@ -579,22 +559,15 @@ export class TurnProcessor {
         allowedFunctionNames,
       ),
     };
-    const rawAfc = getIContentAfcHistory(lastResponse);
-    if (rawAfc === undefined) return;
-    output.afcHistory = filterAfcByHookRestrictions(
-      rawAfc,
-      allowedFunctionNames,
-    );
-    output.providerMetadata = stripAfcFromMeta(output.providerMetadata);
-    output.content = {
-      ...output.content,
-      metadata: {
-        ...output.content.metadata,
-        providerMetadata: stripAfcFromMeta(
-          output.content.metadata?.providerMetadata,
-        ),
-      },
-    };
+    // P13 AFC boundary: toModelStreamChunk already extracted AFC into
+    // output.afcHistory and stripped it from providerMetadata. Apply
+    // hook-restriction filtering to the first-class afcHistory field only.
+    if (output.afcHistory !== undefined) {
+      output.afcHistory = filterAfcByHookRestrictions(
+        output.afcHistory,
+        allowedFunctionNames,
+      );
+    }
   }
 
   private _createProviderStream(
@@ -782,7 +755,7 @@ export class TurnProcessor {
    */
   private async _commitSendResult(
     response: ModelOutput,
-    userContent: IContent,
+    userContents: IContent[],
     _params: SendMessageParams,
     _prompt_id: string,
   ): Promise<void> {
@@ -797,7 +770,7 @@ export class TurnProcessor {
       if (filteredAfcHistory && filteredAfcHistory.length > 0) {
         this._recordAfcHistory(filteredAfcHistory, currentModel);
       } else {
-        this._recordUserContent(userContent, currentModel);
+        this._recordUserContents(userContents, currentModel);
       }
 
       this._recordOutputContent(response, currentModel, filteredAfcHistory);
@@ -825,11 +798,13 @@ export class TurnProcessor {
     }
   }
 
-  private _recordUserContent(
-    userContent: IContent,
+  private _recordUserContents(
+    userContents: IContent[],
     currentModel: string | undefined,
   ): void {
-    this.historyService.add(userContent, currentModel);
+    for (const content of userContents) {
+      this.historyService.add(content, currentModel);
+    }
   }
 
   private _recordOutputContent(

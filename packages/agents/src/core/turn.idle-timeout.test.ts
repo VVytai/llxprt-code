@@ -10,10 +10,7 @@ import { Turn, AgentEventType, DEFAULT_AGENT_ID } from './turn.js';
 import type { ChatSession } from './chatSession.js';
 import { StreamEventType } from './chatSession.js';
 import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import {
-  type MockedChatInstance,
-  mockResponseToChunk,
-} from './turn-test-helpers.js';
+import { type MockedChatInstance, mockChunk } from './turn-test-helpers.js';
 
 const { mockSendMessageStream, mockGetHistory } = vi.hoisted(() => ({
   mockSendMessageStream: vi.fn(),
@@ -105,17 +102,13 @@ describe('Turn - stream idle timeout behavioral tests', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'First chunk' }] } }],
-        }),
+        value: mockChunk({ text: 'First chunk' }),
       };
       // Inter-chunk gap that exceeds the 30s inter-chunk idle timeout.
       await vi.advanceTimersByTimeAsync(45_000);
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Late response' }] } }],
-        }),
+        value: mockChunk({ text: 'Late response' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -179,9 +172,7 @@ describe('Turn - stream idle timeout behavioral tests', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Fast response' }] } }],
-        }),
+        value: mockChunk({ text: 'Fast response' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -238,9 +229,7 @@ describe('Turn - stream idle timeout behavioral tests', () => {
       await iteratorPromise;
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Finally' }] } }],
-        }),
+        value: mockChunk({ text: 'Finally' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -308,17 +297,13 @@ describe('Turn - stream idle timeout behavioral tests', () => {
     const mockResponseStream = (async function* () {
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'First chunk' }] } }],
-        }),
+        value: mockChunk({ text: 'First chunk' }),
       };
       // Inter-chunk gap exceeding the env-driven 15s inter-chunk timeout.
       await vi.advanceTimersByTimeAsync(30_000);
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Late response' }] } }],
-        }),
+        value: mockChunk({ text: 'Late response' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);
@@ -387,9 +372,7 @@ describe('Turn - stream idle timeout behavioral tests', () => {
       await iteratorPromise;
       yield {
         type: StreamEventType.CHUNK,
-        value: mockResponseToChunk({
-          candidates: [{ content: { parts: [{ text: 'Finally' }] } }],
-        }),
+        value: mockChunk({ text: 'Finally' }),
       };
     })();
     mockSendMessageStream.mockResolvedValue(mockResponseStream);

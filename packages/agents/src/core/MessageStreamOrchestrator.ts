@@ -114,19 +114,13 @@ export const MAX_TURNS = 100;
 const MAX_RETRIES = 3;
 
 /**
- * Narrows the contract-level {@link AgentRequestInput} (which may carry
- * provider-native shapes) to the neutral {@link AgentMessageInput} expected
- * by the internal stream pipeline. At runtime every request is already
- * structurally an AgentMessageInput; this function provides a typed boundary
- * without mutating the payload.
+ * Narrows the contract-level {@link AgentRequestInput} to the neutral
+ * {@link AgentMessageInput} expected by the internal stream pipeline. Since
+ * AgentRequestInput is now typed as AgentMessageInput, this is a direct
+ * identity function — no cast or runtime check is needed.
  */
-function narrowToAgentMessageInput(
-  input: AgentRequestInput,
-): AgentMessageInput {
-  if (typeof input === 'string') {
-    return input;
-  }
-  return input as AgentMessageInput;
+function toAgentMessageInput(input: AgentRequestInput): AgentMessageInput {
+  return input;
 }
 
 export class MessageStreamOrchestrator {
@@ -146,7 +140,7 @@ export class MessageStreamOrchestrator {
     await this.deps.lazyInitialize();
     await this._ensureChatInitialized();
 
-    const narrowedRequest = narrowToAgentMessageInput(initialRequest);
+    const narrowedRequest = toAgentMessageInput(initialRequest);
     const promptText = extractPromptText(narrowedRequest);
     const ctx: StreamContext = {
       prompt_id,

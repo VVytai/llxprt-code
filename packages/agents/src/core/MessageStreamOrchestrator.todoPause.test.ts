@@ -82,11 +82,10 @@ function makePauseResponse(success: boolean): ToolCallResponseInfo {
     callId: 'pause-call-1',
     responseParts: [
       {
-        functionResponse: {
-          name: 'todo_pause',
-          id: 'pause-call-1',
-          response: success ? { ok: true } : {},
-        },
+        type: 'tool_response',
+        callId: 'pause-call-1',
+        toolName: 'todo_pause',
+        result: success ? { ok: true } : {},
       },
     ],
     resultDisplay: undefined,
@@ -378,11 +377,10 @@ describe('MessageStreamOrchestrator — todo_pause loop break (issue #2287)', ()
         callId: 'pause-call-1',
         responseParts: [
           {
-            functionResponse: {
-              name: 'todo_pause',
-              id: 'pause-call-1',
-              response: {},
-            },
+            type: 'tool_response',
+            callId: 'pause-call-1',
+            toolName: 'todo_pause',
+            result: {},
           },
         ],
         resultDisplay: undefined,

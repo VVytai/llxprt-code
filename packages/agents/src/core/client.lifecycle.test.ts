@@ -10,19 +10,20 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { GeminiContent } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import { getCoreSystemPromptAsync } from '@vybestack/llxprt-code-core/core/prompts.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ChatSession } from './chatSession.js';
 import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
-import { ContentConverters } from '@vybestack/llxprt-code-core/services/history/ContentConverters.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   getEnabledToolNamesForPrompt,
   shouldIncludeSubagentDelegationForConfig,
 } from './clientToolGovernance.js';
-import { setupGeminiClient } from './client-test-helpers.js';
+import {
+  setupGeminiClient,
+  type MockResponseShape,
+} from './client-test-helpers.js';
 
 // Mock prompts module before imports
 vi.mock('@vybestack/llxprt-code-core/core/prompts.js', () => ({
@@ -139,7 +140,7 @@ vi.mock('@vybestack/llxprt-code-core/utils/errorReporting.js', () => ({
 vi.mock(
   '@vybestack/llxprt-code-core/utils/generateContentResponseUtilities.js',
   () => ({
-    getResponseText: (result: GenerateContentResponse) =>
+    getResponseText: (result: MockResponseShape) =>
       result.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)
         .join('') ?? undefined,
@@ -179,7 +180,7 @@ vi.mock('@vybestack/llxprt-code-core/telemetry/uiTelemetry.js', () => ({
   },
 }));
 
-describe('Gemini Client (client.ts)', () => {
+describe('AgentClient (client.ts)', () => {
   let client: AgentClient;
 
   beforeEach(async () => {
@@ -260,16 +261,24 @@ describe('Gemini Client (client.ts)', () => {
       };
       client['chat'] = mockChat as unknown as ChatSession;
 
-      const historyWithThoughts: GeminiContent[] = [
+      const historyWithThoughts: IContent[] = [
         {
-          role: 'user',
-          parts: [{ text: 'hello' }],
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'hello' }],
         },
         {
-          role: 'model',
-          parts: [
-            { text: 'thinking...', thoughtSignature: 'thought-123' },
-            { text: 'ok', thoughtSignature: 'thought-456' },
+          speaker: 'ai',
+          blocks: [
+            {
+              type: 'thinking',
+              thought: 'thinking...',
+              signature: 'thought-123',
+            },
+            {
+              type: 'thinking',
+              thought: 'ok',
+              signature: 'thought-456',
+            },
           ],
         },
       ];
@@ -284,10 +293,10 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = undefined; // Chat not initialized
       vi.spyOn(client, 'hasChatInitialized').mockReturnValue(false);
 
-      const history: GeminiContent[] = [
+      const history: IContent[] = [
         {
-          role: 'user',
-          parts: [{ text: 'hello' }],
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'hello' }],
         },
       ];
 
@@ -300,15 +309,19 @@ describe('Gemini Client (client.ts)', () => {
     });
 
     it('returns history from a stored history service after profile invalidation', async () => {
-      const history: GeminiContent[] = [
-        { role: 'user', parts: [{ text: 'remember issue 2049' }] },
-        { role: 'model', parts: [{ text: 'we are preserving history' }] },
+      const history: IContent[] = [
+        {
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'remember issue 2049' }],
+        },
+        {
+          speaker: 'ai',
+          blocks: [{ type: 'text', text: 'we are preserving history' }],
+        },
       ];
-      const expectedIContent: IContent[] =
-        ContentConverters.toIContents(history);
       const historyService = new HistoryService();
       for (const content of history) {
-        historyService.add(ContentConverters.toIContent(content), 'test-model');
+        historyService.add(content, 'test-model');
       }
       client['_storedHistoryService'] = historyService;
       client['_previousHistory'] = undefined;
@@ -318,10 +331,10 @@ describe('Gemini Client (client.ts)', () => {
       const result = await client.getHistory();
       // Compare block-level content, ignoring metadata (turnId etc.) added by
       // the HistoryService that are not part of the test's input data.
-      expect(result).toHaveLength(expectedIContent.length);
-      for (let i = 0; i < expectedIContent.length; i++) {
-        expect(result[i].speaker).toBe(expectedIContent[i].speaker);
-        expect(result[i].blocks).toStrictEqual(expectedIContent[i].blocks);
+      expect(result).toHaveLength(history.length);
+      for (let i = 0; i < history.length; i++) {
+        expect(result[i].speaker).toBe(history[i].speaker);
+        expect(result[i].blocks).toStrictEqual(history[i].blocks);
       }
     });
 
@@ -333,10 +346,10 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = mockChat as unknown as ChatSession;
       vi.spyOn(client, 'hasChatInitialized').mockReturnValue(true);
 
-      const history: GeminiContent[] = [
+      const history: IContent[] = [
         {
-          role: 'user',
-          parts: [{ text: 'hello' }],
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'hello' }],
         },
       ];
 
@@ -357,10 +370,10 @@ describe('Gemini Client (client.ts)', () => {
       client['chat'] = mockChat as unknown as ChatSession;
       vi.spyOn(client, 'hasChatInitialized').mockReturnValue(true);
 
-      const history: GeminiContent[] = [
+      const history: IContent[] = [
         {
-          role: 'user',
-          parts: [{ text: 'hello' }],
+          speaker: 'human',
+          blocks: [{ type: 'text', text: 'hello' }],
         },
       ];
 

@@ -241,12 +241,24 @@ describe('chatCommand', () => {
       const result = await saveCommand.action?.(mockContext, tag);
 
       expect(mockCheckpointExists).not.toHaveBeenCalled(); // Should skip existence check
-      // saveCheckpoint receives CheckpointContent[] (role/parts), converted from IContent
+      // saveCheckpoint receives CheckpointContent[] with neutral ContentBlock parts + speaker
       expect(mockSaveCheckpoint).toHaveBeenCalledWith(
         [
-          { role: 'user', parts: [{ text: 'context for our chat' }] },
-          { role: 'user', parts: [{ text: 'hello' }] },
-          { role: 'model', parts: [{ text: 'Hi there!' }] },
+          {
+            role: 'user',
+            parts: [{ type: 'text', text: 'context for our chat' }],
+            speaker: 'human',
+          },
+          {
+            role: 'user',
+            parts: [{ type: 'text', text: 'hello' }],
+            speaker: 'human',
+          },
+          {
+            role: 'model',
+            parts: [{ type: 'text', text: 'Hi there!' }],
+            speaker: 'ai',
+          },
         ],
         tag,
       );
@@ -367,11 +379,19 @@ describe('chatCommand', () => {
     });
 
     it('should resume a conversation', async () => {
-      // Checkpoint files store CheckpointContent (role/parts); resume converts
-      // them to neutral IContent (speaker/blocks).
+      // Checkpoint files store CheckpointContent with neutral ContentBlock
+      // parts + speaker; resume converts them to neutral IContent.
       const checkpointHistory = [
-        { role: 'user', parts: [{ text: 'hello gemini' }] },
-        { role: 'model', parts: [{ text: 'hello world' }] },
+        {
+          role: 'user',
+          parts: [{ type: 'text', text: 'hello gemini' }],
+          speaker: 'human',
+        },
+        {
+          role: 'model',
+          parts: [{ type: 'text', text: 'hello world' }],
+          speaker: 'ai',
+        },
       ];
       mockLoadCheckpoint.mockResolvedValue({ history: checkpointHistory });
 

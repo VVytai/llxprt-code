@@ -357,6 +357,85 @@ describe('P12: normal completion path (characterization)', () => {
     expect(visibleText(result)).toBe('Hello world!');
   });
 
+  it('preserves thinking-block position when aggregating multi-chunk text', async () => {
+    // The last (terminal) chunk carries a thinking block BEFORE the text
+    // block. _ensureResponseText must replace the text in-place (preserving
+    // the thinking block) rather than moving all non-text blocks first
+    // or stripping the thinking block.
+    function thinkingThenTextIContent(thought: string, text: string): IContent {
+      return {
+        speaker: 'ai',
+        blocks: [
+          { type: 'thinking', thought, sourceField: 'thought' },
+          { type: 'text', text },
+        ],
+        metadata: { stopReason: 'stop' },
+      };
+    }
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        textTerminalIContent('Hello'),
+        thinkingThenTextIContent('Let me think', 'world!'),
+      ]),
+    ) as Mock;
+    const harness = createDirectHarness(mock);
+
+    const result = await harness.chat.generateDirectMessage(
+      { message: 'think and greet' },
+      'prompt-p12-thinking-order',
+    );
+
+    // The aggregated text must include all chunks' text.
+    expect(visibleText(result)).toBe('Hello world!');
+    // The thinking block from the terminal chunk must survive — it must
+    // NOT be stripped or reordered by _ensureResponseText.
+    const blocks = (result as { content?: { blocks?: unknown[] } }).content
+      ?.blocks;
+    expect(Array.isArray(blocks)).toBe(true);
+    const typedBlocks = blocks as unknown[];
+    const thinking = typedBlocks.find(
+      (b) =>
+        typeof b === 'object' &&
+        b !== null &&
+        (b as { type: string }).type === 'thinking',
+    );
+    expect(thinking).toBeDefined();
+  });
+
+  it('appends text at end when last chunk has no text blocks (tool-call only)', async () => {
+    // The last chunk carries only a tool_call block — no text block.
+    // _ensureResponseText must append the aggregated text AFTER the
+    // tool_call rather than dropping it.
+    function toolCallOnlyIContent(): IContent {
+      return {
+        speaker: 'ai',
+        blocks: [
+          {
+            type: 'tool_call',
+            id: 'call-1',
+            name: 'read_file',
+            parameters: { path: '/test' },
+          },
+        ],
+        metadata: { stopReason: 'tool_call' },
+      };
+    }
+    const mock = vi.fn(() =>
+      makeProviderStream([
+        textTerminalIContent('Calling tool: '),
+        toolCallOnlyIContent(),
+      ]),
+    ) as Mock;
+    const harness = createDirectHarness(mock);
+
+    const result = await harness.chat.generateDirectMessage(
+      { message: 'use tool' },
+      'prompt-p12-tool-append',
+    );
+
+    expect(visibleText(result)).toBe('Calling tool: ');
+  });
+
   // PROPERTY: for any visible model text, it surfaces unchanged
   it('surfaces any arbitrary model text unchanged (property)', async () => {
     const textArb = fc
