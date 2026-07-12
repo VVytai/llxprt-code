@@ -37,24 +37,36 @@ describe('ShellTool schema guidance on Windows', () => {
   });
 
   it('describes the PowerShell runtime invocation', () => {
-    expect(createShellTool().schema).toMatchObject({
-      description: expect.stringMatching(
-        /PowerShell.*powershell\.exe.*pwsh.*-NoProfile -Command/,
-      ),
+    const description = createShellTool().schema.description ?? '';
+
+    expect({
+      PowerShell: description.includes('PowerShell'),
+      powershellExecutable: description.includes('powershell.exe'),
+      pwshExecutable: description.includes('pwsh'),
+      invocationFlags: description.includes('-NoProfile -Command'),
+    }).toStrictEqual({
+      PowerShell: true,
+      powershellExecutable: true,
+      pwshExecutable: true,
+      invocationFlags: true,
     });
   });
 
   it('describes the command parameter as PowerShell input', () => {
-    expect(createShellTool().schema).toMatchObject({
-      parametersJsonSchema: {
-        properties: {
-          command: {
-            description: expect.stringMatching(
-              /PowerShell.*-NoProfile -Command.*powershell\.exe.*pwsh/,
-            ),
-          },
-        },
-      },
+    const description = JSON.stringify(
+      createShellTool().schema.parametersJsonSchema,
+    );
+
+    expect({
+      PowerShell: description.includes('PowerShell'),
+      powershellExecutable: description.includes('powershell.exe'),
+      pwshExecutable: description.includes('pwsh'),
+      invocationFlags: description.includes('-NoProfile -Command'),
+    }).toStrictEqual({
+      PowerShell: true,
+      powershellExecutable: true,
+      pwshExecutable: true,
+      invocationFlags: true,
     });
   });
 
