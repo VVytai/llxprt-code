@@ -45,7 +45,7 @@ function makeChunk(
   return {
     id: 'chunk-test',
     object: 'chat.completion.chunk',
-    created: Date.now(),
+    created: 1000000,
     model: 'test-model',
     choices: [
       {
