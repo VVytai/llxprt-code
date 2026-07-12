@@ -425,7 +425,10 @@ describe('createChatSession', () => {
     expect(storedHistoryService.isEmpty()).toBe(false);
     const restored = storedHistoryService.getAll();
     expect(restored.length).toBe(1);
-    expect(restored[0].blocks.some((b) => b.type === 'text')).toBe(true);
+    expect(restored[0].speaker).toBe('human');
+    const textBlock = restored[0].blocks.find((b) => b.type === 'text');
+    expect(textBlock).toBeDefined();
+    expect((textBlock as { text?: string }).text).toBe('Soft circuits awaken');
   });
 
   it('does not fold extraHistory into a non-empty reused HistoryService', async () => {
