@@ -31,6 +31,23 @@ function createShellTool(): ShellTool {
   return new ShellTool(createFakeShellService());
 }
 
+function getObjectProperty(value: unknown, property: string): unknown {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+  return Reflect.get(value, property);
+}
+
+function getCommandDescription(tool: ShellTool): string {
+  const properties = getObjectProperty(
+    tool.schema.parametersJsonSchema,
+    'properties',
+  );
+  const command = getObjectProperty(properties, 'command');
+  const description = getObjectProperty(command, 'description');
+  return typeof description === 'string' ? description : '';
+}
+
 describe('ShellTool schema guidance on Windows', () => {
   beforeEach(() => {
     vi.mocked(os.platform).mockReturnValue('win32');
@@ -53,9 +70,7 @@ describe('ShellTool schema guidance on Windows', () => {
   });
 
   it('describes the command parameter as PowerShell input', () => {
-    const description = JSON.stringify(
-      createShellTool().schema.parametersJsonSchema,
-    );
+    const description = getCommandDescription(createShellTool());
 
     expect({
       PowerShell: description.includes('PowerShell'),
