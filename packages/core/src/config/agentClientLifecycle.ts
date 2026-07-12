@@ -12,55 +12,48 @@ import { createContentGeneratorConfig } from '../core/contentGenerator.js';
 import type {
   AgentClientContract,
   AgentClientFactory,
-  ContractContent,
 } from '../core/clientContract.js';
+import type { IContent } from '../services/history/IContent.js';
 import { createAgentRuntimeStateFromConfig } from '../runtime/runtimeStateFactory.js';
 import type { Config } from './config.js';
 
 /**
- * Removes `thoughtSignature` from every part in the history.
+ * Removes `signature` from every thinking block in the history.
  * Used when migrating from GenAI to Vertex (Vertex does not support
  * thought signatures).
  *
- * History Content[] is external data from the Gemini API that was
- * serialized/deserialized, so parts are validated at this boundary.
+ * History IContent[] is external data that was serialized/deserialized,
+ * so blocks are validated at this boundary.
  */
-export function stripThoughtSignatures(
-  history: ContractContent[],
-): ContractContent[] {
-  return history.map((content) => {
-    if (!content.parts) {
-      return content;
-    }
-    return {
-      ...content,
-      parts: content.parts.map((part) => {
-        if (isPartWithThoughtSignature(part)) {
-          const newPart = { ...part };
-          delete (newPart as { thoughtSignature?: unknown }).thoughtSignature;
-          return newPart;
-        }
-        return part;
-      }),
-    };
-  });
+export function stripThoughtSignatures(history: IContent[]): IContent[] {
+  return history.map((content) => ({
+    ...content,
+    blocks: content.blocks.map((block) => {
+      if (isBlockWithSignature(block)) {
+        const newBlock = { ...block };
+        delete (newBlock as { signature?: unknown }).signature;
+        return newBlock;
+      }
+      return block;
+    }),
+  }));
 }
 
 /**
- * Type guard validating that an untyped history part is a non-null object
- * containing a `thoughtSignature` key. History data originates from the
- * Gemini API and may not match the static Part type at runtime.
+ * Type guard validating that an untyped history block is a non-null object
+ * containing a `signature` key. History data may not match the static
+ * ThinkingBlock type at runtime.
  */
-function isPartWithThoughtSignature(part: unknown): part is Record<
+function isBlockWithSignature(block: unknown): block is Record<
   string,
   unknown
 > & {
-  thoughtSignature?: unknown;
+  signature?: unknown;
 } {
   return (
-    part !== null &&
-    typeof part === 'object' &&
-    'thoughtSignature' in (part as Record<string, unknown>)
+    block !== null &&
+    typeof block === 'object' &&
+    'signature' in (block as Record<string, unknown>)
   );
 }
 
@@ -96,7 +89,7 @@ export async function extractExistingState(
   logger: DebugLogger,
   agentClient: AgentClientContract | null | undefined,
 ): Promise<{
-  history: ContractContent[];
+  history: IContent[];
   historyService: ReturnType<AgentClientContract['getHistoryService']>;
 }> {
   if (agentClient === null || agentClient === undefined) {
@@ -186,7 +179,7 @@ export function buildNewContentGeneratorConfig(
 export function transferHistoryToNewClient(
   logger: DebugLogger,
   newAgentClient: AgentClientContract,
-  existingHistory: ContractContent[],
+  existingHistory: IContent[],
   existingHistoryService: ReturnType<AgentClientContract['getHistoryService']>,
   newContentGeneratorConfig: ReturnType<typeof createContentGeneratorConfig>,
   previousVertexai: boolean | undefined,
