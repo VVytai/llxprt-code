@@ -166,7 +166,36 @@ export interface CreateChatSessionDeps {
 }
 
 /**
+ * Appends extra history onto a HistoryService with a fresh turn key per entry.
+ * No-op when there is nothing to load.
+ */
+function loadExtraHistory(
+  historyService: HistoryService,
+  extraHistory: IContent[] | undefined,
+  currentModel: string,
+): void {
+  if (!extraHistory || extraHistory.length === 0) {
+    return;
+  }
+  for (const content of extraHistory) {
+    const turnKey = historyService.generateTurnKey();
+    historyService.add(
+      { ...content, metadata: { ...content.metadata, turnId: turnKey } },
+      currentModel,
+    );
+  }
+}
+
+/**
  * Resolves (or creates) the HistoryService and optionally loads extra history.
+ *
+ * A stored service is reused to preserve the live conversation/UI display
+ * across provider/auth rebuilds. However, `extraHistory` (e.g. the carried
+ * `_previousHistory` from a client rebuild during --continue) must not be
+ * silently dropped when the stored service is still empty — otherwise restored
+ * context never reaches the model (issue #2500). When the stored service
+ * already holds content (a mid-session switch), extraHistory is skipped to
+ * avoid duplicating turns.
  */
 function setupHistoryService(
   storedHistoryService: HistoryService | undefined,
@@ -174,22 +203,17 @@ function setupHistoryService(
   runtimeState: AgentRuntimeState,
 ): { historyService: HistoryService; reused: boolean } {
   const logger = new DebugLogger('llxprt:client:start');
+  const currentModel = runtimeState.model;
   if (storedHistoryService) {
+    if (storedHistoryService.isEmpty()) {
+      loadExtraHistory(storedHistoryService, extraHistory, currentModel);
+    }
     logger.debug('Reusing stored HistoryService to preserve UI conversation');
     return { historyService: storedHistoryService, reused: true };
   }
 
   const historyService = new HistoryService();
-  if (extraHistory && extraHistory.length > 0) {
-    const currentModel = runtimeState.model;
-    for (const content of extraHistory) {
-      const turnKey = historyService.generateTurnKey();
-      historyService.add(
-        { ...content, metadata: { ...content.metadata, turnId: turnKey } },
-        currentModel,
-      );
-    }
-  }
+  loadExtraHistory(historyService, extraHistory, currentModel);
   return { historyService, reused: false };
 }
 
