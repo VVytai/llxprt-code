@@ -331,12 +331,15 @@ describe('Gemini Client (client.ts)', () => {
       // The request should include the additional context
       expect(capturedRequests.length).toBeGreaterThan(0);
       const request = capturedRequests[0];
-      const requestParts = Array.isArray(request) ? request : [request];
-      const hasAdditionalContext = requestParts.some(
-        (part) =>
-          typeof part === 'object' &&
-          'text' in part &&
-          part.text === 'Additional context from hook',
+      const requestContents = Array.isArray(request) ? request : [request];
+      const hasAdditionalContext = requestContents.some(
+        (content) =>
+          'blocks' in content &&
+          content.blocks.some(
+            (block) =>
+              block.type === 'text' &&
+              block.text === 'Additional context from hook',
+          ),
       );
       expect(hasAdditionalContext).toBe(true);
     });

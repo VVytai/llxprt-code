@@ -11,8 +11,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
-  ContentBlock,
   AgentMessageInput,
+  IContent,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
@@ -215,11 +215,11 @@ describe('AgentClient (client.ts)', () => {
     });
 
     it('should auto-continue when model generates thinking-only output', async () => {
-      const forwardedRequests: ContentBlock[][] = [];
+      const forwardedRequests: IContent[][] = [];
       let callCount = 0;
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as ContentBlock[]);
+        forwardedRequests.push(req as IContent[]);
         callCount++;
         if (callCount === 1) {
           return (async function* () {
@@ -275,13 +275,16 @@ describe('AgentClient (client.ts)', () => {
       expect(forwardedRequests.length).toBe(2);
 
       const secondRequest = forwardedRequests[1];
-      const continuationPart = secondRequest.find(
-        (part) =>
-          typeof part === 'object' &&
-          'text' in part &&
-          typeof part.text === 'string' &&
-          part.text.includes('Continue and take the next concrete action now'),
-      );
+      const continuationPart = secondRequest
+        .flatMap((content) => ('blocks' in content ? content.blocks : []))
+        .find((block) => {
+          if (block.type !== 'text') {
+            return false;
+          }
+          return block.text.includes(
+            'Continue and take the next concrete action now',
+          );
+        });
       expect(continuationPart).toBeDefined();
 
       expect(events.some((e) => e.type === AgentEventType.Thought)).toBe(true);

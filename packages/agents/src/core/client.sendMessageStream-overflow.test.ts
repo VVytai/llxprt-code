@@ -807,14 +807,24 @@ describe('AgentClient (client.ts)', () => {
       // First call with original request
       expect(mockTurnRunFn).toHaveBeenNthCalledWith(
         1,
-        initialRequest,
+        [
+          {
+            speaker: 'human',
+            blocks: initialRequest,
+          },
+        ],
         expect.any(Object),
       );
 
       // Second call with "Please continue."
       expect(mockTurnRunFn).toHaveBeenNthCalledWith(
         2,
-        [{ type: 'text', text: 'System: Please continue.' }],
+        [
+          {
+            speaker: 'human',
+            blocks: [{ type: 'text', text: 'System: Please continue.' }],
+          },
+        ],
         expect.any(Object),
       );
     });
