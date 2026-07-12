@@ -65,7 +65,8 @@ export function buildModelInfo(
     model,
     providerName: resolveProviderName(config),
     profileName,
-    displayLabel: profileName && profileName !== '' ? profileName : model,
+    displayLabel:
+      profileName && profileName !== '' ? `${profileName}:${model}` : model,
   };
 }
 
