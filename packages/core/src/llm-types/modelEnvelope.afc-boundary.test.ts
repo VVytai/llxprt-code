@@ -232,8 +232,8 @@ describe('toModelStreamChunk — AFC boundary extraction', () => {
     expect(chunk.afcHistory).toBeUndefined();
   });
 
-  it('does not populate afcHistory when AFC has orphaned tool call', () => {
-    const content = {
+  it('structurally preserves an orphaned tool call in afcHistory', () => {
+    const content: IContent = {
       speaker: 'ai',
       blocks: [{ type: 'text', text: 'orphan' }],
       metadata: {
@@ -254,9 +254,24 @@ describe('toModelStreamChunk — AFC boundary extraction', () => {
           ],
         },
       },
-    } as unknown as IContent;
+    };
     const chunk = toModelStreamChunk(content);
-    expect(chunk.afcHistory).toBeUndefined();
+    // Structural preservation (neutral contract): a well-formed entry
+    // (valid speaker + non-empty blocks + valid tool_call block) survives
+    // into the first-class afcHistory field even when its tool call has no
+    // paired response. Call/response pairing is NOT enforced at this boundary.
+    expect(chunk.afcHistory).toBeDefined();
+    expect(chunk.afcHistory).toHaveLength(1);
+    expect(chunk.afcHistory?.[0].blocks[0]).toMatchObject({
+      type: 'tool_call',
+      id: 'orphan',
+      name: 'read_file',
+    });
+    // The raw provider wire key is still stripped from providerMetadata so
+    // agents consume ONLY the neutral afcHistory field.
+    expect(
+      chunk.providerMetadata?.['automaticFunctionCallingHistory'],
+    ).toBeUndefined();
   });
 
   it('preserves other metadata fields when extracting AFC', () => {
@@ -306,6 +321,33 @@ describe('toModelStreamChunk — AFC boundary extraction', () => {
       totalTokens: 150,
     });
     expect(chunk.finishReason).toBe('stop');
+  });
+
+  it.each([
+    {
+      name: 'tool call parameters',
+      block: { type: 'tool_call', id: 'c1', name: 'search' },
+    },
+    {
+      name: 'tool response result',
+      block: {
+        type: 'tool_response',
+        callId: 'c1',
+        toolName: 'search',
+      },
+    },
+  ])('rejects AFC missing required $name', ({ block }) => {
+    const content: IContent = {
+      speaker: 'ai',
+      blocks: [{ type: 'text', text: 'done' }],
+      metadata: {
+        providerMetadata: {
+          automaticFunctionCallingHistory: [{ speaker: 'ai', blocks: [block] }],
+        },
+      },
+    };
+
+    expect(extractAfcHistory(content)).toBeUndefined();
   });
 });
 

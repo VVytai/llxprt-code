@@ -17,9 +17,7 @@ import type {
   ContentBlock,
 } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import {
-  iContentFromAgentMessageInput,
-} from '@vybestack/llxprt-code-core/llm-types/index.js';
+import { iContentFromAgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
 
 /**
  * Aggregates text from content blocks while preserving spacing around non-text blocks.

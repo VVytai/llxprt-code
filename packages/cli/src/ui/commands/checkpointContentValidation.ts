@@ -358,9 +358,13 @@ export function iContentToCheckpoint(ic: IContent): CheckpointContent {
  */
 export function checkpointToIContent(cp: CheckpointContent): IContent {
   if (cp.speaker === 'human' || cp.speaker === 'ai' || cp.speaker === 'tool') {
-    const blocks: ContentBlock[] = (cp.parts ?? [])
-      .map(checkpointPartToContentBlock)
-      .filter((b): b is ContentBlock => b !== null);
+    const convertedBlocks = (cp.parts ?? []).map(checkpointPartToContentBlock);
+    if (convertedBlocks.some((block) => block === null)) {
+      throw new Error('Checkpoint contains an invalid neutral content block.');
+    }
+    const blocks = convertedBlocks.filter(
+      (block): block is ContentBlock => block !== null,
+    );
     const result: IContent = {
       speaker: cp.speaker,
       blocks,

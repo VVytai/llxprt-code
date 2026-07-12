@@ -219,37 +219,49 @@ describe('createGeminiResponseMapper — AFC response conversion (provider bound
     expect(chunk.providerMetadata?.[AFC_KEY]).toBeUndefined();
   });
 
-  describe('malformed / empty AFC is not attached', () => {
-    it('does not attach when AFC pairing is malformed (orphaned tool call)', () => {
-      const response = makeResponse({
-        candidates: [textCandidate('hi')],
-        afcHistory: [
-          {
-            role: 'model',
-            parts: [
-              {
-                functionCall: { id: 'call_1', name: 'get_weather', args: {} },
-              },
-            ],
-          },
-        ],
-      });
-
-      const mapResponseToChunks = createGeminiResponseMapper();
-      const chunks = mapResponseToChunks(response);
-
-      expect(chunks).toHaveLength(1);
-      // Carrier metadata is left untouched for a malformed sequence.
-      expect(chunks[0].metadata?.providerMetadata?.[AFC_KEY]).toBeUndefined();
-
-      const chunk = toModelStreamChunk(chunks[0]);
-      expect(chunk.afcHistory).toBeUndefined();
-      // Main content is still present.
-      expect(chunk.content.blocks).toStrictEqual([
-        { type: 'text', text: 'hi' },
-      ]);
+  it('retains a structurally-valid orphaned tool call on the carrier and in afcHistory', () => {
+    const response = makeResponse({
+      candidates: [textCandidate('hi')],
+      afcHistory: [
+        {
+          role: 'model',
+          parts: [
+            {
+              functionCall: { id: 'call_1', name: 'get_weather', args: {} },
+            },
+          ],
+        },
+      ],
     });
 
+    const mapResponseToChunks = createGeminiResponseMapper();
+    const chunks = mapResponseToChunks(response);
+
+    expect(chunks).toHaveLength(1);
+    // Structural preservation (neutral contract): a well-formed orphaned
+    // tool call (valid speaker + non-empty blocks + valid tool_call block) is
+    // a valid AFC carrier. Call/response pairing is NOT enforced at the
+    // provider boundary, so the neutral history is stamped onto the carrier.
+    const carrierAfc = chunks[0].metadata?.providerMetadata?.[AFC_KEY];
+    expect(carrierAfc).toBeDefined();
+    expect(carrierAfc).toHaveLength(1);
+
+    const chunk = toModelStreamChunk(chunks[0]);
+    const afc = afcOf(chunk);
+    expect(afc).toHaveLength(1);
+    expect(afc[0].speaker).toBe('ai');
+    expect(afc[0].blocks[0]).toMatchObject({
+      type: 'tool_call',
+      name: 'get_weather',
+    });
+    // The raw provider wire key is stripped from provider metadata so agents
+    // consume ONLY the neutral afcHistory field.
+    expect(chunk.providerMetadata?.[AFC_KEY]).toBeUndefined();
+    // Main content is still present through the boundary.
+    expect(chunk.content.blocks).toStrictEqual([{ type: 'text', text: 'hi' }]);
+  });
+
+  describe('empty, absent, or invalid AFC is not attached', () => {
     it('does not attach when AFC history is an empty array', () => {
       const response = makeResponse({
         candidates: [textCandidate('hi')],
@@ -264,6 +276,18 @@ describe('createGeminiResponseMapper — AFC response conversion (provider bound
       expect(toModelStreamChunk(chunks[0]).afcHistory).toBeUndefined();
     });
 
+    it('does not attach structurally invalid AFC history', () => {
+      const response = makeResponse({
+        candidates: [textCandidate('hi')],
+        afcHistory: [{ role: 'model', parts: [] }],
+      });
+
+      const chunks = createGeminiResponseMapper()(response);
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].metadata?.providerMetadata?.[AFC_KEY]).toBeUndefined();
+      expect(toModelStreamChunk(chunks[0]).afcHistory).toBeUndefined();
+    });
     it('does not attach when AFC history is absent', () => {
       const response = makeResponse({
         candidates: [textCandidate('hi')],

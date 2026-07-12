@@ -421,15 +421,9 @@ describe('checkpoint content validation via command path', () => {
     ];
     mockLoadCheckpoint.mockResolvedValue({ history: checkpointHistory });
 
-    const result = await resumeCommand.action?.(mockContext, goodTag);
-    expect(result).toBeDefined();
-    expect(result?.type).toBe('load_history');
-    const clientHistory = (result as { clientHistory: IContent[] })
-      .clientHistory;
-    expect(clientHistory).toHaveLength(1);
-    expect(clientHistory[0].blocks).toStrictEqual([
-      { type: 'text', text: 'valid text' },
-    ]);
+    await expect(resumeCommand.action?.(mockContext, goodTag)).rejects.toThrow(
+      'Checkpoint contains an invalid neutral content block.',
+    );
   });
 
   it('preserves all valid ContentBlock variants through the runtime validator', async () => {
@@ -616,9 +610,8 @@ describe('checkpoint content validation via command path', () => {
     ];
     mockLoadCheckpoint.mockResolvedValue({ history: checkpointHistory });
 
-    const result = await resumeCommand.action?.(mockContext, goodTag);
-    const clientHistory = (result as { clientHistory: IContent[] })
-      .clientHistory;
-    expect(clientHistory[0].blocks).toHaveLength(0);
+    await expect(resumeCommand.action?.(mockContext, goodTag)).rejects.toThrow(
+      'Checkpoint contains an invalid neutral content block.',
+    );
   });
 });

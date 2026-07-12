@@ -109,85 +109,84 @@ describe('iContentFromAgentMessageInput', () => {
       });
     }
   });
-// ---------------------------------------------------------------------------
-// iContentFromAgentMessageInput — legacy PartListUnion boundary (REQ-001.1)
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // iContentFromAgentMessageInput — legacy PartListUnion boundary (REQ-001.1)
+  // ---------------------------------------------------------------------------
 
-describe('iContentFromAgentMessageInput — legacy PartListUnion routing', () => {
-  it('non-empty legacy [{text}] → lossless human TextBlock', () => {
-    const result = iContentFromAgentMessageInput([
-      { text: 'hello' },
-    ] as unknown as AgentMessageInput);
-    expect(result).toStrictEqual<IContent[]>([
-      { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
-    ]);
-  });
+  describe('iContentFromAgentMessageInput — legacy PartListUnion routing', () => {
+    it('non-empty legacy [{text}] → lossless human TextBlock', () => {
+      const result = iContentFromAgentMessageInput([
+        { text: 'hello' },
+      ] as unknown as AgentMessageInput);
+      expect(result).toStrictEqual<IContent[]>([
+        { speaker: 'human', blocks: [{ type: 'text', text: 'hello' }] },
+      ]);
+    });
 
-  it('non-empty legacy [{text}, {text}] → multiple TextBlocks in one turn', () => {
-    const result = iContentFromAgentMessageInput([
-      { text: 'first' },
-      { text: 'second' },
-    ] as unknown as AgentMessageInput);
-    expect(result).toHaveLength(1);
-    expect(result[0].speaker).toBe('human');
-    expect(result[0].blocks).toStrictEqual([
-      { type: 'text', text: 'first' },
-      { type: 'text', text: 'second' },
-    ]);
-  });
+    it('non-empty legacy [{text}, {text}] → multiple TextBlocks in one turn', () => {
+      const result = iContentFromAgentMessageInput([
+        { text: 'first' },
+        { text: 'second' },
+      ] as unknown as AgentMessageInput);
+      expect(result).toHaveLength(1);
+      expect(result[0].speaker).toBe('human');
+      expect(result[0].blocks).toStrictEqual([
+        { type: 'text', text: 'first' },
+        { type: 'text', text: 'second' },
+      ]);
+    });
 
-  it('non-empty legacy [{thought, thoughtSignature}] → ThinkingBlock preserved', () => {
-    const result = iContentFromAgentMessageInput([
-      { thought: 'reasoning', thoughtSignature: 'sig123' },
-    ] as unknown as AgentMessageInput);
-    expect(result).toHaveLength(1);
-    const block = result[0].blocks[0] as ThinkingBlock;
-    expect(block.type).toBe('thinking');
-    expect(block.thought).toBe('reasoning');
-    expect(block.signature).toBe('sig123');
-  });
+    it('non-empty legacy [{thought, thoughtSignature}] → ThinkingBlock preserved', () => {
+      const result = iContentFromAgentMessageInput([
+        { thought: 'reasoning', thoughtSignature: 'sig123' },
+      ] as unknown as AgentMessageInput);
+      expect(result).toHaveLength(1);
+      const block = result[0].blocks[0] as ThinkingBlock;
+      expect(block.type).toBe('thinking');
+      expect(block.thought).toBe('reasoning');
+      expect(block.signature).toBe('sig123');
+    });
 
-  it('non-empty legacy [{functionCall}] → ToolCallBlock preserved', () => {
-    const result = iContentFromAgentMessageInput([
-      {
-        functionCall: {
-          id: 'call-1',
-          name: 'search',
-          args: { q: 'test' },
+    it('non-empty legacy [{functionCall}] → ToolCallBlock preserved', () => {
+      const result = iContentFromAgentMessageInput([
+        {
+          functionCall: {
+            id: 'call-1',
+            name: 'search',
+            args: { q: 'test' },
+          },
         },
-      },
-    ] as unknown as AgentMessageInput);
-    expect(result).toHaveLength(1);
-    const block = result[0].blocks[0] as ToolCallBlock;
-    expect(block.type).toBe('tool_call');
-    expect(block.id).toBe('call-1');
-    expect(block.name).toBe('search');
-    expect(block.parameters).toStrictEqual({ q: 'test' });
-  });
+      ] as unknown as AgentMessageInput);
+      expect(result).toHaveLength(1);
+      const block = result[0].blocks[0] as ToolCallBlock;
+      expect(block.type).toBe('tool_call');
+      expect(block.id).toBe('call-1');
+      expect(block.name).toBe('search');
+      expect(block.parameters).toStrictEqual({ q: 'test' });
+    });
 
-  it('empty array [] remains a no-op (returns [])', () => {
-    const result = iContentFromAgentMessageInput([]);
-    expect(result).toStrictEqual<IContent[]>([]);
-  });
+    it('empty array [] remains a no-op (returns [])', () => {
+      const result = iContentFromAgentMessageInput([]);
+      expect(result).toStrictEqual<IContent[]>([]);
+    });
 
-  it('unsupported non-empty array throws explicit error (never silent)', () => {
-    expect(() =>
-      iContentFromAgentMessageInput([
-        { weird: 1 },
-      ] as unknown as AgentMessageInput),
-    ).toThrow(/unsupported input shape/);
-  });
+    it('unsupported non-empty array throws explicit error (never silent)', () => {
+      expect(() =>
+        iContentFromAgentMessageInput([
+          { weird: 1 },
+        ] as unknown as AgentMessageInput),
+      ).toThrow(/unsupported input shape/);
+    });
 
-  it('result has NO role/parts/candidates keys for legacy input', () => {
-    const result = iContentFromAgentMessageInput([
-      { text: 'hello' },
-    ] as unknown as AgentMessageInput);
-    result.forEach((item) => {
-      expect(hasNoGoogleKeys(item)).toBe(true);
+    it('result has NO role/parts/candidates keys for legacy input', () => {
+      const result = iContentFromAgentMessageInput([
+        { text: 'hello' },
+      ] as unknown as AgentMessageInput);
+      result.forEach((item) => {
+        expect(hasNoGoogleKeys(item)).toBe(true);
+      });
     });
   });
-});
-
 });
 
 // ---------------------------------------------------------------------------

@@ -393,17 +393,19 @@ export class MessageStreamOrchestrator {
     const { todoContinuationService, complexityAnalyzer, getSessionTurnCount } =
       this.deps;
 
-    let baseRequest: AgentMessageInput = Array.isArray(initialRequest)
-      ? [...(initialRequest as ContentBlock[])]
-      : initialRequest;
+    let baseRequest: AgentMessageInput =
+      iContentFromAgentMessageInput(initialRequest);
     let retryCount = 0;
     let lastTurn: Turn | undefined;
     let hadToolCallsThisTurn = false;
 
     while (retryCount < MAX_RETRIES) {
-      let iterRequest: AgentMessageInput = Array.isArray(baseRequest)
-        ? [...(baseRequest as ContentBlock[])]
-        : baseRequest;
+      let iterRequest: AgentMessageInput = iContentFromAgentMessageInput(
+        baseRequest,
+      ).map((content) => ({
+        ...content,
+        blocks: [...content.blocks],
+      }));
 
       if (retryCount === 0) {
         const analyzed = this._applyComplexityAnalysis(
@@ -758,27 +760,25 @@ export class MessageStreamOrchestrator {
       return undefined;
     }
 
-    const textOnlyBase = Array.isArray(baseRequest)
-      ? (baseRequest as ContentBlock[]).filter((b) => b.type === 'text')
-      : [];
     return todoContinuationService.appendSystemReminderToRequest(
-      textOnlyBase,
+      iContentFromAgentMessageInput(baseRequest),
       followUpReminder,
     );
   }
 
   private _applyComplexityAnalysis(
-    request: AgentMessageInput,
+    request: IContent[],
     todoContinuationService: TodoContinuationService,
     complexityAnalyzer: ComplexityAnalyzer,
     getSessionTurnCount: () => number,
   ): { request: AgentMessageInput; baseRequest: AgentMessageInput } {
     let shouldAppendTodoSuffix = false;
 
-    if (Array.isArray(request) && request.length > 0) {
-      const userMessage = request
-        .filter((part) => typeof part === 'object' && 'text' in part)
-        .map((part) => (part as { text: string }).text)
+    if (request.length > 0) {
+      const userMessage = iContentFromAgentMessageInput(request)
+        .flatMap((content) => content.blocks)
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text)
         .join(' ')
         .trim();
 
@@ -798,12 +798,12 @@ export class MessageStreamOrchestrator {
     }
 
     if (shouldAppendTodoSuffix) {
-      request = todoContinuationService.appendTodoSuffixToRequest(request);
+      request = iContentFromAgentMessageInput(
+        todoContinuationService.appendTodoSuffixToRequest(request),
+      );
     }
 
-    const baseRequest = Array.isArray(request)
-      ? [...(request as ContentBlock[])]
-      : request;
+    const baseRequest = iContentFromAgentMessageInput(request);
     return { request, baseRequest };
   }
 

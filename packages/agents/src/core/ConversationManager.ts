@@ -12,6 +12,7 @@
  * metadata injection, and model output consolidation.
  */
 
+import { isDeepStrictEqual } from 'node:util';
 import type { AgentRuntimeContext } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeContext.js';
 import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 import type {
@@ -261,12 +262,25 @@ export class ConversationManager {
       automaticFunctionCallingHistory &&
       automaticFunctionCallingHistory.length > 0
     ) {
-      // AFC branch: extract curated history. The curated AFC history mixes
-      // freshly generated model turns with user turns; stamp the generating
-      // model on AI entries (stampAiTurnModel no-ops on non-AI turns) to stay
-      // consistent with TurnProcessor._recordAfcHistory's stamping.
-      const curatedAfc = automaticFunctionCallingHistory;
-      for (const content of curatedAfc) {
+      // Provider AFC history may repeat turns already recorded locally. Compare
+      // stable semantic content so generated metadata does not defeat deduping.
+      const existingHistory = this.historyService.getCurated();
+      let matchingPrefixLength = 0;
+      while (
+        matchingPrefixLength < existingHistory.length &&
+        matchingPrefixLength < automaticFunctionCallingHistory.length &&
+        existingHistory[matchingPrefixLength].speaker ===
+          automaticFunctionCallingHistory[matchingPrefixLength].speaker &&
+        isDeepStrictEqual(
+          existingHistory[matchingPrefixLength].blocks,
+          automaticFunctionCallingHistory[matchingPrefixLength].blocks,
+        )
+      ) {
+        matchingPrefixLength += 1;
+      }
+      for (const content of automaticFunctionCallingHistory.slice(
+        matchingPrefixLength,
+      )) {
         newHistoryEntries.push(stampAiTurnModel(content, this.model));
       }
     } else {

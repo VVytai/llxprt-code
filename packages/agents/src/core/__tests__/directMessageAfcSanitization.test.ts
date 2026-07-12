@@ -359,7 +359,7 @@ describe('DirectMessageProcessor AFC sanitization — malformed/orphan', () => {
     expect(json).not.toContain('automaticFunctionCallingHistory');
   });
 
-  it('strips orphaned tool_call AFC (no matching response) from both metadata locations', async () => {
+  it('preserves a structurally-valid orphaned tool_call in neutral afcHistory while stripping provider wire metadata', async () => {
     const mock = vi.fn(() =>
       makeProviderStream([
         {
@@ -398,9 +398,32 @@ describe('DirectMessageProcessor AFC sanitization — malformed/orphan', () => {
     )) as Record<string, unknown>;
 
     const json = JSON.stringify(result);
-    // The orphaned AFC (rejected by validation) must NOT survive in any form.
+    // Provider wire metadata is stripped from BOTH metadata locations —
+    // agents never see the raw automaticFunctionCallingHistory key.
     expect(json).not.toContain('automaticFunctionCallingHistory');
-    expect(json).not.toContain('orphan-call');
+    const topMeta = (result as { providerMetadata?: Record<string, unknown> })
+      .providerMetadata;
+    expect(topMeta?.automaticFunctionCallingHistory).toBeUndefined();
+    const contentMeta = (
+      result as {
+        content?: { metadata?: { providerMetadata?: Record<string, unknown> } };
+      }
+    ).content?.metadata?.providerMetadata;
+    expect(contentMeta?.automaticFunctionCallingHistory).toBeUndefined();
+
+    // Structural preservation (neutral contract): the structurally-valid
+    // orphaned tool_call (an allowed tool) survives into the first-class
+    // neutral afcHistory field. Call/response pairing is NOT enforced at
+    // this boundary — only per-entry structural validity plus hook
+    // restriction filtering.
+    const afcHistory = (result as { afcHistory?: IContent[] }).afcHistory;
+    expect(afcHistory).toBeDefined();
+    expect(afcHistory).toHaveLength(1);
+    expect(afcHistory?.[0].blocks[0]).toMatchObject({
+      type: 'tool_call',
+      id: 'orphan-call',
+      name: 'read_file',
+    });
   });
 
   it('strips null/undefined/garbage AFC entries from both metadata locations', async () => {

@@ -235,16 +235,18 @@ export class DirectMessageProcessor {
    */
   private _convertUserInput(message: SendMessageParams['message']): IContent[] {
     const userContents = normalizeToolInteractionInput(message);
-    const turnKey = this.historyService.generateTurnKey();
-    const idGen = this.historyService.getIdGeneratorCallback(turnKey);
-    return userContents.map((content) => ({
-      ...content,
-      metadata: {
-        ...(content.metadata ?? {}),
-        id: idGen(),
-        turnId: turnKey,
-      },
-    }));
+    return userContents.map((content) => {
+      const turnKey = this.historyService.generateTurnKey();
+      const idGen = this.historyService.getIdGeneratorCallback(turnKey);
+      return {
+        ...content,
+        metadata: {
+          ...(content.metadata ?? {}),
+          id: idGen(),
+          turnId: turnKey,
+        },
+      };
+    });
   }
 
   /**

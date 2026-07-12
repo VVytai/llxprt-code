@@ -13,6 +13,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
   ContentBlock,
   AgentMessageInput,
+  IContent,
+  TextBlock,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import { AgentClient } from './client.js';
 import type { ContentGenerator } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
@@ -181,6 +183,49 @@ vi.mock('@vybestack/llxprt-code-core/telemetry/uiTelemetry.js', () => ({
   },
 }));
 
+// --- Typed inspection helpers for the requests forwarded to Turn.run ---
+// After reminder injection the orchestrator forwards an `IContent[]` turn
+// array. These structural guards let the retry tests locate the injected
+// reminder text block without `any` or a single overloaded predicate.
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isSpeaker(value: unknown): value is IContent['speaker'] {
+  return value === 'human' || value === 'ai' || value === 'tool';
+}
+
+function isIContent(value: unknown): value is IContent {
+  return (
+    isRecord(value) && isSpeaker(value.speaker) && Array.isArray(value.blocks)
+  );
+}
+
+function isTextBlock(block: ContentBlock): block is TextBlock {
+  return block.type === 'text';
+}
+
+/**
+ * Locate the first human-authored text block containing `needle` within a
+ * forwarded request. Returns `undefined` for non-array (string/single) inputs.
+ */
+function findHumanTextBlock(
+  request: AgentMessageInput,
+  needle: string,
+): TextBlock | undefined {
+  if (!Array.isArray(request)) {
+    return undefined;
+  }
+  return request
+    .filter(
+      (item): item is IContent => isIContent(item) && item.speaker === 'human',
+    )
+    .flatMap((turn) => turn.blocks)
+    .filter(isTextBlock)
+    .find((block) => block.text.includes(needle));
+}
+
 describe('Gemini Client (client.ts)', () => {
   let client: AgentClient;
 
@@ -246,10 +291,10 @@ describe('Gemini Client (client.ts)', () => {
         },
       ]);
 
-      const forwardedRequests: ContentBlock[][] = [];
+      const forwardedRequests: AgentMessageInput[] = [];
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as ContentBlock[]);
+        forwardedRequests.push(req);
         return (async function* () {
           yield {
             type: AgentEventType.Content,
@@ -287,13 +332,7 @@ describe('Gemini Client (client.ts)', () => {
       expect(forwardedRequests.length).toBe(3);
 
       const secondRequest = forwardedRequests[1];
-      const reminderPart = secondRequest.find(
-        (part) =>
-          typeof part === 'object' &&
-          'text' in part &&
-          typeof part.text === 'string' &&
-          part.text.includes('System Note'),
-      );
+      const reminderPart = findHumanTextBlock(secondRequest, 'System Note');
       expect(reminderPart).toBeDefined();
     });
 
@@ -308,10 +347,10 @@ describe('Gemini Client (client.ts)', () => {
       todoStoreReadPausedMock.mockResolvedValue(true);
       client['lastPromptId'] = 'prompt-paused-current';
 
-      const forwardedRequests: ContentBlock[][] = [];
+      const forwardedRequests: AgentMessageInput[] = [];
       mockTurnRunFn.mockReset();
       mockTurnRunFn.mockImplementation((req: AgentMessageInput) => {
-        forwardedRequests.push(req as ContentBlock[]);
+        forwardedRequests.push(req);
         return (async function* () {
           yield {
             type: AgentEventType.Content,

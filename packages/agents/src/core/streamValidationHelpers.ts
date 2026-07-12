@@ -194,7 +194,7 @@ export async function recordHistoryWithUsage(
   conversationManager.recordHistory(
     userInput,
     modelOutput,
-    undefined,
+    acc.afcHistory,
     streamingUsage,
     userInputFlags,
   );

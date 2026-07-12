@@ -197,10 +197,10 @@ function attachAfcHistory(
     ContentConverters.toIContent(content),
   );
 
-  // Validate via the core AFC boundary helper by constructing a carrier
-  // candidate whose provider metadata holds the neutral history. If the
-  // sequence is malformed (bad entry, orphaned tool call/response, etc.),
-  // the helper returns undefined and nothing is attached.
+  // Validate each entry via the core AFC boundary helper by constructing a
+  // carrier whose provider metadata holds the neutral history. Cross-entry
+  // pairing is intentionally not enforced; structurally invalid entries cause
+  // the helper to return undefined and nothing is attached.
   const validationCarrier: IContent = {
     speaker: 'ai',
     blocks: [],

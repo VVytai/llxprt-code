@@ -53,15 +53,17 @@ export function buildRequestContentsResult(
   userContents: IContent | IContent[],
   historyService: HistoryService,
 ): { contents: IContent[]; pending: IContent[] } {
-  const turnKey = historyService.generateTurnKey();
-  const idGen = historyService.getIdGeneratorCallback(turnKey);
   const inputArray = Array.isArray(userContents)
     ? userContents
     : [userContents];
-  const userIContents: IContent[] = inputArray.map((content) => ({
-    ...content,
-    metadata: { ...(content.metadata ?? {}), id: idGen(), turnId: turnKey },
-  }));
+  const userIContents: IContent[] = inputArray.map((content) => {
+    const turnKey = historyService.generateTurnKey();
+    const idGen = historyService.getIdGeneratorCallback(turnKey);
+    return {
+      ...content,
+      metadata: { ...(content.metadata ?? {}), id: idGen(), turnId: turnKey },
+    };
+  });
   return {
     contents: historyService.getCuratedForProvider(userIContents),
     pending: userIContents,

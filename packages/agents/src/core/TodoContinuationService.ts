@@ -4,8 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { AgentMessageInput } from '@vybestack/llxprt-code-core/llm-types/index.js';
-import type { ContentBlock } from '@vybestack/llxprt-code-core/services/history/IContent.js';
+import {
+  iContentFromAgentMessageInput,
+  type AgentMessageInput,
+} from '@vybestack/llxprt-code-core/llm-types/index.js';
+import type {
+  ContentBlock,
+  IContent,
+} from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import { AgentEventType } from './turn.js';
 import type { ServerAgentStreamEvent, ToolCallResponseInfo } from './turn.js';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
@@ -70,17 +76,42 @@ function normalizeTodoForComparison(todo: Todo): {
   };
 }
 
-function toPartArray(request: AgentMessageInput): ContentBlock[] {
-  if (Array.isArray(request)) {
-    return [...request] as ContentBlock[];
+function toContents(request: AgentMessageInput): IContent[] {
+  return iContentFromAgentMessageInput(request).map((content) => ({
+    ...content,
+    blocks: [...content.blocks],
+  }));
+}
+
+function appendTextToContents(
+  request: AgentMessageInput,
+  text: string,
+  matches: (candidate: string) => boolean,
+): IContent[] {
+  const contents = toContents(request);
+  if (
+    contents.some((content) =>
+      content.blocks.some((block) => {
+        const textPart = asTextPart(block);
+        return textPart !== undefined && matches(textPart.text);
+      }),
+    )
+  ) {
+    return contents;
   }
-  if (typeof request === 'string') {
-    return [{ type: 'text', text: request }];
+  let lastHuman: IContent | undefined;
+  for (let index = contents.length - 1; index >= 0; index -= 1) {
+    if (contents[index].speaker === 'human') {
+      lastHuman = contents[index];
+      break;
+    }
   }
-  if ('blocks' in request) {
-    return request.blocks;
+  if (lastHuman !== undefined) {
+    lastHuman.blocks.push({ type: 'text', text });
+  } else {
+    contents.push({ speaker: 'human', blocks: [{ type: 'text', text }] });
   }
-  return [];
+  return contents;
 }
 
 export enum PostTurnAction {
@@ -205,19 +236,9 @@ export class TodoContinuationService {
   }
 
   appendTodoSuffixToRequest(request: AgentMessageInput): AgentMessageInput {
-    const parts = toPartArray(request);
-
-    const suffixAlreadyPresent = parts.some((part) => {
-      const textPart = asTextPart(part);
-      return textPart?.text.includes(TODO_PROMPT_SUFFIX) ?? false;
-    });
-
-    if (suffixAlreadyPresent) {
-      return parts;
-    }
-
-    parts.push({ type: 'text', text: TODO_PROMPT_SUFFIX } as ContentBlock);
-    return parts;
+    return appendTextToContents(request, TODO_PROMPT_SUFFIX, (text) =>
+      text.includes(TODO_PROMPT_SUFFIX),
+    );
   }
 
   recordModelActivity(event: ServerAgentStreamEvent): void {
@@ -330,14 +351,11 @@ export class TodoContinuationService {
     request: AgentMessageInput,
     reminderText: string,
   ): AgentMessageInput {
-    const parts = toPartArray(request);
-    const alreadyPresent = parts.some(
-      (part) => asTextPart(part)?.text === reminderText,
+    return appendTextToContents(
+      request,
+      reminderText,
+      (text) => text === reminderText,
     );
-    if (!alreadyPresent) {
-      parts.push({ type: 'text', text: reminderText } as ContentBlock);
-    }
-    return parts;
   }
 
   shouldDeferStreamEvent(event: ServerAgentStreamEvent): boolean {
@@ -469,15 +487,8 @@ export class TodoContinuationService {
     });
 
     if (reminderResult.reminder) {
-      const parts = toPartArray(request);
-      const textOnlyParts = parts.filter(
-        (part) =>
-          typeof part === 'object' &&
-          !('functionCall' in part) &&
-          !('functionResponse' in part),
-      );
       request = this.appendSystemReminderToRequest(
-        textOnlyParts,
+        request,
         reminderResult.reminder,
       );
       this.lastTodoSnapshot = reminderResult.todos;

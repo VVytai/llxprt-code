@@ -9,9 +9,15 @@
  * Verifies that extractAfcHistory rejects malformed/legacy entries
  * while accepting well-formed IContent[] from provider metadata.
  *
- * Also covers the enhanced validator: full speaker narrowing, all
- * ContentBlock variant validation, tool call/response pairing, and
- * rejection of orphaned/partial pairs.
+ * Also covers the enhanced validator: full speaker narrowing and all
+ * ContentBlock variant validation.
+ *
+ * Neutral contract (structural-only): validation is per-entry structural —
+ * a valid speaker, a non-empty blocks array, and well-formed block shapes.
+ * Cross-entry tool call/response pairing, ordering, ID uniqueness, and
+ * name matching are NOT enforced at this boundary. Structurally valid
+ * entries are preserved verbatim even when calls/responses are orphaned,
+ * out of order, duplicated, or name-mismatched.
  *
  * @plan:PLAN-20260707-AGENTNEUTRAL.P11
  * @requirement:REQ-003.2
@@ -315,8 +321,8 @@ describe('extractAfcHistory — tool call/response pairing', () => {
     expect(extractAfcHistory(content)).toHaveLength(2);
   });
 
-  it('rejects entire payload when a tool_call has no matching tool_response', () => {
-    const content = {
+  it('preserves a tool_call entry with no matching tool_response (pairing not enforced)', () => {
+    const content: IContent = {
       speaker: 'ai',
       blocks: [{ type: 'text', text: 'hi' }],
       metadata: {
@@ -336,12 +342,20 @@ describe('extractAfcHistory — tool call/response pairing', () => {
           ],
         },
       },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
+    };
+    // Structural-only contract: a well-formed tool_call entry is preserved
+    // verbatim even without a paired tool_response.
+    const result = extractAfcHistory(content);
+    expect(result).toHaveLength(1);
+    expect(result?.[0].blocks[0]).toMatchObject({
+      type: 'tool_call',
+      id: 'orphan-call',
+      name: 'read_file',
+    });
   });
 
-  it('rejects entire payload when a tool_response has no matching tool_call', () => {
-    const content = {
+  it('preserves a tool_response entry with no matching tool_call (pairing not enforced)', () => {
+    const content: IContent = {
       speaker: 'ai',
       blocks: [{ type: 'text', text: 'hi' }],
       metadata: {
@@ -361,12 +375,20 @@ describe('extractAfcHistory — tool call/response pairing', () => {
           ],
         },
       },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
+    };
+    // Structural-only contract: a well-formed tool_response entry is
+    // preserved verbatim even without a paired tool_call.
+    const result = extractAfcHistory(content);
+    expect(result).toHaveLength(1);
+    expect(result?.[0].blocks[0]).toMatchObject({
+      type: 'tool_response',
+      callId: 'orphan-response',
+      toolName: 'read_file',
+    });
   });
 
-  it('rejects entire payload when tool_call id and tool_response callId do not match', () => {
-    const content = {
+  it('preserves entries whose tool_call id and tool_response callId do not match (pairing not enforced)', () => {
+    const content: IContent = {
       speaker: 'ai',
       blocks: [{ type: 'text', text: 'hi' }],
       metadata: {
@@ -397,8 +419,19 @@ describe('extractAfcHistory — tool call/response pairing', () => {
           ],
         },
       },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
+    };
+    // Structural-only contract: both entries are well-formed, so both are
+    // preserved even though the call id and response callId do not match.
+    const result = extractAfcHistory(content);
+    expect(result).toHaveLength(2);
+    expect(result?.[0].blocks[0]).toMatchObject({
+      type: 'tool_call',
+      id: 'call-A',
+    });
+    expect(result?.[1].blocks[0]).toMatchObject({
+      type: 'tool_response',
+      callId: 'call-B',
+    });
   });
 
   it('accepts text-only entries alongside paired tool entries', () => {
@@ -436,315 +469,6 @@ describe('extractAfcHistory — tool call/response pairing', () => {
       },
     };
     expect(extractAfcHistory(content)).toHaveLength(3);
-  });
-});
-
-describe('extractAfcHistory — ordered one-to-one pairing with unique IDs and name match', () => {
-  it('rejects response-before-call (ordering violation)', () => {
-    const content = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c1',
-                  toolName: 'read_file',
-                  result: 'ok',
-                },
-              ],
-            },
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c1',
-                  name: 'read_file',
-                  parameters: {},
-                },
-              ],
-            },
-          ],
-        },
-      },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
-  });
-
-  it('rejects duplicate tool_call IDs', () => {
-    const content = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'dup',
-                  name: 'read_file',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'dup',
-                  name: 'read_file',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'dup',
-                  toolName: 'read_file',
-                  result: 'ok',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
-  });
-
-  it('rejects duplicate tool_response callIds', () => {
-    const content = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c1',
-                  name: 'read_file',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c1',
-                  toolName: 'read_file',
-                  result: 'ok',
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c1',
-                  toolName: 'read_file',
-                  result: 'dup',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
-  });
-
-  it('rejects name mismatch between paired tool_call and tool_response', () => {
-    const content = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c1',
-                  name: 'read_file',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c1',
-                  toolName: 'write_file',
-                  result: 'ok',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
-  });
-
-  it('rejects orphan tool_response (no matching call)', () => {
-    const content = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'orphan-resp',
-                  toolName: 'read_file',
-                  result: 'ok',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    } as unknown as IContent;
-    expect(extractAfcHistory(content)).toBeUndefined();
-  });
-
-  it('accepts multiple correctly paired calls/responses with unique IDs and matching names', () => {
-    const content: IContent = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c1',
-                  name: 'read_file',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c1',
-                  toolName: 'read_file',
-                  result: 'ok1',
-                },
-              ],
-            },
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c2',
-                  name: 'write_file',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c2',
-                  toolName: 'write_file',
-                  result: 'ok2',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    };
-    expect(extractAfcHistory(content)).toHaveLength(4);
-  });
-
-  it('accepts interleaved calls and responses (call before response for each pair)', () => {
-    const content: IContent = {
-      speaker: 'ai',
-      blocks: [{ type: 'text', text: 'hi' }],
-      metadata: {
-        providerMetadata: {
-          automaticFunctionCallingHistory: [
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c1',
-                  name: 'read',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'ai',
-              blocks: [
-                {
-                  type: 'tool_call',
-                  id: 'c2',
-                  name: 'write',
-                  parameters: {},
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c1',
-                  toolName: 'read',
-                  result: 'r1',
-                },
-              ],
-            },
-            {
-              speaker: 'tool',
-              blocks: [
-                {
-                  type: 'tool_response',
-                  callId: 'c2',
-                  toolName: 'write',
-                  result: 'r2',
-                },
-              ],
-            },
-          ],
-        },
-      },
-    };
-    expect(extractAfcHistory(content)).toHaveLength(4);
   });
 });
 

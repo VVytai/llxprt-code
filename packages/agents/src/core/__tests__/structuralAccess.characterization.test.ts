@@ -797,6 +797,125 @@ describe('REQ-005.2: next_speaker fallback detection (property)', () => {
       const totalTokens = historyService.getTotalTokens();
       expect(totalTokens).toBe(promptTokens);
     });
+
+    it('records AFC history atomically without duplicating the current user', async () => {
+      const ctx = makeRuntimeContext(true);
+      const mgr = new ConversationManager(historyService, ctx, 'test-model');
+      const prior: IContent = {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'prior' }],
+      };
+      historyService.add(prior, 'test-model');
+      const currentUser: IContent = {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'current' }],
+      };
+      const acc: ModelOutput = {
+        content: {
+          speaker: 'ai',
+          blocks: [{ type: 'text', text: 'final' }],
+        },
+        afcHistory: [
+          currentUser,
+          {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'intermediate' }],
+          },
+        ],
+      };
+
+      await recordHistoryWithUsage(
+        logger,
+        mgr,
+        historyService,
+        makeCompressionHandlerStub(null),
+        ctx,
+        currentUser,
+        acc,
+      );
+
+      expect(
+        historyService.getAll().map((content) => ({
+          speaker: content.speaker,
+          text: content.blocks
+            .filter((block) => block.type === 'text')
+            .map((block) => block.text)
+            .join(''),
+        })),
+      ).toStrictEqual([
+        { speaker: 'human', text: 'prior' },
+        { speaker: 'human', text: 'current' },
+        { speaker: 'ai', text: 'intermediate' },
+        { speaker: 'ai', text: 'final' },
+      ]);
+    });
+
+    it('does not replay an existing prefix from full AFC history', async () => {
+      const ctx = makeRuntimeContext(true);
+      const mgr = new ConversationManager(historyService, ctx, 'test-model');
+      const priorHuman: IContent = {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'prior question' }],
+      };
+      const priorAi: IContent = {
+        speaker: 'ai',
+        blocks: [{ type: 'text', text: 'prior answer' }],
+      };
+      historyService.add(
+        { ...priorHuman, metadata: { turnId: 'stored-human-turn' } },
+        'test-model',
+      );
+      historyService.add(
+        {
+          ...priorAi,
+          metadata: { turnId: 'stored-ai-turn', model: 'test-model' },
+        },
+        'test-model',
+      );
+      const currentUser: IContent = {
+        speaker: 'human',
+        blocks: [{ type: 'text', text: 'current question' }],
+      };
+
+      await recordHistoryWithUsage(
+        logger,
+        mgr,
+        historyService,
+        makeCompressionHandlerStub(null),
+        ctx,
+        currentUser,
+        {
+          content: {
+            speaker: 'ai',
+            blocks: [{ type: 'text', text: 'final answer' }],
+          },
+          afcHistory: [
+            { ...priorHuman, metadata: { turnId: 'provider-human-turn' } },
+            { ...priorAi, metadata: { turnId: 'provider-ai-turn' } },
+            currentUser,
+            {
+              speaker: 'ai',
+              blocks: [{ type: 'text', text: 'intermediate' }],
+            },
+          ],
+        },
+      );
+
+      expect(
+        historyService.getAll().map((content) =>
+          content.blocks
+            .filter((block) => block.type === 'text')
+            .map((block) => block.text)
+            .join(''),
+        ),
+      ).toStrictEqual([
+        'prior question',
+        'prior answer',
+        'current question',
+        'intermediate',
+        'final answer',
+      ]);
+    });
   });
 
   // ---------------------------------------------------------------------------

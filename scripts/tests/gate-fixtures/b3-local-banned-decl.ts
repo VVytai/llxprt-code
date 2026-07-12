@@ -6,6 +6,6 @@
  * Google type — a #2424 re-introduction vector.
  */
 
-export const GenerateContentResponse = (candidates: unknown[]): unknown => {
-  return { candidates };
-};
+export const GenerateContentResponse = (candidates: unknown[]): unknown => ({
+  candidates,
+});

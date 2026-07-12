@@ -65,9 +65,17 @@ function isValidBlock(block: unknown): boolean {
     case 'text':
       return typeof block.text === 'string';
     case 'tool_call':
-      return isStringField(block, 'id') && isStringField(block, 'name');
+      return (
+        isStringField(block, 'id') &&
+        isStringField(block, 'name') &&
+        block.parameters !== undefined
+      );
     case 'tool_response':
-      return isStringField(block, 'callId') && isStringField(block, 'toolName');
+      return (
+        isStringField(block, 'callId') &&
+        isStringField(block, 'toolName') &&
+        block.result !== undefined
+      );
     case 'media':
       return (
         isStringField(block, 'mimeType') &&
@@ -97,107 +105,6 @@ function isValidAfcEntry(entry: unknown): entry is IContent {
 }
 
 /**
- * Validate tool call/response pairing across all AFC entries.
- *
- * Enforces ordered one-to-one pairing with matching tool names:
- *  - Every tool_call block's `id` must have exactly one matching
- *    tool_response block's `callId` that appears AFTER it (in entry/block
- *    order). Response-before-call is rejected.
- *  - Every tool_response block's `callId` must have exactly one matching
- *    tool_call block's `id` that appears BEFORE it.
- *  - IDs must be unique: no duplicate tool_call ids, no duplicate
- *    tool_response callIds.
- *  - The tool name must match: tool_response.toolName === tool_call.name
- *    for each paired (id, callId).
- *  - No orphan calls or orphan responses.
- *
- * Returns false if any constraint is violated.
- */
-function validateAfcPairing(entries: readonly IContent[]): boolean {
-  // Collect tool calls and responses in document order, recording the
-  // sequential position so we can enforce call-before-response ordering.
-  interface CallRecord {
-    readonly id: string;
-    readonly name: string;
-    readonly seq: number;
-  }
-  interface ResponseRecord {
-    readonly callId: string;
-    readonly toolName: string;
-    readonly seq: number;
-  }
-  const calls: CallRecord[] = [];
-  const responses: ResponseRecord[] = [];
-  let seq = 0;
-
-  for (const entry of entries) {
-    for (const block of entry.blocks) {
-      if (block.type === 'tool_call') {
-        calls.push({ id: block.id, name: block.name, seq });
-      } else if (block.type === 'tool_response') {
-        responses.push({
-          callId: block.callId,
-          toolName: block.toolName,
-          seq,
-        });
-      }
-      seq++;
-    }
-  }
-
-  if (calls.length === 0 && responses.length === 0) {
-    return true;
-  }
-
-  // 1. Unique call IDs
-  const callIds = calls.map((c) => c.id);
-  if (new Set(callIds).size !== callIds.length) {
-    return false;
-  }
-
-  // 2. Unique response callIds
-  const responseIds = responses.map((r) => r.callId);
-  if (new Set(responseIds).size !== responseIds.length) {
-    return false;
-  }
-
-  // 3. One-to-one pairing: counts must match
-  if (calls.length !== responses.length) {
-    return false;
-  }
-
-  // 4. Ordered one-to-one with matching tool names.
-  // Pair each call with the response that shares its id, then verify:
-  //   - the response appears at or after the call's sequence
-  //   - the tool names match
-  const responseByCallId = new Map<string, ResponseRecord>();
-  for (const r of responses) {
-    responseByCallId.set(r.callId, r);
-  }
-  for (const call of calls) {
-    const response = responseByCallId.get(call.id);
-    if (response === undefined) {
-      // Orphan call — no matching response.
-      return false;
-    }
-    // Ordered: response must come at or after the call.
-    if (response.seq < call.seq) {
-      return false;
-    }
-    // Tool name must match.
-    if (response.toolName !== call.name) {
-      return false;
-    }
-  }
-
-  // All responses are covered by the one-to-one check above (orphan
-  // response => a response whose callId has no matching call; the loop
-  // over calls guarantees every call has a response, and the count match
-  // guarantees there are no extra responses).
-  return true;
-}
-
-/**
  * Extracts and validates the automatic-function-calling (AFC) history from
  * provider metadata on an IContent. This is the canonical boundary function
  * called by `toModelStreamChunk` — agents must NOT read
@@ -207,10 +114,9 @@ function validateAfcPairing(entries: readonly IContent[]): boolean {
  *  - Each entry must be a non-null object with a valid `speaker` ('human' |
  *    'ai' | 'tool') and a non-empty `blocks` array.
  *  - Every block must match a valid ContentBlock variant with required fields.
- *  - Tool call/response pairing: every tool_call block's `id` must have a
- *    matching tool_response block's `callId`, and vice versa. If ANY tool
- *    call or response is orphaned, the ENTIRE payload is rejected (returns
- *    undefined) — never partially accept a malformed AFC sequence.
+ *  - Validation is structural per entry. Cross-entry pairing, ordering,
+ *    uniqueness, and tool-name matching are intentionally not enforced because
+ *    providers may expose partial AFC history at stream boundaries.
  *
  * Returns the validated IContent[] or undefined when no valid AFC history
  * is present.
@@ -231,11 +137,7 @@ export function extractAfcHistory(content: IContent): IContent[] | undefined {
   if (!metadataValue.every(isValidAfcEntry)) {
     return undefined;
   }
-  const structurallyValid = metadataValue;
-  if (!validateAfcPairing(structurallyValid)) {
-    return undefined;
-  }
-  return structurallyValid;
+  return metadataValue;
 }
 
 /**

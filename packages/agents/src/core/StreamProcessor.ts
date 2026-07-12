@@ -16,7 +16,6 @@ import {
   toModelStreamChunk,
 } from '@vybestack/llxprt-code-core/llm-types/index.js';
 import type { IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
-import { stampAiTurnModel } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
   isRetryableError,
   retryWithBackoff,
@@ -848,26 +847,10 @@ export class StreamProcessor {
       this.eagerlyRecordedToolResponseCallIds,
     );
 
-    // P13 AFC boundary: commit AFC history as intermediate turns before the
-    // model output. The acc.afcHistory is populated by toModelStreamChunk
-    // at the core conversion boundary (NOT extracted from providerMetadata here).
-    const afcHistory =
-      acc.afcHistory !== undefined && acc.afcHistory.length > 0
-        ? acc.afcHistory.filter(
-            (content: IContent) => content.blocks.length > 0,
-          )
-        : undefined;
-    if (afcHistory !== undefined && afcHistory.length > 0) {
-      const currentModel = this.runtimeContext.state.model;
-      const curatedHistory = this.historyService.getCurated();
-      const startIndex = curatedHistory.length;
-      const newEntries = afcHistory.slice(startIndex);
-      for (const content of newEntries) {
-        this.historyService.add(
-          stampAiTurnModel(content, currentModel),
-          currentModel,
-        );
-      }
+    if (acc.afcHistory !== undefined) {
+      acc.afcHistory = acc.afcHistory.filter(
+        (content: IContent) => content.blocks.length > 0,
+      );
     }
 
     try {

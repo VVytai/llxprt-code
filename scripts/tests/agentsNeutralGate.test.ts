@@ -204,66 +204,65 @@ describe('agents-neutral-gate checkF5 — direct .parts reads/mutations (Finding
     const exitCode = runGateEnforce('f5-safe-blocks-read.ts');
     expect(exitCode).toBe(0);
   });
-describe('agents-neutral-gate checkF5 — const-computed key access (Finding #5 latest)', () => {
-  it('FLAGS const-computed [key] where key="parts" on Google-shaped value', () => {
-    // const key = 'parts'; const wire = { role: 'model', parts: [...] };
-    // return wire[key];
-    // Must be detected — the gate resolves the const to 'parts' and the
-    // base has Google-shaped provenance.
-    const exitCode = runGateEnforce('f5-const-computed-parts-read.ts');
-    expect(exitCode).not.toBe(0);
-  });
+  describe('agents-neutral-gate checkF5 — const-computed key access (Finding #5 latest)', () => {
+    it('FLAGS const-computed [key] where key="parts" on Google-shaped value', () => {
+      // const key = 'parts'; const wire = { role: 'model', parts: [...] };
+      // return wire[key];
+      // Must be detected — the gate resolves the const to 'parts' and the
+      // base has Google-shaped provenance.
+      const exitCode = runGateEnforce('f5-const-computed-parts-read.ts');
+      expect(exitCode).not.toBe(0);
+    });
 
-  it('SPARES const-computed [key] where key="parts" on neutral domain object', () => {
-    // const key = 'parts'; const domain = { parts: ['wheel'] };
-    // return domain[key];
-    // Must NOT be flagged — domain lacks Google-shaped provenance.
-    const exitCode = runGateEnforce('f5-safe-const-computed-parts.ts');
-    expect(exitCode).toBe(0);
-  });
+    it('SPARES const-computed [key] where key="parts" on neutral domain object', () => {
+      // const key = 'parts'; const domain = { parts: ['wheel'] };
+      // return domain[key];
+      // Must NOT be flagged — domain lacks Google-shaped provenance.
+      const exitCode = runGateEnforce('f5-safe-const-computed-parts.ts');
+      expect(exitCode).toBe(0);
+    });
 
-  it('FLAGS const-computed [key] where key="parts" via inline temp source', () => {
-    const exitCode = runGateEnforceSource(
-      `export function readParts(): unknown {
+    it('FLAGS const-computed [key] where key="parts" via inline temp source', () => {
+      const exitCode = runGateEnforceSource(
+        `export function readParts(): unknown {
   const key = 'parts';
   const wire = { role: 'model', parts: [{ text: 'hi' }] };
   return wire[key];
 }
 `,
-    );
-    expect(exitCode).not.toBe(0);
-  });
+      );
+      expect(exitCode).not.toBe(0);
+    });
 
-  it('SPARES const-computed [key] where key="parts" on neutral domain via inline temp source', () => {
-    const exitCode = runGateEnforceSource(
-      `export function readDomain(): unknown {
+    it('SPARES const-computed [key] where key="parts" on neutral domain via inline temp source', () => {
+      const exitCode = runGateEnforceSource(
+        `export function readDomain(): unknown {
   const key = 'parts';
   const domain = { parts: ['wheel'] };
   return domain[key];
 }
 `,
-    );
-    expect(exitCode).toBe(0);
-  });
+      );
+      expect(exitCode).toBe(0);
+    });
 
-  it('SPARES const-computed [key] where key is NOT "parts" on Google-shaped value', () => {
-    // const key = 'candidates'; const wire = { parts: [{ text: 'hi' }] };
-    // return wire[key];
-    // F5 must NOT fire — the const resolves to 'candidates', not 'parts'.
-    // The base has Part-shaped parts (Google-shaped), but the key is not
-    // 'parts', so F5's const-computed check must not trigger.
-    const exitCode = runGateEnforceSource(
-      `export function readKey(): unknown {
+    it('SPARES const-computed [key] where key is NOT "parts" on Google-shaped value', () => {
+      // const key = 'candidates'; const wire = { parts: [{ text: 'hi' }] };
+      // return wire[key];
+      // F5 must NOT fire — the const resolves to 'candidates', not 'parts'.
+      // The base has Part-shaped parts (Google-shaped), but the key is not
+      // 'parts', so F5's const-computed check must not trigger.
+      const exitCode = runGateEnforceSource(
+        `export function readKey(): unknown {
   const key = 'candidates';
   const wire = { parts: [{ text: 'hi' }] };
   return wire[key];
 }
 `,
-    );
-    expect(exitCode).toBe(0);
+      );
+      expect(exitCode).toBe(0);
+    });
   });
-});
-
 });
 
 describe('agents-neutral-gate checkF5 — provenance constraint + indirect shorthand (Finding #5)', () => {
