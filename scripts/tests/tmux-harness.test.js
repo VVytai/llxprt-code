@@ -14,6 +14,9 @@ import { accessSync, constants as fsConstants } from 'node:fs';
 // under test is which env var the harness reads, not the binary itself.
 const TEST_NODE_EXECUTABLE = process.execPath;
 const TEST_BUN_EXECUTABLE = process.execPath;
+const SHELL_QUOTED_NODE_EXECUTABLE = process.execPath.includes(' ')
+  ? `'${process.execPath}'`
+  : process.execPath;
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -282,7 +285,7 @@ describe('buildTmuxStartCommand', () => {
     const { buildTmuxStartCommand } = await importHarness();
 
     expect(buildTmuxStartCommand(['node', 'scripts/start.ts'])).toBe(
-      `${TEST_NODE_EXECUTABLE} scripts/start.ts`,
+      `${SHELL_QUOTED_NODE_EXECUTABLE} scripts/start.ts`,
     );
   });
 
@@ -294,7 +297,7 @@ describe('buildTmuxStartCommand', () => {
     expect(
       buildTmuxStartCommand(['node', 'scripts/start.ts'], '/tmp/artifacts'),
     ).toBe(
-      `LLXPRT_TMUX_ARTIFACT_DIR=/tmp/artifacts ${TEST_NODE_EXECUTABLE} scripts/start.ts`,
+      `LLXPRT_TMUX_ARTIFACT_DIR=/tmp/artifacts ${SHELL_QUOTED_NODE_EXECUTABLE} scripts/start.ts`,
     );
   });
 });

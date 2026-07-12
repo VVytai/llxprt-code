@@ -106,7 +106,7 @@ describe('Core (System) Memory', () => {
             typeof filePath === 'string' ? filePath : filePath.toString();
           if (
             pathStr.includes('.LLXPRT_SYSTEM') &&
-            pathStr.includes('/my/project')
+            pathStr.includes(path.resolve('/my/project'))
           ) {
             return 'Use pnpm for this project';
           }
@@ -131,7 +131,7 @@ describe('Core (System) Memory', () => {
           }
           if (
             pathStr.includes('.LLXPRT_SYSTEM') &&
-            pathStr.includes('/my/project')
+            pathStr.includes(path.resolve('/my/project'))
           ) {
             return 'Project directive';
           }
