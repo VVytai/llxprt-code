@@ -183,4 +183,34 @@ describe('parseStreamingReasoningDelta — configurable field name (#2505)', () 
     expect(result.thinking?.thought).toBe('standard reasoning');
     expect(result.thinking?.sourceField).toBe('reasoning_content');
   });
+
+  it('trims a whitespace-padded field name before using it as the delta key (issue #2505)', () => {
+    const delta = {
+      reasoning: 'ollama reasoning',
+    } as unknown as Delta;
+
+    const result = parseStreamingReasoningDelta(
+      delta,
+      mockLogger,
+      '  reasoning  ',
+    );
+
+    expect(result.thinking?.thought).toBe('ollama reasoning');
+    expect(result.thinking?.sourceField).toBe('reasoning');
+  });
+
+  it('returns null when an explicit field name is set but its value is non-usable', () => {
+    const delta = {
+      custom_field: { malformed: true },
+      reasoning: 'ollama reasoning',
+    } as unknown as Delta;
+
+    const result = parseStreamingReasoningDelta(
+      delta,
+      mockLogger,
+      'custom_field',
+    );
+
+    expect(result.thinking).toBeNull();
+  });
 });

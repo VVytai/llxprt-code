@@ -37,23 +37,24 @@ type DeltaWithReasoning =
   };
 
 /**
- * Selects the reasoning value and provenance field name. When fieldName is
- * unset (undefined) and the primary value is not a usable non-empty string,
- * falls back to the Ollama delta.reasoning field (issue #2488 / #2505).
+ * Selects the reasoning value and provenance field name. Returns undefined
+ * when no usable reasoning is available. When fieldName is unset (undefined)
+ * and the primary value is not a usable non-empty string, falls back to the
+ * Ollama delta.reasoning field (issue #2488 / #2505).
  */
 function resolveReasoningValue(
   primaryValue: unknown,
   explicitField: string,
   ollamaReasoning: unknown,
   fieldName: string | undefined,
-): { value: unknown; actualFieldName: string } {
+): { value: string; actualFieldName: string } | undefined {
   if (hasUsableReasoning(primaryValue)) {
     return { value: primaryValue, actualFieldName: explicitField };
   }
   if (fieldName === undefined && hasUsableReasoning(ollamaReasoning)) {
     return { value: ollamaReasoning, actualFieldName: 'reasoning' };
   }
-  return { value: primaryValue, actualFieldName: explicitField };
+  return undefined;
 }
 
 function hasUsableReasoning(value: unknown): value is string {
@@ -66,10 +67,10 @@ function readReasoningFromDelta(
 ): { content: string; actualFieldName: string } | undefined {
   // Treat empty/whitespace-only field names as unset so auto-fallback still
   // applies (issue #2505: guards against reasoning.fieldName='' misconfig).
+  // Trim a non-empty field name before using it as a delta property key.
+  const trimmed = fieldName?.trim();
   const normalizedFieldName =
-    fieldName !== undefined && fieldName.trim().length > 0
-      ? fieldName
-      : undefined;
+    trimmed !== undefined && trimmed.length > 0 ? trimmed : undefined;
   const deltaRecord = delta as Record<string, unknown>;
   const explicitField = normalizedFieldName ?? 'reasoning_content';
   const primaryValue =
@@ -77,17 +78,20 @@ function readReasoningFromDelta(
       ? delta.reasoning_content
       : deltaRecord[explicitField];
 
-  const { value, actualFieldName } = resolveReasoningValue(
+  const resolved = resolveReasoningValue(
     primaryValue,
     explicitField,
     delta.reasoning,
     normalizedFieldName,
   );
 
-  if (typeof value !== 'string' || value.length === 0) {
+  if (resolved === undefined) {
     return undefined;
   }
-  return { content: value, actualFieldName };
+  return {
+    content: resolved.value,
+    actualFieldName: resolved.actualFieldName,
+  };
 }
 
 /**
