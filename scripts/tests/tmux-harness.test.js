@@ -8,15 +8,14 @@
 
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { accessSync, constants as fsConstants } from 'node:fs';
+import { quote } from 'shell-quote';
 
 // Both fixtures intentionally point at the test runner's own executable: the
 // harness only needs *a* real, spawnable path — the node-vs-bun distinction
 // under test is which env var the harness reads, not the binary itself.
 const TEST_NODE_EXECUTABLE = process.execPath;
 const TEST_BUN_EXECUTABLE = process.execPath;
-const SHELL_QUOTED_NODE_EXECUTABLE = process.execPath.includes(' ')
-  ? `'${process.execPath}'`
-  : process.execPath;
+const SHELL_QUOTED_NODE_EXECUTABLE = quote([process.execPath]);
 
 afterEach(() => {
   vi.unstubAllEnvs();

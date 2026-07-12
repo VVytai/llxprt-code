@@ -144,19 +144,22 @@ describe('buildRipgrepArgs', () => {
 });
 
 describe('parseRipgrepLine', () => {
-  it('parses null-delimited Windows drive-letter paths', () => {
-    const basePath = 'C:\\repo';
-    const match = parseRipgrepLine(
-      `C:\\repo\\src\\keep.ts${String.fromCharCode(0)}1:needle found`,
-      basePath,
-    );
+  it.runIf(process.platform === 'win32')(
+    'parses null-delimited Windows drive-letter paths',
+    () => {
+      const basePath = 'C:\\repo';
+      const match = parseRipgrepLine(
+        `C:\\repo\\src\\keep.ts${String.fromCharCode(0)}1:needle found`,
+        basePath,
+      );
 
-    expect(match).toEqual({
-      filePath: 'src\\keep.ts',
-      lineNumber: 1,
-      line: 'needle found',
-    });
-  });
+      expect(match).toEqual({
+        filePath: 'src\\keep.ts',
+        lineNumber: 1,
+        line: 'needle found',
+      });
+    },
+  );
 
   it('preserves colons in matched content', () => {
     const match = parseRipgrepLine(

@@ -302,7 +302,7 @@ describe('orchestrateTests', () => {
       commands.push({ command, cwd });
       if (
         command === failCommand &&
-        cwd.endsWith(failCwdSuffix.replaceAll('/', path.sep))
+        cwd.endsWith(path.normalize(failCwdSuffix))
       ) {
         return { success: false, exitCode: 1 };
       }

@@ -446,6 +446,8 @@ describe('Config LSP Integration (P33)', () => {
       ).toBe(true);
     });
 
+    // Live MCP navigation registration depends on the Bun-backed LSP transport,
+    // which is not currently supported by these native Windows test runs (#2509).
     it.skipIf(isWindows)(
       'should register MCP navigation when navigationTools is true',
       async () => {
@@ -471,6 +473,7 @@ describe('Config LSP Integration (P33)', () => {
       },
     );
 
+    // Same transport limitation as the explicit navigationTools case above.
     it.skipIf(isWindows)(
       'should default to enabled when navigationTools is absent',
       async () => {
