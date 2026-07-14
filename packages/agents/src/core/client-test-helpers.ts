@@ -211,10 +211,10 @@ async function createAndInitClient(
 }
 
 /**
- * Performs the shared beforeEach setup for Gemini Client tests.
- * Returns the constructed client and mock config.
+ * Performs the shared beforeEach setup for agent client tests.
+ * Returnable the constructed client and mock config.
  */
-export async function setupGeminiClient(
+export async function setupAgentClient(
   mockFns: ClientMockFns,
 ): Promise<ClientTestContext> {
   resetAndApplyServiceMocks();
