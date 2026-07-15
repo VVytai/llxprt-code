@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   tokenLimit,
   DEFAULT_TOKEN_LIMIT,
@@ -311,6 +311,20 @@ describe('resolveEffectiveContextLimit', () => {
     expect(resolveEffectiveContextLimit('gpt-4o', Infinity, Infinity)).toBe(
       128_000,
     );
+  });
+
+  it('uses an injected model resolver when no explicit limit is available', () => {
+    const resolveTokenLimit = vi.fn(() => 64_000);
+
+    expect(
+      resolveEffectiveContextLimit(
+        'custom-model',
+        undefined,
+        undefined,
+        resolveTokenLimit,
+      ),
+    ).toBe(64_000);
+    expect(resolveTokenLimit).toHaveBeenCalledWith('custom-model');
   });
 
   it('respects a user override that is larger than the model default', () => {

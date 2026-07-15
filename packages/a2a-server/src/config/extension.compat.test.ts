@@ -27,15 +27,14 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-vi.mock('node:os', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:os')>();
-  return {
-    ...actual,
-    homedir: vi.fn(() => actual.homedir()),
-  };
-});
+const actualOs = { ...os };
 
-const loggerErrorSpy = vi.hoisted(() => vi.fn());
+vi.mock('node:os', () => ({
+  ...actualOs,
+  homedir: vi.fn(() => actualOs.homedir()),
+}));
+
+const loggerErrorSpy = vi.fn();
 vi.mock('../utils/logger.js', () => ({
   logger: {
     info: vi.fn(),
@@ -128,11 +127,13 @@ describe('A2A extension loader', () => {
   beforeEach(() => {
     harness = createHarness();
     fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'a2a-ext-test-home-'));
-    vi.mocked(os.homedir).mockReturnValue(fakeHome);
+    const homedirMock = os.homedir as ReturnType<typeof vi.fn>;
+    homedirMock.mockReturnValue(fakeHome);
   });
 
   afterEach(() => {
-    vi.mocked(os.homedir).mockRestore();
+    const homedirMock = os.homedir as ReturnType<typeof vi.fn>;
+    homedirMock.mockImplementation(() => actualOs.homedir());
     fs.rmSync(fakeHome, { recursive: true, force: true });
     fs.rmSync(harness.workspaceDir, { recursive: true, force: true });
   });

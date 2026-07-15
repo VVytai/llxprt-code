@@ -18,13 +18,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-vi.mock('node:os', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:os')>();
-  return {
-    ...actual,
-    homedir: vi.fn(() => actual.homedir()),
-  };
-});
+const actualOs = { ...os };
+
+vi.mock('node:os', () => ({
+  ...actualOs,
+  homedir: vi.fn(() => actualOs.homedir()),
+}));
 
 const { loadSettings } = await import('./settings.js');
 
@@ -37,11 +36,13 @@ describe('A2A settings folder trust authorization', () => {
     tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'a2a-settings-home-'));
     tempWorkspace = fs.mkdtempSync(path.join(tempHome, 'a2a-settings-ws-'));
     originalHome = os.homedir();
-    vi.mocked(os.homedir).mockReturnValue(tempHome);
+    const homedirMock = os.homedir as ReturnType<typeof vi.fn>;
+    homedirMock.mockReturnValue(tempHome);
   });
 
   afterEach(() => {
-    vi.mocked(os.homedir).mockReturnValue(originalHome);
+    const homedirMock = os.homedir as ReturnType<typeof vi.fn>;
+    homedirMock.mockReturnValue(originalHome);
     fs.rmSync(tempHome, { recursive: true, force: true });
   });
 

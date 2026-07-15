@@ -4,44 +4,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'bun:test';
 import { ExtensionsCommand, ListExtensionsCommand } from './extensions.js';
 import type { Config } from '@vybestack/llxprt-code-core';
 
-const mockListExtensions = vi.hoisted(() => vi.fn());
-vi.mock('@vybestack/llxprt-code-core', async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import('@vybestack/llxprt-code-core')>();
-
-  return {
-    ...original,
-    listExtensions: mockListExtensions,
-  };
-});
+const mockListExtensions = vi.fn();
 
 describe('ExtensionsCommand', () => {
+  beforeEach(() => {
+    mockListExtensions.mockReset();
+  });
+
   it('should have the correct name', () => {
-    const command = new ExtensionsCommand();
+    const command = new ExtensionsCommand(mockListExtensions);
     expect(command.name).toStrictEqual('extensions');
   });
 
   it('should have the correct description', () => {
-    const command = new ExtensionsCommand();
+    const command = new ExtensionsCommand(mockListExtensions);
     expect(command.description).toStrictEqual('Manage extensions.');
   });
 
   it('should have "extensions list" as a subcommand', () => {
-    const command = new ExtensionsCommand();
+    const command = new ExtensionsCommand(mockListExtensions);
     expect(command.subCommands.map((c) => c.name)).toContain('extensions list');
   });
 
   it('should be a top-level command', () => {
-    const command = new ExtensionsCommand();
+    const command = new ExtensionsCommand(mockListExtensions);
     expect(command.topLevel).toBe(true);
   });
 
   it('should default to listing extensions', async () => {
-    const command = new ExtensionsCommand();
+    const command = new ExtensionsCommand(mockListExtensions);
     const mockConfig = {} as Config;
     const mockExtensions = [{ name: 'ext1' }];
     mockListExtensions.mockReturnValue(mockExtensions);
@@ -57,13 +52,17 @@ describe('ExtensionsCommand', () => {
 });
 
 describe('ListExtensionsCommand', () => {
+  beforeEach(() => {
+    mockListExtensions.mockReset();
+  });
+
   it('should have the correct name', () => {
-    const command = new ListExtensionsCommand();
+    const command = new ListExtensionsCommand(mockListExtensions);
     expect(command.name).toStrictEqual('extensions list');
   });
 
   it('should call listExtensions with the provided config', async () => {
-    const command = new ListExtensionsCommand();
+    const command = new ListExtensionsCommand(mockListExtensions);
     const mockConfig = {} as Config;
     const mockExtensions = [{ name: 'ext1' }];
     mockListExtensions.mockReturnValue(mockExtensions);
@@ -78,7 +77,7 @@ describe('ListExtensionsCommand', () => {
   });
 
   it('should return a message when no extensions are installed', async () => {
-    const command = new ListExtensionsCommand();
+    const command = new ListExtensionsCommand(mockListExtensions);
     const mockConfig = {} as Config;
     mockListExtensions.mockReturnValue([]);
 

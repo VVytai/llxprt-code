@@ -22,6 +22,13 @@ const passthrough = (role: string): React.FC<InkComponentProps> => {
 export const Box = passthrough('Box');
 export const Text = passthrough('Text');
 
+export const render = () => ({
+  clear: () => {},
+  rerender: () => {},
+  unmount: () => {},
+  waitUntilExit: async () => {},
+});
+
 export const useStdin = () => {
   const emitter = new EventEmitter() as unknown as NodeJS.ReadStream;
   return {

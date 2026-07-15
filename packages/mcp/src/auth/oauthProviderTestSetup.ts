@@ -113,7 +113,7 @@ export function setupOAuthTestSpies(
 ): OAuthSpies {
   vi.clearAllMocks();
   openBrowserFn.mockClear();
-  global.fetch = mockFetch;
+  vi.stubGlobal('fetch', mockFetch);
   vi.spyOn(DebugLogger.prototype, 'log').mockImplementation(() => {});
   vi.spyOn(DebugLogger.prototype, 'warn').mockImplementation(() => {});
   vi.spyOn(DebugLogger.prototype, 'error').mockImplementation(() => {});

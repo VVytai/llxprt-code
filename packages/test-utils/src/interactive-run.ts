@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { expect } from 'vitest';
 import { execSync } from 'node:child_process';
 import { env } from 'node:process';
 import type * as pty from '@lydell/node-pty';
@@ -73,12 +72,13 @@ export class InteractiveRun {
 
   async expectText(text: string, timeout?: number) {
     const effectiveTimeout = timeout ?? getDefaultTimeout();
-    await poll(
-      () => stripAnsi(this.output).toLowerCase().includes(text.toLowerCase()),
-      effectiveTimeout,
-      200,
-    );
-    expect(stripAnsi(this.output).toLowerCase()).toContain(text.toLowerCase());
+    const expectedText = text.toLowerCase();
+    const includesExpectedText = () =>
+      stripAnsi(this.output).toLowerCase().includes(expectedText);
+    await poll(includesExpectedText, effectiveTimeout, 200);
+    if (!includesExpectedText()) {
+      throw new Error(`Expected interactive output to contain "${text}"`);
+    }
   }
 
   // This types slowly to make sure command is correct, but only work for short

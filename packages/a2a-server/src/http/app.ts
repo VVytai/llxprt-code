@@ -6,8 +6,12 @@
 
 import express from 'express';
 
-import type { AgentCard, Message } from '@a2a-js/sdk';
-import type { TaskStore } from '@a2a-js/sdk/server';
+import type { AgentCard, Message, Task as SDKTask } from '@a2a-js/sdk';
+import type {
+  AgentExecutor,
+  ExecutionEventBus,
+  TaskStore,
+} from '@a2a-js/sdk/server';
 import {
   DefaultRequestHandler,
   InMemoryTaskStore,
@@ -36,66 +40,106 @@ type CommandResponse = {
   subCommands: CommandResponse[];
 };
 
-const coderAgentCard: AgentCard = {
-  name: 'Gemini SDLC Agent',
-  description:
-    'An agent that generates code based on natural language instructions and streams file outputs.',
-  url: 'http://localhost:41242/',
-  provider: {
-    organization: 'Google',
-    url: 'https://google.com',
-  },
-  protocolVersion: '0.3.0',
-  version: '0.0.2', // Incremented version
-  capabilities: {
-    streaming: true,
-    pushNotifications: false,
-    stateTransitionHistory: true,
-  },
-  securitySchemes: undefined,
-  security: undefined,
-  defaultInputModes: ['text'],
-  defaultOutputModes: ['text'],
-  skills: [
-    {
-      id: 'code_generation',
-      name: 'Code Generation',
-      description:
-        'Generates code snippets or complete files based on user requests, streaming the results.',
-      tags: ['code', 'development', 'programming'],
-      examples: [
-        'Write a python function to calculate fibonacci numbers.',
-        'Create an HTML file with a basic button that alerts "Hello!" when clicked.',
-      ],
-      inputModes: ['text'],
-      outputModes: ['text'],
+export function createCoderAgentCard(): AgentCard {
+  return {
+    name: 'Gemini SDLC Agent',
+    description:
+      'An agent that generates code based on natural language instructions and streams file outputs.',
+    url: 'http://localhost:41242/',
+    provider: {
+      organization: 'Google',
+      url: 'https://google.com',
     },
-  ],
-  supportsAuthenticatedExtendedCard: false,
-};
-
-export function updateCoderAgentCardUrl(port: number) {
-  coderAgentCard.url = `http://localhost:${port}/`;
+    protocolVersion: '0.3.0',
+    version: '0.0.2', // Incremented version
+    capabilities: {
+      streaming: true,
+      pushNotifications: false,
+      stateTransitionHistory: true,
+    },
+    securitySchemes: undefined,
+    security: undefined,
+    defaultInputModes: ['text'],
+    defaultOutputModes: ['text'],
+    skills: [
+      {
+        id: 'code_generation',
+        name: 'Code Generation',
+        description:
+          'Generates code snippets or complete files based on user requests, streaming the results.',
+        tags: ['code', 'development', 'programming'],
+        examples: [
+          'Write a python function to calculate fibonacci numbers.',
+          'Create an HTML file with a basic button that alerts "Hello!" when clicked.',
+        ],
+        inputModes: ['text'],
+        outputModes: ['text'],
+      },
+    ],
+    supportsAuthenticatedExtendedCard: false,
+  };
 }
 
-type AppContext = {
+export function updateCoderAgentCardUrl(
+  port: number,
+  agentCard: AgentCard,
+): void {
+  agentCard.url = `http://localhost:${port}/`;
+}
+
+export interface AppTaskWrapper {
+  readonly id: string;
+  readonly task: {
+    getMetadata(): Promise<unknown>;
+  };
+  toSDKTask(): SDKTask;
+}
+
+export interface AppAgentExecutor extends AgentExecutor {
+  createTask(
+    taskId: string,
+    contextId: string,
+    agentSettingsInput?: AgentSettings,
+    eventBus?: ExecutionEventBus,
+  ): Promise<AppTaskWrapper>;
+  getTask(taskId: string): AppTaskWrapper | undefined;
+  getAllTasks(): AppTaskWrapper[];
+  reconstruct(
+    sdkTask: SDKTask,
+    eventBus?: ExecutionEventBus,
+  ): Promise<AppTaskWrapper>;
+}
+
+export type AppContext = {
   config: Awaited<ReturnType<typeof loadConfig>>;
   git: GitService | undefined;
-  agentExecutor: CoderAgentExecutor;
+  agentExecutor: AppAgentExecutor;
 };
 
-type TaskStores = {
+export type TaskStores = {
   taskStoreForExecutor: TaskStore;
   taskStoreForHandler: TaskStore;
 };
 
-export async function createApp() {
+export interface CreateAppDependencies {
+  agentCard?: AgentCard;
+  createAgentCard?: () => AgentCard;
+  createStartupContext?: () => Promise<AppContext & TaskStores>;
+  getGitService?: (
+    config: Awaited<ReturnType<typeof loadConfig>>,
+  ) => Promise<GitService | undefined>;
+}
+
+export async function createApp(dependencies: CreateAppDependencies = {}) {
   try {
     const { config, agentExecutor, taskStoreForExecutor, taskStoreForHandler } =
-      await createStartupContext();
-    const git = await getGitService(config);
+      await (dependencies.createStartupContext ?? createStartupContext)();
+    const git = await (dependencies.getGitService ?? getGitService)(config);
+    const agentCard =
+      dependencies.agentCard ??
+      (dependencies.createAgentCard ?? createCoderAgentCard)();
     const requestHandler = new DefaultRequestHandler(
-      coderAgentCard,
+      agentCard,
       taskStoreForHandler,
       agentExecutor,
     );
@@ -170,7 +214,7 @@ async function getGitService(
 
 function registerTaskCreationRoute(
   expressApp: express.Express,
-  agentExecutor: CoderAgentExecutor,
+  agentExecutor: AppAgentExecutor,
   taskStoreForExecutor: TaskStore,
 ): void {
   expressApp.post('/tasks', async (req, res) => {
@@ -352,7 +396,7 @@ function transformCommand(
 
 function registerTaskMetadataRoutes(
   expressApp: express.Express,
-  agentExecutor: CoderAgentExecutor,
+  agentExecutor: AppAgentExecutor,
   taskStoreForExecutor: TaskStore,
 ): void {
   expressApp.get('/tasks/metadata', async (_req, res) => {
@@ -366,7 +410,7 @@ function registerTaskMetadataRoutes(
 
 async function handleAllTaskMetadata(
   res: express.Response,
-  agentExecutor: CoderAgentExecutor,
+  agentExecutor: AppAgentExecutor,
   taskStoreForExecutor: TaskStore,
 ): Promise<void> {
   if (!(taskStoreForExecutor instanceof InMemoryTaskStore)) {
@@ -398,7 +442,7 @@ async function handleAllTaskMetadata(
 async function handleTaskMetadata(
   req: express.Request,
   res: express.Response,
-  agentExecutor: CoderAgentExecutor,
+  agentExecutor: AppAgentExecutor,
   taskStoreForExecutor: TaskStore,
 ): Promise<void> {
   const taskIdParam = req.params.taskId;
@@ -419,7 +463,8 @@ async function handleTaskMetadata(
 
 export async function main() {
   try {
-    const expressApp = await createApp();
+    const agentCard = createCoderAgentCard();
+    const expressApp = await createApp({ agentCard });
     const rawPortEnv = process.env['CODER_AGENT_PORT'];
     const portEnv = rawPortEnv?.trim();
     const hasExplicitPort = portEnv !== undefined && portEnv !== '';
@@ -441,7 +486,7 @@ export async function main() {
       } else {
         throw new Error('[Core Agent] Could not find port number.');
       }
-      updateCoderAgentCardUrl(Number(actualPort));
+      updateCoderAgentCardUrl(Number(actualPort), agentCard);
       logger.info(
         `[CoreAgent] Agent Server started on http://localhost:${actualPort}`,
       );

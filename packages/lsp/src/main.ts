@@ -255,7 +255,27 @@ function createWriteStreamFromFd(fd: number) {
   return createWriteStream('', { fd, autoClose: false });
 }
 
-export async function main(): Promise<void> {
+type MainDependencies = {
+  createOrchestrator: typeof createOrchestrator;
+  createRpcConnection: typeof createRpcConnection;
+  setupRpcChannel: typeof setupRpcChannel;
+  createMcpChannel: typeof createMcpChannel;
+};
+
+const defaultMainDependencies: MainDependencies = {
+  createOrchestrator,
+  createRpcConnection,
+  setupRpcChannel,
+  createMcpChannel,
+};
+
+export interface MainLifecycle {
+  dispose(): Promise<void>;
+}
+
+export async function main(
+  dependencies: MainDependencies = defaultMainDependencies,
+): Promise<MainLifecycle> {
   const bootstrap = parseBootstrapFromEnv();
   const builtins = getBuiltinServers();
   const bootstrapServerEntries = toServerRegistryEntries(
@@ -272,80 +292,99 @@ export async function main(): Promise<void> {
     args: s.args ? [...s.args] : undefined,
     extensions: [...s.extensions],
   }));
-  const orchestrator = createOrchestrator(
+  const orchestrator = dependencies.createOrchestrator(
     { ...bootstrap.config, servers: mergedServers },
     bootstrap.workspaceRoot,
   );
 
-  const rpcConnection = createRpcConnection();
-  setupRpcChannel(rpcConnection, orchestrator);
+  const rpcConnection = dependencies.createRpcConnection();
+  dependencies.setupRpcChannel(rpcConnection, orchestrator);
   rpcConnection.listen();
 
   let mcpServer: { close: () => Promise<void> } | null = null;
-  if (bootstrap.config.navigationTools !== false) {
-    try {
-      const mcpInput = createReadStreamFromFd(3);
-      const mcpOutput = createWriteStreamFromFd(4);
-      mcpServer = await createMcpChannel(
-        orchestrator,
-        bootstrap.workspaceRoot,
-        mcpInput,
-        mcpOutput,
-      );
-    } catch (error) {
-      stderr.write(`MCP channel disabled: ${String(error)}\n`);
-    }
-  }
 
-  let shuttingDown = false;
-  const shutdown = async (): Promise<void> => {
-    if (shuttingDown) {
-      return;
-    }
-    shuttingDown = true;
+  let cleanupPromise: Promise<void> | null = null;
 
-    try {
-      await orchestrator.shutdown();
-    } catch (error) {
-      stderr.write(`Error during orchestrator shutdown: ${String(error)}
-`);
-    }
-    if (mcpServer) {
-      try {
-        await mcpServer.close();
-      } catch (error) {
-        stderr.write(`Error during MCP server close: ${String(error)}
-`);
-      }
-    }
-    try {
-      rpcConnection.dispose();
-    } catch (error) {
-      stderr.write(`Error during RPC connection dispose: ${String(error)}
-`);
-    }
-    process.exit(0);
+  const detachHandlers = (): void => {
+    process.off('SIGTERM', onSigterm);
+    process.off('SIGINT', onSigint);
+    process.off('uncaughtException', onUncaughtException);
+    process.off('unhandledRejection', onUnhandledRejection);
   };
 
-  process.on('SIGTERM', () => {
-    void shutdown();
-  });
+  // Idempotent cleanup: concurrent/repeated calls execute resource disposal exactly once.
+  // Established early (before MCP/sendNotification) so startup failures can await it.
+  const cleanup = async (): Promise<void> => {
+    if (cleanupPromise) {
+      return cleanupPromise;
+    }
+    cleanupPromise = (async () => {
+      detachHandlers();
 
-  process.on('SIGINT', () => {
-    void shutdown();
-  });
+      try {
+        await orchestrator.shutdown();
+      } catch (error) {
+        stderr.write(`Error during orchestrator shutdown: ${String(error)}\n`);
+      }
+      if (mcpServer) {
+        try {
+          await mcpServer.close();
+        } catch (error) {
+          stderr.write(`Error during MCP server close: ${String(error)}\n`);
+        }
+      }
+      try {
+        rpcConnection.dispose();
+      } catch (error) {
+        stderr.write(`Error during RPC connection dispose: ${String(error)}\n`);
+      }
+    })();
+    return cleanupPromise;
+  };
 
-  process.on('uncaughtException', (error) => {
+  const onSigterm = (): Promise<void> =>
+    cleanup().finally(() => process.exit(0));
+  const onSigint = (): Promise<void> =>
+    cleanup().finally(() => process.exit(0));
+  const onUncaughtException = (error: Error): Promise<void> => {
     stderr.write(`Uncaught exception in LSP service: ${String(error)}\n`);
-    shutdown().finally(() => process.exit(1));
-  });
-
-  process.on('unhandledRejection', (error) => {
+    return cleanup().finally(() => process.exit(1));
+  };
+  const onUnhandledRejection = (error: unknown): Promise<void> => {
     stderr.write(`Unhandled rejection in LSP service: ${String(error)}\n`);
-    shutdown().finally(() => process.exit(1));
-  });
+    return cleanup().finally(() => process.exit(1));
+  };
 
-  rpcConnection.sendNotification('lsp/ready');
+  process.on('SIGTERM', onSigterm);
+  process.on('SIGINT', onSigint);
+  process.on('uncaughtException', onUncaughtException);
+  process.on('unhandledRejection', onUnhandledRejection);
+
+  const dispose = (): Promise<void> => cleanup();
+
+  try {
+    if (bootstrap.config.navigationTools !== false) {
+      try {
+        const mcpInput = createReadStreamFromFd(3);
+        const mcpOutput = createWriteStreamFromFd(4);
+        mcpServer = await dependencies.createMcpChannel(
+          orchestrator,
+          bootstrap.workspaceRoot,
+          mcpInput,
+          mcpOutput,
+        );
+      } catch (error) {
+        stderr.write(`MCP channel disabled: ${String(error)}\n`);
+      }
+    }
+
+    rpcConnection.sendNotification('lsp/ready');
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+
+  return { dispose };
 }
 
 const isMainModule = (): boolean => {

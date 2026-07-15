@@ -38,6 +38,7 @@ import {
   extractPromptText,
 } from './clientHelpers.js';
 import { getTokenLimitForConfiguredContext } from './contextLimitResolver.js';
+import type { tokenLimit } from '@vybestack/llxprt-code-core/core/tokenLimits.js';
 import { resolvePreflightOverflow } from './preflightRecovery.js';
 import type { Todo } from '@vybestack/llxprt-code-tools';
 import type { ComplexityAnalyzer } from '@vybestack/llxprt-code-core/services/complexity-analyzer.js';
@@ -73,6 +74,13 @@ export interface MessageStreamDeps {
     isInvalidStreamRetry?: boolean,
     is413Retry?: boolean,
   ) => AsyncGenerator<ServerAgentStreamEvent, Turn>;
+  createTurn?: (
+    chat: ChatSession,
+    promptId: string,
+    agentId: string,
+    providerName: string,
+  ) => Turn;
+  resolveTokenLimit?: typeof tokenLimit;
 }
 
 export interface StreamContext {
@@ -126,6 +134,19 @@ function toAgentMessageInput(input: AgentRequestInput): AgentMessageInput {
 export class MessageStreamOrchestrator {
   #lastModelIdentity: string | null = null;
   constructor(private readonly deps: MessageStreamDeps) {}
+
+  private _createTurn(promptId: string): Turn {
+    const createTurn =
+      this.deps.createTurn ??
+      ((chat, id, agentId, providerName) =>
+        new Turn(chat, id, agentId, providerName));
+    return createTurn(
+      this.deps.getChat(),
+      promptId,
+      DEFAULT_AGENT_ID,
+      this._getProviderName(),
+    );
+  }
 
   async *execute(
     initialRequest: AgentRequestInput,
@@ -225,12 +246,7 @@ export class MessageStreamOrchestrator {
             ),
           },
         };
-        return new Turn(
-          this.deps.getChat(),
-          ctx.prompt_id,
-          DEFAULT_AGENT_ID,
-          this._getProviderName(),
-        );
+        return this._createTurn(ctx.prompt_id);
       }
 
       const additionalContext = hookOutput?.getAdditionalContext();
@@ -276,30 +292,23 @@ export class MessageStreamOrchestrator {
     ) {
       yield { type: AgentEventType.MaxSessionTurns };
       yield* this._fireAfterHookAndEmitClearContext(ctx);
-      return new Turn(
-        getChat(),
-        ctx.prompt_id,
-        DEFAULT_AGENT_ID,
-        this._getProviderName(),
-      );
+      return this._createTurn(ctx.prompt_id);
     }
 
     const boundedTurns = Math.min(ctx.turns, MAX_TURNS);
     if (boundedTurns === 0) {
       yield* this._fireAfterHookAndEmitClearContext(ctx);
-      return new Turn(
-        getChat(),
-        ctx.prompt_id,
-        DEFAULT_AGENT_ID,
-        this._getProviderName(),
-      );
+      return this._createTurn(ctx.prompt_id);
     }
 
     const chat = getChat();
     const effectiveIdentity = getEffectiveModelIdentity();
     const remainingTokenCount =
-      getTokenLimitForConfiguredContext(effectiveIdentity.model, config) -
-      chat.getLastPromptTokenCount();
+      getTokenLimitForConfiguredContext(
+        effectiveIdentity.model,
+        config,
+        this.deps.resolveTokenLimit,
+      ) - chat.getLastPromptTokenCount();
 
     // When history already exceeds the current model's limit (e.g. after a
     // provider/profile switch to a smaller context window), remaining capacity
@@ -345,12 +354,7 @@ export class MessageStreamOrchestrator {
       value: { estimatedRequestTokenCount, remainingTokenCount },
     };
     yield* this._fireAfterHookAndEmitClearContext(ctx);
-    return new Turn(
-      getChat(),
-      ctx.prompt_id,
-      DEFAULT_AGENT_ID,
-      this._getProviderName(),
-    );
+    return this._createTurn(ctx.prompt_id);
   }
 
   /**
@@ -424,12 +428,7 @@ export class MessageStreamOrchestrator {
       iterRequest =
         await todoContinuationService.applyPendingReminder(iterRequest);
 
-      const turn = new Turn(
-        this.deps.getChat(),
-        ctx.prompt_id,
-        DEFAULT_AGENT_ID,
-        this._getProviderName(),
-      );
+      const turn = this._createTurn(ctx.prompt_id);
       lastTurn = turn;
 
       const iterResult: IterationResult = yield* this._processStreamIteration(

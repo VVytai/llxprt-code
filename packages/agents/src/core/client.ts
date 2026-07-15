@@ -23,9 +23,9 @@ import {
   buildToolDeclarationsFromView,
   getEnabledToolNamesForPrompt,
 } from './clientToolGovernance.js';
-import type { ChatSession, SendMessageParams } from './chatSession.js';
+import { ChatSession, type SendMessageParams } from './chatSession.js';
 import { DebugLogger } from '@vybestack/llxprt-code-core/debug/index.js';
-import type { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
+import { HistoryService } from '@vybestack/llxprt-code-core/services/history/HistoryService.js';
 
 import { type IContent } from '@vybestack/llxprt-code-core/services/history/IContent.js';
 import {
@@ -133,6 +133,8 @@ export class AgentClient implements AgentClientContract {
     private readonly config: Config,
     runtimeState: AgentRuntimeState,
     historyService?: HistoryService,
+    createTurn?: MessageStreamDeps['createTurn'],
+    resolveTokenLimit?: MessageStreamDeps['resolveTokenLimit'],
   ) {
     if (!runtimeState.provider || runtimeState.provider === '') {
       throw new Error('AgentRuntimeState must have a valid provider');
@@ -186,7 +188,7 @@ export class AgentClient implements AgentClientContract {
     this.agentHookManager = new AgentHookManager(config);
 
     this.messageStreamOrchestrator = new MessageStreamOrchestrator(
-      this._buildOrchestratorDeps(),
+      this._buildOrchestratorDeps(createTurn, resolveTokenLimit),
     );
 
     coreEvents.on(CoreEvent.ModelChanged, this.handleModelChanged);
@@ -196,7 +198,10 @@ export class AgentClient implements AgentClientContract {
     );
   }
 
-  private _buildOrchestratorDeps(): MessageStreamDeps {
+  private _buildOrchestratorDeps(
+    createTurn?: MessageStreamDeps['createTurn'],
+    resolveTokenLimit?: MessageStreamDeps['resolveTokenLimit'],
+  ): MessageStreamDeps {
     return {
       config: this.config,
       getChat: () => this.getChat(),
@@ -229,6 +234,8 @@ export class AgentClient implements AgentClientContract {
       updateTelemetryTokenCount: () => this.updateTelemetryTokenCount(),
       sendMessageStream: (req, sig, pid, trns, isRetry, is413) =>
         this.sendMessageStream(req, sig, pid, trns, isRetry, is413),
+      createTurn,
+      resolveTokenLimit,
     };
   }
 
@@ -700,6 +707,8 @@ export class AgentClient implements AgentClientContract {
       generateContentConfig: this.generateContentConfig,
       todoContinuationService: this.todoContinuationService,
       toolRegistry: this.config.getToolRegistry(),
+      createHistoryService: () => new HistoryService(),
+      createChatSessionInstance: (...args) => new ChatSession(...args),
     });
     this.chat = chat;
     return chat;

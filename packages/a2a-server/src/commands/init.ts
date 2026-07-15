@@ -25,11 +25,24 @@ type CommandActionReturn =
   | { type: 'message'; messageType: 'info' | 'error'; content: string }
   | { type: 'submit_prompt'; content: string };
 
+export interface InitCommandDependencies {
+  existsSync?: typeof fs.existsSync;
+  writeFileSync?: typeof fs.writeFileSync;
+  createId?: () => string;
+  logInfo?: typeof logger.info;
+}
+
 export class InitCommand implements Command {
   name = 'init';
   description = 'Analyzes the project and creates a tailored LLXPRT.md file';
   requiresWorkspace = true;
   streaming = true;
+
+  constructor(private readonly dependencies: InitCommandDependencies = {}) {}
+
+  private createId(): string {
+    return (this.dependencies.createId ?? uuidv4)();
+  }
 
   private performInitLogic(llxprtMdExists: boolean): CommandActionReturn {
     if (llxprtMdExists) {
@@ -104,7 +117,7 @@ Write the complete content to the \`LLXPRT.md\` file. The output must be well-fo
           kind: 'message',
           role: 'agent',
           parts: [{ kind: 'text', text: result.content }],
-          messageId: uuidv4(),
+          messageId: this.createId(),
           taskId,
           contextId,
         },
@@ -117,7 +130,7 @@ Write the complete content to the \`LLXPRT.md\` file. The output must be well-fo
       },
     };
 
-    logger.info('[EventBus event]: ', event);
+    (this.dependencies.logInfo ?? logger.info)('[EventBus event]: ', event);
     eventBus.publish(event);
     return {
       name: this.name,
@@ -133,7 +146,11 @@ Write the complete content to the \`LLXPRT.md\` file. The output must be well-fo
     taskId: string,
     contextId: string,
   ): Promise<CommandExecutionResponse> {
-    fs.writeFileSync(llxprtMdPath, '', 'utf8');
+    (this.dependencies.writeFileSync ?? fs.writeFileSync)(
+      llxprtMdPath,
+      '',
+      'utf8',
+    );
 
     if (!context.agentExecutor) {
       throw new Error('Agent executor not found in context.');
@@ -163,7 +180,7 @@ Write the complete content to the \`LLXPRT.md\` file. The output must be well-fo
         kind: 'message',
         role: 'user',
         parts: [{ kind: 'text', text: promptText }],
-        messageId: uuidv4(),
+        messageId: this.createId(),
         taskId,
         contextId,
         metadata: {
@@ -196,10 +213,12 @@ Write the complete content to the \`LLXPRT.md\` file. The output must be well-fo
       process.env['CODER_AGENT_WORKSPACE_PATH']!,
       'LLXPRT.md',
     );
-    const result = this.performInitLogic(fs.existsSync(llxprtMdPath));
+    const result = this.performInitLogic(
+      (this.dependencies.existsSync ?? fs.existsSync)(llxprtMdPath),
+    );
 
-    const taskId = uuidv4();
-    const contextId = uuidv4();
+    const taskId = this.createId();
+    const contextId = this.createId();
 
     switch (result.type) {
       case 'message':

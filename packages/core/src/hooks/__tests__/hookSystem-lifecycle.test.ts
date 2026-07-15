@@ -45,6 +45,7 @@ vi.mock('../debug/index.js', () => ({
 vi.mock('fs', () => ({
   existsSync: vi.fn().mockReturnValue(false),
   readFileSync: vi.fn(),
+  promises: {},
 }));
 
 // ---------------------------------------------------------------------------

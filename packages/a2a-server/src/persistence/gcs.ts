@@ -20,20 +20,25 @@ import { v4 as uuidv4 } from 'uuid';
 
 type ObjectType = 'metadata' | 'workspace';
 
-const getTmpArchiveFilename = (taskId: string): string =>
-  `task-${taskId}-workspace-${uuidv4()}.tar.gz`;
-
-async function cleanupTempArchive(tmpArchiveFile: string): Promise<void> {
-  try {
-    if (await fse.pathExists(tmpArchiveFile)) {
-      await fse.remove(tmpArchiveFile);
-    }
-  } catch (removeError) {
-    logger.warn(
-      `Failed to clean up temporary archive ${tmpArchiveFile}:`,
-      removeError,
-    );
-  }
+export interface GCSTaskStoreDependencies {
+  storage?: Storage;
+  gzip?: typeof gzipSync;
+  gunzip?: typeof gunzipSync;
+  createArchive?: (
+    options: Parameters<typeof tar.c>[0],
+    entries: string[],
+  ) => Promise<unknown>;
+  extractArchive?: (options: Parameters<typeof tar.x>[0]) => Promise<unknown>;
+  pathExists?: typeof fse.pathExists;
+  remove?: typeof fse.remove;
+  ensureDir?: typeof fse.ensureDir;
+  readdir?: typeof fsPromises.readdir;
+  createReadStream?: typeof createReadStream;
+  getTmpDir?: typeof tmpdir;
+  joinPath?: typeof join;
+  createId?: typeof uuidv4;
+  setTargetDir?: typeof setTargetDir;
+  getPersistedState?: typeof getPersistedState;
 }
 
 // Validate the taskId to prevent path traversal attacks by ensuring it only contains safe characters.
@@ -48,16 +53,75 @@ export class GCSTaskStore implements TaskStore {
   private bucketName: string;
   private bucketInitialized: Promise<void>;
 
-  constructor(bucketName: string) {
+  constructor(
+    bucketName: string,
+    private readonly dependencies: GCSTaskStoreDependencies = {},
+  ) {
     if (!bucketName) {
       throw new Error('GCS bucket name is required.');
     }
-    this.storage = new Storage();
+    this.storage = dependencies.storage ?? new Storage();
     this.bucketName = bucketName;
     logger.info(`GCSTaskStore initializing with bucket: ${this.bucketName}`);
     // Prerequisites: user account or service account must have storage admin IAM role
     // and the bucket name must be unique.
     this.bucketInitialized = this.initializeBucket();
+  }
+
+  private get gzip(): typeof gzipSync {
+    return this.dependencies.gzip ?? gzipSync;
+  }
+
+  private get gunzip(): typeof gunzipSync {
+    return this.dependencies.gunzip ?? gunzipSync;
+  }
+
+  private get pathExists(): typeof fse.pathExists {
+    return this.dependencies.pathExists ?? fse.pathExists;
+  }
+
+  private get remove(): typeof fse.remove {
+    return this.dependencies.remove ?? fse.remove;
+  }
+
+  private get ensureDir(): typeof fse.ensureDir {
+    return this.dependencies.ensureDir ?? fse.ensureDir;
+  }
+
+  private get readdir(): typeof fsPromises.readdir {
+    return this.dependencies.readdir ?? fsPromises.readdir;
+  }
+
+  private get createReadStream(): typeof createReadStream {
+    return this.dependencies.createReadStream ?? createReadStream;
+  }
+
+  private get getTmpDir(): typeof tmpdir {
+    return this.dependencies.getTmpDir ?? tmpdir;
+  }
+
+  private get joinPath(): typeof join {
+    return this.dependencies.joinPath ?? join;
+  }
+
+  private get createId(): typeof uuidv4 {
+    return this.dependencies.createId ?? uuidv4;
+  }
+
+  private get setTargetDir(): typeof setTargetDir {
+    return this.dependencies.setTargetDir ?? setTargetDir;
+  }
+
+  private get getPersistedState(): typeof getPersistedState {
+    return this.dependencies.getPersistedState ?? getPersistedState;
+  }
+
+  private get createArchive(): GCSTaskStoreDependencies['createArchive'] {
+    return this.dependencies.createArchive;
+  }
+
+  private get extractArchive(): GCSTaskStoreDependencies['extractArchive'] {
+    return this.dependencies.extractArchive;
   }
 
   private async initializeBucket(): Promise<void> {
@@ -107,7 +171,7 @@ export class GCSTaskStore implements TaskStore {
   async save(task: SDKTask): Promise<void> {
     await this.ensureBucketInitialized();
     const taskId = task.id;
-    const persistedState = getPersistedState(
+    const persistedState = this.getPersistedState(
       task.metadata as PersistedTaskMetadata,
     );
 
@@ -134,7 +198,7 @@ export class GCSTaskStore implements TaskStore {
     metadataObjectPath: string,
   ): Promise<void> {
     const jsonString = JSON.stringify(metadata);
-    const compressedMetadata = gzipSync(Buffer.from(jsonString));
+    const compressedMetadata = this.gzip(Buffer.from(jsonString));
     const metadataFile = this.storage
       .bucket(this.bucketName)
       .file(metadataObjectPath);
@@ -151,14 +215,14 @@ export class GCSTaskStore implements TaskStore {
     workDir: string,
     workspaceObjectPath: string,
   ): Promise<void> {
-    if (!(await fse.pathExists(workDir))) {
+    if (!(await this.pathExists(workDir))) {
       logger.info(
         `Workspace directory ${workDir} not found, skipping workspace save for task ${taskId}.`,
       );
       return;
     }
 
-    const entries = await fsPromises.readdir(workDir);
+    const entries = await this.readdir(workDir);
     if (entries.length === 0) {
       logger.info(
         `Workspace directory ${workDir} is empty, skipping workspace save for task ${taskId}.`,
@@ -180,7 +244,7 @@ export class GCSTaskStore implements TaskStore {
     entries: string[],
     workspaceObjectPath: string,
   ): Promise<void> {
-    const tmpArchiveFile = join(tmpdir(), getTmpArchiveFilename(taskId));
+    const tmpArchiveFile = this.getTmpArchiveFile(taskId);
     try {
       await this.createWorkspaceArchive(tmpArchiveFile, workDir, entries);
       await this.uploadWorkspaceArchive(tmpArchiveFile, workspaceObjectPath);
@@ -200,7 +264,7 @@ export class GCSTaskStore implements TaskStore {
     workDir: string,
     entries: string[],
   ): Promise<void> {
-    await tar.c(
+    await (this.createArchive ?? tar.c)(
       {
         gzip: true,
         file: tmpArchiveFile,
@@ -210,7 +274,7 @@ export class GCSTaskStore implements TaskStore {
       entries,
     );
 
-    if (!(await fse.pathExists(tmpArchiveFile))) {
+    if (!(await this.pathExists(tmpArchiveFile))) {
       throw new Error(`tar.c command failed to create ${tmpArchiveFile}`);
     }
   }
@@ -222,7 +286,7 @@ export class GCSTaskStore implements TaskStore {
     const workspaceFile = this.storage
       .bucket(this.bucketName)
       .file(workspaceObjectPath);
-    const sourceStream = createReadStream(tmpArchiveFile);
+    const sourceStream = this.createReadStream(tmpArchiveFile);
     const destStream = workspaceFile.createWriteStream({
       contentType: 'application/gzip',
       resumable: true,
@@ -260,8 +324,8 @@ export class GCSTaskStore implements TaskStore {
   private async cleanupTemporaryArchive(tmpArchiveFile: string): Promise<void> {
     logger.info(`Cleaning up temporary file: ${tmpArchiveFile}`);
     try {
-      if (await fse.pathExists(tmpArchiveFile)) {
-        await fse.remove(tmpArchiveFile);
+      if (await this.pathExists(tmpArchiveFile)) {
+        await this.remove(tmpArchiveFile);
         logger.info(`Successfully removed temporary file: ${tmpArchiveFile}`);
       } else {
         logger.warn(`Temporary file not found for cleanup: ${tmpArchiveFile}`);
@@ -289,11 +353,11 @@ export class GCSTaskStore implements TaskStore {
         return undefined;
       }
       const [compressedMetadata] = await metadataFile.download();
-      const jsonData = gunzipSync(compressedMetadata).toString();
+      const jsonData = this.gunzip(compressedMetadata).toString();
       const loadedMetadata = JSON.parse(jsonData);
       logger.info(`Task ${taskId} metadata loaded from GCS.`);
 
-      const persistedState = getPersistedState(loadedMetadata);
+      const persistedState = this.getPersistedState(loadedMetadata);
       if (!persistedState) {
         throw new Error(
           `Loaded metadata for task ${taskId} is missing internal persisted state.`,
@@ -301,22 +365,25 @@ export class GCSTaskStore implements TaskStore {
       }
       const agentSettings = persistedState._agentSettings;
 
-      const workDir = setTargetDir(agentSettings);
-      await fse.ensureDir(workDir);
+      const workDir = this.setTargetDir(agentSettings);
+      await this.ensureDir(workDir);
       const workspaceFile = this.storage
         .bucket(this.bucketName)
         .file(workspaceObjectPath);
       const [workspaceExists] = await workspaceFile.exists();
       if (workspaceExists) {
-        const tmpArchiveFile = join(tmpdir(), getTmpArchiveFilename(taskId));
+        const tmpArchiveFile = this.getTmpArchiveFile(taskId);
         try {
           await workspaceFile.download({ destination: tmpArchiveFile });
-          await tar.x({ file: tmpArchiveFile, cwd: workDir });
+          await (this.extractArchive ?? tar.x)({
+            file: tmpArchiveFile,
+            cwd: workDir,
+          });
           logger.info(
             `Task ${taskId} workspace restored from GCS to ${workDir}`,
           );
         } finally {
-          await cleanupTempArchive(tmpArchiveFile);
+          await this.cleanupTemporaryArchive(tmpArchiveFile);
         }
       } else {
         logger.info(`Task ${taskId} workspace archive not found in GCS.`);
@@ -324,7 +391,7 @@ export class GCSTaskStore implements TaskStore {
 
       return {
         id: taskId,
-        contextId: loadedMetadata._contextId ?? uuidv4(),
+        contextId: loadedMetadata._contextId ?? this.createId(),
         kind: 'task',
         status: {
           state: persistedState._taskState,
@@ -338,6 +405,12 @@ export class GCSTaskStore implements TaskStore {
       logger.error(`Failed to load task ${taskId} from GCS:`, error);
       throw error;
     }
+  }
+
+  private getTmpArchiveFile(taskId: string): string {
+    const id = this.createId();
+    const filename = `task-${taskId}-workspace-${id}.tar.gz`;
+    return this.joinPath(this.getTmpDir(), filename);
   }
 }
 

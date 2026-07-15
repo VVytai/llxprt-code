@@ -183,6 +183,7 @@ export class ChatSession {
     contentGenerator: ContentGenerator,
     generationConfig: ChatSessionConfig = {},
     initialHistory: IContent[] = [],
+    triggerCompressionHook: typeof triggerPreCompressHook = triggerPreCompressHook,
   ) {
     this.runtimeContext = view;
     this.runtimeState = view.state;
@@ -218,7 +219,7 @@ export class ChatSession {
       async (context: CompressionContext) => {
         const config = view.providerRuntime.config;
         if (config) {
-          await triggerPreCompressHook(
+          await triggerCompressionHook(
             config,
             context.trigger === 'auto'
               ? PreCompressTrigger.Auto

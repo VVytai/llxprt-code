@@ -19,6 +19,7 @@ import { vi } from 'vitest';
 import type { ContentGeneratorConfig } from '@vybestack/llxprt-code-core/core/contentGenerator.js';
 import type { ConfigParameters } from '@vybestack/llxprt-code-core/config/config.js';
 import type { ChatSession } from './chatSession.js';
+import type { MessageStreamDeps } from './MessageStreamOrchestrator.js';
 import { AgentClient } from './client.js';
 import { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import { createAgentRuntimeState } from '@vybestack/llxprt-code-core/runtime/AgentRuntimeState.js';
@@ -64,6 +65,8 @@ export interface ClientMockFns {
   mockChatCreateFn: ReturnType<typeof vi.fn>;
   mockGenerateContentFn: ReturnType<typeof vi.fn>;
   mockEmbedContentFn: ReturnType<typeof vi.fn>;
+  createTurn?: MessageStreamDeps['createTurn'];
+  resolveTokenLimit?: MessageStreamDeps['resolveTokenLimit'];
 }
 
 /** Reset all mocks and re-apply the shared service mocks. */
@@ -177,6 +180,8 @@ function setupConfigMock(): ContentGeneratorConfig {
 /** Instantiate the AgentClient and wire its chat mock. */
 async function createAndInitClient(
   contentGeneratorConfig: ContentGeneratorConfig,
+  createTurn?: MessageStreamDeps['createTurn'],
+  resolveTokenLimit?: MessageStreamDeps['resolveTokenLimit'],
 ): Promise<AgentClient> {
   const mockConfig = new Config({
     sessionId: 'test-session-id',
@@ -187,7 +192,13 @@ async function createAndInitClient(
     model: 'test-model',
     sessionId: 'test-session-id',
   });
-  const client = new AgentClient(mockConfig, runtimeState);
+  const client = new AgentClient(
+    mockConfig,
+    runtimeState,
+    undefined,
+    createTurn,
+    resolveTokenLimit,
+  );
   await client.initialize(contentGeneratorConfig);
 
   client.getHistory = vi.fn().mockReturnValue([]);
@@ -220,7 +231,11 @@ export async function setupAgentClient(
   resetAndApplyServiceMocks();
   setupGoogleGenAIMock(mockFns);
   const contentGeneratorConfig = setupConfigMock();
-  const client = await createAndInitClient(contentGeneratorConfig);
+  const client = await createAndInitClient(
+    contentGeneratorConfig,
+    mockFns.createTurn,
+    mockFns.resolveTokenLimit,
+  );
   const mockConfig = client['config'];
   return { client, mockConfig };
 }

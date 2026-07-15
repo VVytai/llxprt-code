@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { resolveEffectiveContextLimit } from '@vybestack/llxprt-code-core/core/tokenLimits.js';
+import {
+  resolveEffectiveContextLimit,
+  tokenLimit,
+} from '@vybestack/llxprt-code-core/core/tokenLimits.js';
 
 export interface ContextLimitConfig {
   getEphemeralSetting(key: string): unknown;
@@ -65,10 +68,12 @@ function getProviderContextLimit(
 export function getTokenLimitForConfiguredContext(
   model: string,
   config: ContextLimitConfig,
+  resolveTokenLimit: typeof tokenLimit = tokenLimit,
 ): number {
   return resolveEffectiveContextLimit(
     model,
     getConfiguredContextLimit(config),
     getProviderContextLimit(config),
+    resolveTokenLimit,
   );
 }

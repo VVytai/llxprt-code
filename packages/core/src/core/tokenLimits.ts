@@ -210,6 +210,7 @@ export function resolveEffectiveContextLimit(
   model: string,
   userContextLimit?: number,
   providerContextLimit?: number,
+  resolveTokenLimit: typeof tokenLimit = tokenLimit,
 ): number {
   if (isPositiveFiniteLimit(userContextLimit)) {
     return userContextLimit;
@@ -217,5 +218,5 @@ export function resolveEffectiveContextLimit(
   if (isPositiveFiniteLimit(providerContextLimit)) {
     return providerContextLimit;
   }
-  return tokenLimit(model);
+  return resolveTokenLimit(model);
 }

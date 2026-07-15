@@ -87,24 +87,45 @@ class TaskWrapper {
 /**
  * CoderAgentExecutor implements the agent's core logic for code generation.
  */
+export interface CoderAgentExecutorDependencies {
+  loadConfig?: typeof loadConfig;
+  loadEnvironment?: typeof loadEnvironment;
+  setTargetDir?: typeof setTargetDir;
+  loadSettings?: typeof loadSettings;
+  loadExtensions?: typeof loadExtensions;
+  createTask?: typeof Task.create;
+}
+
 export class CoderAgentExecutor implements AgentExecutor {
   private tasks: Map<string, TaskWrapper> = new Map();
   // Track tasks with an active execution loop.
   private executingTasks = new Set<string>();
 
-  constructor(private taskStore?: TaskStore) {}
+  constructor(
+    private taskStore?: TaskStore,
+    private readonly dependencies: CoderAgentExecutorDependencies = {},
+  ) {}
 
   private async getConfig(
     agentSettings: AgentSettings,
     taskId: string,
   ): Promise<Config> {
-    const workspaceRoot = setTargetDir(agentSettings);
-    loadEnvironment(); // Will override any global env with workspace envs
-    const settings = loadSettings(workspaceRoot);
-    const extensions = loadExtensions(workspaceRoot, {
-      folderTrust: settings.folderTrust,
-    });
-    return loadConfig(settings, extensions, taskId);
+    const workspaceRoot = (this.dependencies.setTargetDir ?? setTargetDir)(
+      agentSettings,
+    );
+    (this.dependencies.loadEnvironment ?? loadEnvironment)();
+    const settings = (this.dependencies.loadSettings ?? loadSettings)(
+      workspaceRoot,
+    );
+    const extensions = (this.dependencies.loadExtensions ?? loadExtensions)(
+      workspaceRoot,
+      { folderTrust: settings.folderTrust },
+    );
+    return (this.dependencies.loadConfig ?? loadConfig)(
+      settings,
+      extensions,
+      taskId,
+    );
   }
 
   /**
@@ -126,7 +147,7 @@ export class CoderAgentExecutor implements AgentExecutor {
     const agentSettings = persistedState._agentSettings;
     const config = await this.getConfig(agentSettings, sdkTask.id);
     const contextId = (metadata['_contextId'] as string) || sdkTask.contextId;
-    const runtimeTask = await Task.create(
+    const runtimeTask = await (this.dependencies.createTask ?? Task.create)(
       sdkTask.id,
       contextId,
       config,
@@ -154,7 +175,7 @@ export class CoderAgentExecutor implements AgentExecutor {
   ): Promise<TaskWrapper> {
     const agentSettings = agentSettingsInput ?? ({} as AgentSettings);
     const config = await this.getConfig(agentSettings, taskId);
-    const runtimeTask = await Task.create(
+    const runtimeTask = await (this.dependencies.createTask ?? Task.create)(
       taskId,
       contextId,
       config,

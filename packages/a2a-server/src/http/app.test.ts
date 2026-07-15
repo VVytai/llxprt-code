@@ -5,6 +5,7 @@
  */
 
 import type {
+  AgentClientContract,
   Config,
   ToolCallConfirmationDetails,
 } from '@vybestack/llxprt-code-core';
@@ -12,6 +13,7 @@ import {
   AgentEventType,
   ApprovalMode,
   debugLogger,
+  UserTierId,
 } from '@vybestack/llxprt-code-core';
 import { MockTool } from '@vybestack/llxprt-code-core/test-utils/mock-tool.js';
 import type {
@@ -23,14 +25,18 @@ import type { Server } from 'node:http';
 import request from 'supertest';
 import {
   afterAll,
+  afterEach,
   beforeEach,
   beforeAll,
   describe,
   expect,
   it,
   vi,
-} from 'vitest';
+} from 'bun:test';
+import { InMemoryTaskStore } from '@a2a-js/sdk/server';
 import { createApp } from './app.js';
+import { CoderAgentExecutor } from '../agent/executor.js';
+import { Task } from '../agent/task.js';
 import { commandRegistry } from '../commands/command-registry.js';
 import {
   assertUniqueFinalEventIsLast,
@@ -68,88 +74,98 @@ function streamToSSEEventsForCommand(
     .filter((line) => line.startsWith('data: '))
     .map((line) => JSON.parse(line.substring(6)));
 }
-
-// Mock the logger to avoid polluting test output
-// Comment out to debug tests
-vi.mock('../utils/logger.js', () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
-
 let config: Config;
-const getToolRegistrySpy = vi.fn().mockReturnValue(ApprovalMode.DEFAULT);
+const getToolRegistrySpy = vi.fn().mockReturnValue(undefined);
 const getApprovalModeSpy = vi.fn();
 const getExtensionsSpy = vi.fn();
-
-vi.mock('../config/config.js', async () => {
-  const actual = await vi.importActual('../config/config.js');
-  return {
-    ...actual,
-    loadConfig: vi.fn().mockImplementation(async () => {
-      const mockConfig = createMockConfig({
-        getToolRegistry: getToolRegistrySpy,
-        getApprovalMode: getApprovalModeSpy,
-        getExtensions: getExtensionsSpy,
-      });
-      config = mockConfig as Config;
-      return config;
-    }),
-  };
-});
-
-// Mock the AgentClient to avoid actual API calls
 const sendMessageStreamSpy = vi.fn();
 const mockAgentClientInstance = {
-  sendMessageStream: sendMessageStreamSpy,
-  getUserTier: vi.fn().mockReturnValue('free'),
-  initialize: vi.fn(),
-};
-vi.mock('@vybestack/llxprt-code-agents', async () => {
-  const actual = await vi.importActual('@vybestack/llxprt-code-agents');
-  return {
-    ...actual,
-    AgentClient: vi.fn().mockImplementation(() => mockAgentClientInstance),
-    createAgentClient: vi
-      .fn()
-      .mockImplementation(() => mockAgentClientInstance),
-  };
-});
-vi.mock('@vybestack/llxprt-code-core', async () => {
-  const actual = await vi.importActual('@vybestack/llxprt-code-core');
-  return {
-    ...actual,
-    createRuntimeStateFromConfig: actual.createRuntimeStateFromConfig,
-    MockTool: actual.MockTool, // Explicitly export MockTool
-  };
-});
+  sendMessageStream: ((...args) =>
+    sendMessageStreamSpy(...args)) as AgentClientContract['sendMessageStream'],
+  getUserTier: vi
+    .fn<AgentClientContract['getUserTier']>()
+    .mockReturnValue(UserTierId.FREE),
+  initialize: vi
+    .fn<AgentClientContract['initialize']>()
+    .mockResolvedValue(undefined),
+} satisfies Pick<
+  AgentClientContract,
+  'sendMessageStream' | 'getUserTier' | 'initialize'
+>;
 
 describe('E2E Tests', () => {
   let app: express.Express;
   let server: Server;
+  const commandLookupSpies: Array<ReturnType<typeof vi.spyOn>> = [];
+  const mockCommandLookup = (command: Command): void => {
+    commandLookupSpies.push(
+      vi.spyOn(commandRegistry, 'get').mockReturnValue(command),
+    );
+  };
 
   beforeAll(async () => {
-    app = await createApp();
-    server = app.listen(0); // Listen on a random available port
+    config = createMockConfig({
+      getToolRegistry: getToolRegistrySpy,
+      getApprovalMode: getApprovalModeSpy,
+      getExtensions: getExtensionsSpy,
+    }) as Config;
+    const taskStore = new InMemoryTaskStore();
+    const agentExecutor = new CoderAgentExecutor(taskStore, {
+      loadConfig: async () => config,
+      createTask: async (...args) => {
+        const task = await Task.create(...args);
+        vi.spyOn(task.agentClient, 'sendMessageStream').mockImplementation(
+          mockAgentClientInstance.sendMessageStream,
+        );
+        vi.spyOn(task.agentClient, 'getUserTier').mockImplementation(
+          mockAgentClientInstance.getUserTier,
+        );
+        vi.spyOn(task.agentClient, 'initialize').mockImplementation(
+          mockAgentClientInstance.initialize,
+        );
+        return task;
+      },
+    });
+    app = await createApp({
+      createStartupContext: async () => ({
+        config,
+        git: undefined,
+        agentExecutor,
+        taskStoreForExecutor: taskStore,
+        taskStoreForHandler: taskStore,
+      }),
+      getGitService: async () => undefined,
+    });
+    server = app.listen(0);
   });
 
   beforeEach(() => {
     sendMessageStreamSpy.mockReset();
     mockAgentClientInstance.getUserTier.mockReset();
-    mockAgentClientInstance.getUserTier.mockReturnValue('free');
+    mockAgentClientInstance.getUserTier.mockReturnValue(UserTierId.FREE);
     mockAgentClientInstance.initialize.mockReset();
     getToolRegistrySpy.mockReset();
+    getToolRegistrySpy.mockReturnValue(undefined);
     getApprovalModeSpy.mockReset();
     getApprovalModeSpy.mockReturnValue(ApprovalMode.DEFAULT);
     getExtensionsSpy.mockReset();
   });
 
-  afterAll(
-    () =>
-      new Promise<void>((resolve) => {
-        server.close(() => {
+  afterEach(() => {
+    commandLookupSpies.splice(0).forEach((spy) => spy.mockRestore());
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+        } else {
           resolve();
-        });
-      }),
-  );
+        }
+      });
+    });
+  });
 
   it('should create a new task and stream status updates (text-content) via POST /', async () => {
     sendMessageStreamSpy.mockImplementation(async function* () {
@@ -718,7 +734,7 @@ describe('E2E Tests', () => {
         ],
       });
 
-      expect(getAllCommandsSpy).toHaveBeenCalledOnce();
+      expect(getAllCommandsSpy).toHaveBeenCalledTimes(1);
       getAllCommandsSpy.mockRestore();
     });
 
@@ -822,7 +838,7 @@ describe('E2E Tests', () => {
           return { name: 'context-check-command', data: 'success' };
         }),
       };
-      vi.spyOn(commandRegistry, 'get').mockReturnValue(mockCommand);
+      mockCommandLookup(mockCommand);
 
       const agent = request.agent(app);
       const res = await agent
@@ -835,9 +851,7 @@ describe('E2E Tests', () => {
     });
 
     describe('/executeCommand streaming', () => {
-      it('should execute a streaming command and stream back events', (done: (
-        err?: unknown,
-      ) => void) => {
+      it('should execute a streaming command and stream back events', async () => {
         const executeSpy = vi.fn(async (context: CommandContext) => {
           context.eventBus?.publish({
             kind: 'status-update',
@@ -862,45 +876,31 @@ describe('E2E Tests', () => {
           streaming: true,
           execute: executeSpy,
         };
-        vi.spyOn(commandRegistry, 'get').mockReturnValue(mockStreamCommand);
+        mockCommandLookup(mockStreamCommand);
 
-        const agent = request.agent(app);
-        agent
+        const response = await request(app)
           .post('/executeCommand')
           .send({ command: 'stream-test', args: [] })
           .set('Content-Type', 'application/json')
-          .set('Accept', 'text/event-stream')
-          .on('response', (res) => {
-            let data = '';
-            res.on('data', (chunk: Buffer) => {
-              data += chunk.toString();
-            });
-            res.on('end', () => {
-              try {
-                const events = streamToSSEEventsForCommand(data);
-                expect(events.length).toBe(2);
-                expect(events[0].result).toStrictEqual({
-                  kind: 'status-update',
-                  status: { state: 'working' },
-                  taskId: 'test-task',
-                  contextId: 'test-context',
-                  final: false,
-                });
-                expect(events[1].result).toStrictEqual({
-                  kind: 'status-update',
-                  status: { state: 'completed' },
-                  taskId: 'test-task',
-                  contextId: 'test-context',
-                  final: true,
-                });
-                expect(executeSpy).toHaveBeenCalled();
-                done();
-              } catch (e) {
-                done(e);
-              }
-            });
-          })
-          .end();
+          .set('Accept', 'text/event-stream');
+
+        const events = streamToSSEEventsForCommand(response.text);
+        expect(events.length).toBe(2);
+        expect(events[0].result).toStrictEqual({
+          kind: 'status-update',
+          status: { state: 'working' },
+          taskId: 'test-task',
+          contextId: 'test-context',
+          final: false,
+        });
+        expect(events[1].result).toStrictEqual({
+          kind: 'status-update',
+          status: { state: 'completed' },
+          taskId: 'test-task',
+          contextId: 'test-context',
+          final: true,
+        });
+        expect(executeSpy).toHaveBeenCalled();
       });
 
       it('should handle non-streaming commands gracefully', async () => {
@@ -911,7 +911,7 @@ describe('E2E Tests', () => {
             .fn()
             .mockResolvedValue({ name: 'non-stream-test', data: 'done' }),
         };
-        vi.spyOn(commandRegistry, 'get').mockReturnValue(mockNonStreamCommand);
+        mockCommandLookup(mockNonStreamCommand);
 
         const agent = request.agent(app);
         const res = await agent

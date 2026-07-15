@@ -161,6 +161,7 @@ export class DirectMessageProcessor {
     ) => ProviderRuntimeContext,
     private readonly generationConfig: AgentClientGenerateConfig,
     private readonly historyService: HistoryService,
+    private readonly retry: typeof retryWithBackoff = retryWithBackoff,
   ) {}
 
   /**
@@ -266,7 +267,7 @@ export class DirectMessageProcessor {
         providerRequestContext: params.config?.providerRequestContext ?? {},
       },
     };
-    return retryWithBackoff(
+    return this.retry(
       async () =>
         this._executeDirectProviderCall(provider, requestParams, userIContents),
       {

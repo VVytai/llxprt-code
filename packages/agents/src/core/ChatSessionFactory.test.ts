@@ -202,16 +202,11 @@ describe('buildSettingsSnapshot', () => {
     expect(snapshot['reasoning.maxTokens']).toBe(8192);
   });
 
-  it('includes tool governance in snapshot', async () => {
-    const { getToolGovernanceEphemerals } = await import(
-      './clientToolGovernance.js'
-    );
-    vi.mocked(getToolGovernanceEphemerals).mockReturnValueOnce({
-      allowed: ['bash', 'read_file'],
-    });
-
+  it('includes tool governance in snapshot', () => {
     const config = makeConfig();
-    const snapshot = buildSettingsSnapshot(config);
+    const snapshot = buildSettingsSnapshot(config, () => ({
+      allowed: ['bash', 'read_file'],
+    }));
 
     expect(snapshot.tools).toStrictEqual({ allowed: ['bash', 'read_file'] });
   });
@@ -512,6 +507,7 @@ describe('createChatSession', () => {
     const runtimeState = makeRuntimeState();
     const todoContinuationService = makeTodoContinuationService();
     const clearFn = vi.fn();
+    const createHistoryService = vi.fn(() => new HistoryService());
 
     await createChatSession({
       config,
@@ -522,10 +518,11 @@ describe('createChatSession', () => {
       generateContentConfig: {},
       todoContinuationService,
       toolRegistry: undefined,
+      createHistoryService,
     });
 
     expect(clearFn).not.toHaveBeenCalled();
-    expect(HistoryService).toHaveBeenCalled();
+    expect(createHistoryService).toHaveBeenCalledOnce();
   });
 
   it('adds extra history to a new HistoryService', async () => {
