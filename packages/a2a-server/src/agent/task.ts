@@ -12,6 +12,8 @@ import {
   createAgentRuntimeState,
   DEFAULT_GUI_EDITOR,
   MessageBus,
+  UNCONFIGURED_PROVIDER,
+  PLACEHOLDER_MODEL,
 } from '@vybestack/llxprt-code-core';
 import type {
   CompletedToolCall,
@@ -28,6 +30,12 @@ import type {
   AgentClientContract,
 } from '@vybestack/llxprt-code-core';
 import { createAgentClient } from '@vybestack/llxprt-code-agents';
+
+type AgentClientFactory = typeof createAgentClient;
+
+interface TaskDependencies {
+  readonly agentClientFactory?: AgentClientFactory;
+}
 import type { RequestContext } from '@a2a-js/sdk/server';
 import { type ExecutionEventBus } from '@a2a-js/sdk/server';
 import type {
@@ -113,6 +121,7 @@ export class Task {
     config: Config,
     eventBus?: ExecutionEventBus,
     autoExecute = false,
+    dependencies: TaskDependencies = {},
   ) {
     this.id = id;
     this.contextId = contextId;
@@ -123,18 +132,26 @@ export class Task {
       this.config.getDebugMode(),
     );
     const contentConfig = this.config.getContentGeneratorConfig();
+    const trimmedProvider = this.config.getProvider()?.trim();
+    const resolvedProvider =
+      trimmedProvider === undefined || trimmedProvider === ''
+        ? UNCONFIGURED_PROVIDER
+        : trimmedProvider;
     const runtimeState = createAgentRuntimeState({
       runtimeId: `${this.contextId}-task-runtime`,
-      provider: this.config.getProvider() ?? 'gemini',
+      provider: resolvedProvider,
       model: resolveModel(
         this.config.getModel(),
         contentConfig?.model,
-        'gemini-pro',
+        PLACEHOLDER_MODEL,
       ),
       proxyUrl: this.config.getProxy(),
       sessionId: this.config.getSessionId(),
     });
-    this.agentClient = createAgentClient(this.config, runtimeState);
+    this.agentClient = (dependencies.agentClientFactory ?? createAgentClient)(
+      this.config,
+      runtimeState,
+    );
     this.pendingToolConfirmationDetails = new Map();
     this.taskState = 'submitted';
     this.eventBus = eventBus;
@@ -149,8 +166,16 @@ export class Task {
     config: Config,
     eventBus?: ExecutionEventBus,
     autoExecute?: boolean,
+    dependencies?: TaskDependencies,
   ): Promise<Task> {
-    const task = new Task(id, contextId, config, eventBus, autoExecute);
+    const task = new Task(
+      id,
+      contextId,
+      config,
+      eventBus,
+      autoExecute,
+      dependencies,
+    );
     task.scheduler = await task.createScheduler();
     return task;
   }

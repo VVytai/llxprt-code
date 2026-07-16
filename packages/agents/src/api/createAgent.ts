@@ -58,7 +58,7 @@ import {
 } from './loop/rebuildLoop.js';
 import { buildAgent } from './agentImpl.js';
 import { executeProviderActivation } from './providerActivationExecutor.js';
-import { PLACEHOLDER_MODEL } from './constants.js';
+import { PLACEHOLDER_MODEL, UNCONFIGURED_PROVIDER } from './constants.js';
 import {
   resolveAuthType,
   generateRuntimeId,
@@ -257,8 +257,8 @@ export async function finalizeAgent(
   // @pseudocode createAgent.md steps 105-113: runtime state (runtimeId REQUIRED)
   const runtimeState = createAgentRuntimeState({
     runtimeId,
-    provider: parsed.provider,
-    model: parsed.model,
+    provider: parsed.provider.trim() || UNCONFIGURED_PROVIDER,
+    model: parsed.model.trim() || PLACEHOLDER_MODEL,
     baseUrl: resolvedAuth.baseUrl,
     modelParams: parsed.modelParams,
     sessionId: parsed.sessionId,
@@ -655,7 +655,11 @@ export function registerProvidersOntoManager(
   // preserve the agents-vs-CLI package boundary.
   const { manager: registered } = createProviderManager(
     context as Parameters<typeof createProviderManager>[0],
-    { config, oauthSettings: createFileOAuthSettingsProvider() },
+    {
+      config,
+      oauthSettings: createFileOAuthSettingsProvider(),
+      activateConfiguredProvider: false,
+    },
   );
   for (const name of registered.listProviders()) {
     const provider = registered.getProviderByName(name);
@@ -667,9 +671,12 @@ export function registerProvidersOntoManager(
     }
   }
   // Under LLXPRT_FAKE_RESPONSES, FakeProvider is set active by createProviderManager.
-  // Mirror the active provider onto the isolated manager.
+  // Mirror the active provider onto the isolated manager only when one is real.
   try {
     const active = registered.getActiveProvider();
+    if (active === undefined) {
+      return;
+    }
     const activation = isolatedManager.setActiveProvider(active.name);
     if (activation instanceof Promise) {
       // setActiveProvider is void | Promise<void>; on the async path a late

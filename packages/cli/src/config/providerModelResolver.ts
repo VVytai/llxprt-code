@@ -11,6 +11,18 @@ import { firstNonEmptyString } from '../utils/coalesce.js';
 
 const logger = new DebugLogger('llxprt:config:providerModelResolver');
 
+/**
+ * Trims a string candidate; returns undefined for whitespace-only strings so
+ * they are treated as absent by firstNonEmptyString.
+ */
+function trimIfString(value: string | undefined | null): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 export interface ProviderModelInput {
   cliProvider: string | undefined;
   profileProvider: string | undefined;
@@ -23,7 +35,7 @@ export interface ProviderModelInput {
 }
 
 export interface ProviderModelResult {
-  readonly provider: string;
+  readonly provider: string | undefined;
   readonly model: string;
 }
 
@@ -34,7 +46,9 @@ export interface ProviderModelResult {
 function getAliasDefaultModel(provider: string): string | undefined {
   try {
     const entry = loadProviderAliasEntries().find(
-      (candidate: { alias: string }) => candidate.alias === provider,
+      (candidate: { alias: string; config: { baseProvider: string } }) =>
+        candidate.alias === provider &&
+        candidate.alias !== candidate.config.baseProvider,
     );
     const candidate = entry?.config.defaultModel;
     return typeof candidate === 'string' && candidate.trim()
@@ -48,8 +62,9 @@ function getAliasDefaultModel(provider: string): string | undefined {
 /**
  * Resolves provider (4-level precedence) and model (6-level precedence).
  *
- * Provider: CLI --provider > profile > LLXPRT_DEFAULT_PROVIDER env > 'gemini'
- * Model: CLI --model > profile > settings > env vars > alias default > Gemini default
+ * Provider: CLI --provider > profile > LLXPRT_DEFAULT_PROVIDER env > undefined
+ * (no implicit hosted provider fallback)
+ * Model: CLI --model > profile > settings > alias default > env vars > Gemini default
  */
 export function resolveProviderAndModel(
   input: ProviderModelInput,
@@ -65,34 +80,43 @@ export function resolveProviderAndModel(
     envGeminiModel,
   } = input;
 
-  let provider: string;
-  if (cliProvider) {
-    provider = cliProvider;
+  let provider: string | undefined;
+  if (cliProvider && cliProvider.trim() !== '') {
+    provider = cliProvider.trim();
   } else if (profileProvider && profileProvider.trim() !== '') {
-    provider = profileProvider;
-  } else if (envDefaultProvider) {
-    provider = envDefaultProvider;
+    provider = profileProvider.trim();
+  } else if (envDefaultProvider && envDefaultProvider.trim() !== '') {
+    provider = envDefaultProvider.trim();
   } else {
-    provider = 'gemini';
+    provider = undefined;
   }
 
   logger.debug(
     () =>
-      `Provider selection: cli=${cliProvider}, profile=${profileProvider}, env=${envDefaultProvider}, final=${provider}`,
+      `Provider selection: cli=${cliProvider}, profile=${profileProvider}, env=${envDefaultProvider}, final=${provider ?? '(none)'}`,
   );
 
-  const aliasDefaultModel = getAliasDefaultModel(provider);
+  const aliasDefaultModel =
+    provider !== undefined ? getAliasDefaultModel(provider) : undefined;
 
   const providerDefault =
     provider === 'gemini' ? DEFAULT_GEMINI_MODEL : (aliasDefaultModel ?? '');
-  const cliOrProfileModel = firstNonEmptyString(
-    cliModel,
-    profileModel,
-    settingsModel,
-    envDefaultModel,
+  const configuredModel = firstNonEmptyString(
+    trimIfString(cliModel),
+    trimIfString(profileModel),
+    trimIfString(settingsModel),
+  );
+  // GEMINI_MODEL env is only relevant for the gemini provider — it must
+  // never leak to non-Gemini providers.
+  const scopedEnvModel =
+    provider === 'gemini' ? trimIfString(envGeminiModel) : undefined;
+  const environmentModel = firstNonEmptyString(
+    trimIfString(envDefaultModel),
+    scopedEnvModel,
   );
   const model: string =
-    firstNonEmptyString(cliOrProfileModel, envGeminiModel) ?? providerDefault;
+    firstNonEmptyString(configuredModel, aliasDefaultModel, environmentModel) ??
+    providerDefault;
 
   return { provider, model };
 }

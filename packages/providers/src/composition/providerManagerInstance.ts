@@ -20,6 +20,7 @@ import {
   type RuntimeTokenizer,
   type RuntimeTokenizerFactory,
   type ProviderRuntimeContext,
+  UNCONFIGURED_PROVIDER,
 } from '@vybestack/llxprt-code-core';
 import { ProviderManager } from '../ProviderManager.js';
 import { FakeProvider } from '../fake/FakeProvider.js';
@@ -58,6 +59,7 @@ let openAIContexts = new WeakMap<ProviderManager, OpenAIRegistrationContext>();
 interface ProviderManagerFactoryOptions {
   config?: Config;
   allowBrowserEnvironment?: boolean;
+  activateConfiguredProvider?: boolean;
   /**
    * OAuth settings surface injected by the composition root (CLI). Supplies
    * OAuth enablement read/write with full fidelity (comment-preserving writes
@@ -183,6 +185,79 @@ export function configureProviderRuntimeFactories(
   if (typeof setTokenizerFactory === 'function') {
     setTokenizerFactory.call(config, createRuntimeTokenizerFactory());
   }
+}
+
+/**
+ * Normalizes a candidate explicit-provider value. Returns the trimmed value
+ * when it is a non-empty, non-sentinel string; otherwise undefined. The
+ * neutral UNCONFIGURED_PROVIDER sentinel and whitespace-only values are
+ * treated as absent so precedence falls through to lower sources.
+ */
+function normalizeExplicitProvider(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed === '' || trimmed === UNCONFIGURED_PROVIDER) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+/**
+ * Resolves an explicitly-configured provider name (or undefined when
+ * nothing is configured). Checks, in order: config.getProvider(), the
+ * settingsService's activeProvider, and the user-settings file's
+ * activeProvider/defaultProvider. Returns undefined when none are present so
+ * the manager starts without an implicit provider fallback.
+ *
+ * Bare API keys / env credentials are intentionally NOT consulted here —
+ * they do not select a provider. Only an explicit provider/profile/default
+ * counts.
+ *
+ * The neutral `UNCONFIGURED_PROVIDER` sentinel and whitespace-only values
+ * are treated as absent at every source so resolution continues to
+ * lower-precedence sources and never passes the sentinel to
+ * activateExplicitProvider or setActiveProvider.
+ */
+function resolveExplicitProvider(
+  config: Config | undefined,
+  context: RuntimeContextShape,
+  userSettings: UserSettingsView | undefined,
+): string | undefined {
+  // 1. Config provider (set by CLI --provider, --profile-load, or
+  // LLXPRT_DEFAULT_PROVIDER during config resolution).
+  if (config && typeof config.getProvider === 'function') {
+    const configProvider = config.getProvider();
+    const resolvedConfig = normalizeExplicitProvider(configProvider);
+    if (resolvedConfig !== undefined) {
+      return resolvedConfig;
+    }
+  }
+
+  // 2. SettingsService activeProvider (ephemeral runtime state, not
+  // persisted — set by a prior switchActiveProvider or from profile load).
+  const settingsActiveProvider = context.settingsService.get('activeProvider');
+  const resolvedSettings = normalizeExplicitProvider(settingsActiveProvider);
+  if (resolvedSettings !== undefined) {
+    return resolvedSettings;
+  }
+
+  // 3. User-settings file activeProvider or defaultProvider.
+  if (userSettings) {
+    const userActiveProvider = userSettings['activeProvider'];
+    const resolvedUserActive = normalizeExplicitProvider(userActiveProvider);
+    if (resolvedUserActive !== undefined) {
+      return resolvedUserActive;
+    }
+    const userDefaultProvider = userSettings['defaultProvider'];
+    const resolvedUserDefault = normalizeExplicitProvider(userDefaultProvider);
+    if (resolvedUserDefault !== undefined) {
+      return resolvedUserDefault;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -454,6 +529,69 @@ function registerAllProviders(
   registerOAuthProviders(oauthManager, tokenStore, addItem);
 }
 
+/**
+ * Activates the explicitly-configured provider on the manager. Only
+ * activates when a provider was explicitly configured (config.getProvider() or
+ * a settings activeProvider/defaultProvider). When nothing is configured, the
+ * manager starts with no active provider, and the CLI gates non-interactive
+ * runs and guides interactive users to /setup.
+ *
+ * When a provider name IS explicitly configured but is invalid (e.g. a typo
+ * like "geminii"), this throws a structured error preserving the requested
+ * name so the user sees actionable config feedback rather than a silently
+ * unconfigured start.
+ */
+function activateExplicitProvider(
+  manager: ProviderManager,
+  config: Config | undefined,
+  context: RuntimeContextShape,
+  userSettings: UserSettingsView | undefined,
+): void {
+  const explicitProvider = resolveExplicitProvider(
+    config,
+    context,
+    userSettings,
+  );
+  if (explicitProvider === undefined) {
+    return;
+  }
+  try {
+    manager.setActiveProvider(explicitProvider);
+  } catch (error) {
+    throw new Error(
+      `Could not activate explicitly-configured provider '${explicitProvider}': ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Short-circuit: when LLXPRT_FAKE_RESPONSES is set, register only FakeProvider
+ * and return immediately. This avoids real provider registration (which may
+ * require valid API keys) and ensures FakeProvider stays active even after the
+ * bootstrap calls switchActiveProvider().
+ */
+function tryActivateFakeProvider(
+  manager: ProviderManager,
+  config: Config | undefined,
+): { manager: ProviderManager } | null {
+  const fakeResponsesPath = process.env.LLXPRT_FAKE_RESPONSES;
+  if (!fakeResponsesPath) {
+    return null;
+  }
+  if (config) {
+    manager.setConfig(config);
+    configureProviderRuntimeFactories(config, manager);
+  }
+  const fakeProvider = new FakeProvider(fakeResponsesPath, process.cwd());
+  manager.registerProvider(fakeProvider);
+  manager.setActiveProvider('fake');
+  logger.debug(
+    () => `FakeProvider active — replaying from ${fakeResponsesPath}`,
+  );
+  return { manager };
+}
+
 export function createProviderManager(
   context: RuntimeContextShape,
   options: ProviderManagerFactoryOptions = {},
@@ -480,25 +618,16 @@ export function createProviderManager(
     oauthRuntimeDeps,
   );
 
-  const { config, allowBrowserEnvironment = false, addItem } = options;
+  const {
+    config,
+    allowBrowserEnvironment = false,
+    activateConfiguredProvider = true,
+    addItem,
+  } = options;
 
-  // Short-circuit: when LLXPRT_FAKE_RESPONSES is set, register only FakeProvider
-  // and return immediately. This avoids real provider registration (which may
-  // require valid API keys) and ensures FakeProvider stays active even after the
-  // bootstrap calls switchActiveProvider().
-  const fakeResponsesPath = process.env.LLXPRT_FAKE_RESPONSES;
-  if (fakeResponsesPath) {
-    if (config) {
-      manager.setConfig(config);
-      configureProviderRuntimeFactories(config, manager);
-    }
-    const fakeProvider = new FakeProvider(fakeResponsesPath, process.cwd());
-    manager.registerProvider(fakeProvider);
-    manager.setActiveProvider('fake');
-    logger.debug(
-      () => `FakeProvider active — replaying from ${fakeResponsesPath}`,
-    );
-    return { manager, oauthManager };
+  const fakeResult = tryActivateFakeProvider(manager, config);
+  if (fakeResult) {
+    return { manager: fakeResult.manager, oauthManager };
   }
 
   logger.debug('createProviderManager config check', {
@@ -538,7 +667,9 @@ export function createProviderManager(
     addItem,
   );
 
-  manager.setActiveProvider('gemini');
+  if (activateConfiguredProvider) {
+    activateExplicitProvider(manager, config, context, userSettings);
+  }
   attachAddItemToOAuthProviders(oauthManager, addItem);
 
   const openAIContext: OpenAIRegistrationContext = {
