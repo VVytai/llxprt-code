@@ -9,6 +9,7 @@ import {
   BaseToolInvocation,
   Kind,
   type ToolResult,
+  createStreamNormalizer,
 } from '@vybestack/llxprt-code-tools';
 import type { Config } from '@vybestack/llxprt-code-core/config/config.js';
 import {
@@ -43,10 +44,7 @@ import {
   formatSuccessContent,
   formatSuccessDisplay,
 } from './taskResultHelpers.js';
-import {
-  executeAsyncTask,
-  normalizeSubagentStreamingText,
-} from './taskAsyncExecution.js';
+import { executeAsyncTask } from './taskAsyncExecution.js';
 
 const taskLogger = new DebugLogger('llxprt:task');
 
@@ -551,9 +549,14 @@ class TaskToolInvocation extends BaseToolInvocation<
     const subagentName =
       launchRequestName(launchResult) || this.normalized.subagentName;
     let xmlOutputOpen = false;
+    const normalizer = createStreamNormalizer();
     const emitClosingSubagentTag = () => {
       if (!xmlOutputOpen || !updateOutput) {
         return;
+      }
+      const flushed = normalizer.flush();
+      if (flushed !== undefined) {
+        updateOutput(flushed);
       }
       updateOutput(`</subagent name="${subagentName}" id="${agentId}">\n`);
       xmlOutputOpen = false;
@@ -565,9 +568,9 @@ class TaskToolInvocation extends BaseToolInvocation<
 
       const existingHandler = scope.onMessage;
       scope.onMessage = (message: string) => {
-        const cleaned = normalizeSubagentStreamingText(message);
-        if (cleaned.trim().length > 0) {
-          updateOutput(cleaned);
+        const delta = normalizer.push(message);
+        if (delta !== undefined) {
+          updateOutput(delta);
         }
         existingHandler?.(message);
       };

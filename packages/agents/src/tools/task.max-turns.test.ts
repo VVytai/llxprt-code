@@ -27,6 +27,53 @@ describe('TaskTool', () => {
     } as unknown as Config;
   });
 
+  async function streamSubagentDeltas(
+    emitDeltas: (emit: (message: string) => void) => Promise<void> | void,
+  ): Promise<string[]> {
+    const scope: {
+      output: {
+        emitted_vars: Record<string, string>;
+        terminate_reason: SubagentTerminateMode;
+      };
+      runInteractive: ReturnType<typeof vi.fn>;
+      runNonInteractive: ReturnType<typeof vi.fn>;
+      onMessage?: (message: string) => void;
+    } = {
+      output: {
+        emitted_vars: {},
+        terminate_reason: SubagentTerminateMode.GOAL,
+      },
+      runInteractive: vi.fn().mockImplementation(async (_ctx: ContextState) => {
+        await emitDeltas((message: string) => scope.onMessage?.(message));
+      }),
+      runNonInteractive: vi.fn(),
+      onMessage: undefined,
+    };
+    const launch = vi.fn().mockResolvedValue({
+      agentId: 'agent-42',
+      scope,
+      dispose: vi.fn().mockResolvedValue(undefined),
+      prompt: {} as unknown,
+      profile: {} as unknown,
+      config: {} as unknown,
+      runtime: {} as unknown,
+    });
+    const orchestrator = { launch } as unknown as SubagentOrchestrator;
+    const tool = new TaskTool(config, {
+      orchestratorFactory: () => orchestrator,
+      isInteractiveEnvironment: () => true,
+    });
+    const updateOutput = vi.fn();
+    const invocation = tool.build({
+      subagent_name: 'helper',
+      goal_prompt: 'Ship it',
+    });
+
+    await invocation.execute(new AbortController().signal, updateOutput);
+
+    return updateOutput.mock.calls.map((c) => c[0] as string).slice(1, -1);
+  }
+
   describe('max_turns handling', () => {
     it('passes max_turns from params into launch request runConfig', async () => {
       const dispose = vi.fn().mockResolvedValue(undefined);
@@ -304,7 +351,7 @@ describe('TaskTool', () => {
     });
   });
 
-  it('streams subagent messages on separate lines with normalized newlines', async () => {
+  it('streams subagent messages with normalized newlines across mixed line endings', async () => {
     const dispose = vi.fn().mockResolvedValue(undefined);
     const updateOutput = vi.fn();
     const scope: {
@@ -321,7 +368,6 @@ describe('TaskTool', () => {
         terminate_reason: SubagentTerminateMode.GOAL,
       },
       runInteractive: vi.fn().mockImplementation(async (_ctx: ContextState) => {
-        // Simulate subagent streaming multiple chunks with different line ending styles
         scope.onMessage?.('first chunk');
         scope.onMessage?.('second chunk\r');
         scope.onMessage?.('third chunk\r\n');
@@ -351,83 +397,67 @@ describe('TaskTool', () => {
 
     await invocation.execute(new AbortController().signal, updateOutput);
 
-    // Verify XML wrapping - opening tag, messages without agent prefix, closing tag
-    // Only fragments that already carry \r or \n get a trailing newline via
-    // carriage-return normalization; bare fragments flow together.
-    expect(updateOutput).toHaveBeenNthCalledWith(
-      1,
-      '<subagent name="helper" id="agent-42">\n',
-    );
-    expect(updateOutput).toHaveBeenNthCalledWith(2, 'first chunk');
-    expect(updateOutput).toHaveBeenNthCalledWith(3, 'second chunk\n');
-    expect(updateOutput).toHaveBeenNthCalledWith(4, 'third chunk\n');
-    expect(updateOutput).toHaveBeenNthCalledWith(5, 'fourth chunk\n');
-    expect(updateOutput).toHaveBeenNthCalledWith(
-      6,
+    const calls = updateOutput.mock.calls.map((c) => c[0] as string);
+    expect(calls[0]).toBe('<subagent name="helper" id="agent-42">\n');
+    expect(calls[calls.length - 1]).toBe(
       '</subagent name="helper" id="agent-42">\n',
     );
-    expect(updateOutput).toHaveBeenCalledTimes(6);
+
+    const accumulated = calls.slice(1, -1).join('');
+
+    expect(accumulated).toBe(
+      'first chunksecond chunk\nthird chunk\nfourth chunk\n',
+    );
   });
 
-  it('filters out empty messages when streaming', async () => {
-    const dispose = vi.fn().mockResolvedValue(undefined);
-    const updateOutput = vi.fn();
-    const scope: {
-      output: {
-        emitted_vars: Record<string, string>;
-        terminate_reason: SubagentTerminateMode;
-      };
-      runInteractive: ReturnType<typeof vi.fn>;
-      runNonInteractive: ReturnType<typeof vi.fn>;
-      onMessage?: (message: string) => void;
-    } = {
-      output: {
-        emitted_vars: {},
-        terminate_reason: SubagentTerminateMode.GOAL,
-      },
-      runInteractive: vi.fn().mockImplementation(async (_ctx: ContextState) => {
-        // Simulate various empty/whitespace-only messages
-        scope.onMessage?.('');
-        scope.onMessage?.('  ');
-        scope.onMessage?.('\n');
-        scope.onMessage?.('actual message');
-      }),
-      runNonInteractive: vi.fn(),
-      onMessage: undefined,
-    };
-    const launch = vi.fn().mockResolvedValue({
-      agentId: 'agent-42',
-      scope,
-      dispose,
-      prompt: {} as unknown,
-      profile: {} as unknown,
-      config: {} as unknown,
-      runtime: {} as unknown,
-    });
-    const orchestrator = { launch } as unknown as SubagentOrchestrator;
-    const tool = new TaskTool(config, {
-      orchestratorFactory: () => orchestrator,
-      isInteractiveEnvironment: () => true,
-    });
-    const invocation = tool.build({
-      subagent_name: 'helper',
-      goal_prompt: 'Ship it',
+  it('preserves standalone newline chunks without dropping them', async () => {
+    const deltas = await streamSubagentDeltas((emit) => {
+      emit('Hello');
+      emit('\n');
+      emit('World');
     });
 
-    await invocation.execute(new AbortController().signal, updateOutput);
+    expect(deltas.join('')).toBe('Hello\nWorld');
+  });
 
-    // XML wrapping: opening tag, actual message (without agent prefix), closing tag
-    // Empty/whitespace-only messages are filtered
-    expect(updateOutput).toHaveBeenNthCalledWith(
-      1,
-      '<subagent name="helper" id="agent-42">\n',
-    );
-    expect(updateOutput).toHaveBeenNthCalledWith(2, 'actual message');
-    expect(updateOutput).toHaveBeenNthCalledWith(
-      3,
-      '</subagent name="helper" id="agent-42">\n',
-    );
-    expect(updateOutput).toHaveBeenCalledTimes(3);
+  it('does not invent separators at word-token fragment boundaries', async () => {
+    const deltas = await streamSubagentDeltas((emit) => {
+      for (const token of 'Hello World'.match(/(\w+|\s)/g) ?? []) {
+        emit(token);
+      }
+    });
+
+    expect(deltas.join('')).toBe('Hello World');
+  });
+
+  it('filters out only truly empty messages when streaming', async () => {
+    const deltas = await streamSubagentDeltas((emit) => {
+      emit('');
+      emit('  ');
+      emit('\n');
+      emit('\t');
+      emit('actual message');
+    });
+
+    expect(deltas).toStrictEqual(['  ', '\n', '\t', 'actual message']);
+  });
+
+  it('preserves CRLF semantics across split chunk boundaries (a\\r then \\nb)', async () => {
+    const deltas = await streamSubagentDeltas((emit) => {
+      emit('a\r');
+      emit('\nb');
+    });
+
+    expect(deltas.join('')).toBe('a\nb');
+  });
+
+  it('flushes a pending CR as LF when the stream ends in a lone CR', async () => {
+    const deltas = await streamSubagentDeltas((emit) => {
+      emit('hello');
+      emit('\r');
+    });
+
+    expect(deltas.join('')).toBe('hello\n');
   });
 
   /**

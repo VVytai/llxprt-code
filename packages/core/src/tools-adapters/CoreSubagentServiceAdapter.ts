@@ -6,6 +6,7 @@
 
 import {
   ToolErrorType,
+  createStreamNormalizer,
   type ISubagentService,
   type SubagentConfig as ToolsSubagentConfig,
   type SubagentExecutionOptions,
@@ -39,7 +40,6 @@ import {
   getToolNameCandidates,
   isExcludedToolName,
   isToolBlocked,
-  normalizeSubagentStreamingText,
   resolveTimeoutSeconds,
   stringifySubagentOutput,
   toToolsSubagentConfig,
@@ -621,12 +621,13 @@ export class CoreSubagentServiceAdapter implements ISubagentService {
       return () => undefined;
     }
 
+    const normalizer = createStreamNormalizer();
     updateOutput(`<subagent name="${subagentName}" id="${agentId}">\n`);
     const existingHandler = scope.onMessage;
     scope.onMessage = (message: string) => {
-      const cleaned = normalizeSubagentStreamingText(message);
-      if (cleaned.trim().length > 0) {
-        updateOutput(cleaned);
+      const delta = normalizer.push(message);
+      if (delta !== undefined) {
+        updateOutput(delta);
       }
       existingHandler?.(message);
     };
@@ -635,6 +636,10 @@ export class CoreSubagentServiceAdapter implements ISubagentService {
     return () => {
       if (!xmlOutputOpen) {
         return;
+      }
+      const flushed = normalizer.flush();
+      if (flushed !== undefined) {
+        updateOutput(flushed);
       }
       updateOutput(`</subagent name="${subagentName}" id="${agentId}">\n`);
       xmlOutputOpen = false;

@@ -176,11 +176,13 @@ export function formatSuccessContent(
 /**
  * Normalizes line endings in a streaming text fragment without forcing a
  * trailing newline. See taskAsyncExecution.ts for rationale.
+ *
+ * Preserved for backward compatibility. Prefer `toLosslessTextDelta` for an
+ * isolated single delta (stateless CR/CRLF→LF), or `createStreamNormalizer`
+ * for a stream spanning chunk boundaries (correctly joins a CRLF pair split
+ * across consecutive deltas and flushes a trailing lone CR on close).
  */
 export function normalizeSubagentStreamingText(text: string): string {
-  if (!text) {
-    return '';
-  }
   return text.replace(/\r\n?/g, '\n');
 }
 
