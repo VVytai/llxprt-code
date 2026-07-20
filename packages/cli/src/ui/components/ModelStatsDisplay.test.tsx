@@ -8,8 +8,10 @@ import { render } from '../../test-utils/render.js';
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { ModelStatsDisplay } from './ModelStatsDisplay.js';
 import * as SessionContext from '../contexts/SessionContext.js';
-import type { SessionMetrics } from '../contexts/SessionContext.js';
-import { ToolCallDecision } from '@vybestack/llxprt-code-core';
+import {
+  withTokenTracking,
+  type TestMetricsInput,
+} from './StatsDisplay.testHelpers.js';
 
 // Mock the context to provide controlled data for testing
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -22,13 +24,15 @@ vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
 
 const useSessionStatsMock = vi.mocked(SessionContext.useSessionStats);
 
-const renderWithMockedStats = (metrics: SessionMetrics) => {
+const renderWithMockedStats = (metrics: TestMetricsInput) => {
+  const fullMetrics = withTokenTracking(metrics);
   useSessionStatsMock.mockReturnValue({
     stats: {
       sessionId: 'test-session',
       sessionStartTime: new Date(),
-      metrics,
+      metrics: fullMetrics,
       lastPromptTokenCount: 0,
+      historyTokenCount: 0,
       promptCount: 5,
     },
 
@@ -54,26 +58,7 @@ describe('<ModelStatsDisplay />', () => {
   });
 
   it('should render "no API calls" message when there are no active models', () => {
-    const { lastFrame } = renderWithMockedStats({
-      models: {},
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
-      },
-    });
+    const { lastFrame } = renderWithMockedStats({ models: {} });
 
     expect(lastFrame()).toContain(
       'No API calls have been made in this session.',
@@ -96,23 +81,6 @@ describe('<ModelStatsDisplay />', () => {
             tool: 0,
           },
         },
-      },
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
       },
     });
 
@@ -151,23 +119,6 @@ describe('<ModelStatsDisplay />', () => {
           },
         },
       },
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
-      },
     });
 
     const output = lastFrame();
@@ -205,23 +156,6 @@ describe('<ModelStatsDisplay />', () => {
           },
         },
       },
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
-      },
     });
 
     const output = lastFrame();
@@ -250,23 +184,6 @@ describe('<ModelStatsDisplay />', () => {
           },
         },
       },
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
-      },
     });
 
     expect(lastFrame()).toMatchSnapshot();
@@ -287,23 +204,6 @@ describe('<ModelStatsDisplay />', () => {
             tool: 1,
           },
         },
-      },
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
       },
     });
 
@@ -340,23 +240,6 @@ describe('<ModelStatsDisplay />', () => {
             tool: 100,
           },
         },
-      },
-      tools: {
-        totalCalls: 0,
-        totalSuccess: 0,
-        totalFail: 0,
-        totalDurationMs: 0,
-        totalDecisions: {
-          accept: 0,
-          reject: 0,
-          modify: 0,
-          [ToolCallDecision.AUTO_ACCEPT]: 0,
-        },
-        byName: {},
-      },
-      files: {
-        totalLinesAdded: 0,
-        totalLinesRemoved: 0,
       },
     });
 

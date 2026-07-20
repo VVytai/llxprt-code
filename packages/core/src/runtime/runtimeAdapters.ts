@@ -21,6 +21,7 @@ import {
   ApiResponseEvent as LegacyApiResponseEvent,
   ApiErrorEvent as LegacyApiErrorEvent,
 } from '../telemetry/types.js';
+import { randomUUID } from 'node:crypto';
 import type {
   AgentRuntimeProviderAdapter,
   AgentRuntimeTelemetryAdapter,
@@ -95,25 +96,50 @@ export function createTelemetryAdapterFromConfig(
               totalTokenCount: event.usage.totalTokens,
             }
           : undefined);
+      // Stable prompt identity matches logApiRequest's correlation key.
+      const promptId = event.promptId ?? event.runtimeId ?? 'runtime';
+      // Trim whitespace so padded IDs normalize to their core value.
+      // Empty/whitespace-only attemptId is treated as missing so the
+      // aggregator cannot dedupe unrelated attempts under a blank key.
+      const trimmedAttemptId = event.attemptId?.trim();
+      const attemptId =
+        trimmedAttemptId !== undefined && trimmedAttemptId !== ''
+          ? trimmedAttemptId
+          : randomUUID();
       const legacy = new LegacyApiResponseEvent(
         event.model,
         event.durationMs,
-        event.promptId ?? event.runtimeId ?? 'runtime',
+        promptId,
         usageForLegacy,
         event.responseText,
         event.error,
+        undefined,
+        attemptId,
       );
+      legacy.provider = event.provider;
       logApiResponse(config, legacy);
     },
     logApiError: (event) => {
+      // Stable prompt identity matches logApiRequest's correlation key.
+      const promptId = event.promptId ?? event.runtimeId ?? 'runtime';
+      // Trim whitespace so padded IDs normalize to their core value.
+      // Empty/whitespace-only attemptId is treated as missing so the
+      // aggregator cannot dedupe unrelated attempts under a blank key.
+      const trimmedAttemptId = event.attemptId?.trim();
+      const attemptId =
+        trimmedAttemptId !== undefined && trimmedAttemptId !== ''
+          ? trimmedAttemptId
+          : randomUUID();
       const legacy = new LegacyApiErrorEvent(
         event.model,
         event.error,
         event.durationMs,
-        event.promptId ?? event.runtimeId ?? 'runtime',
+        promptId,
         event.errorType,
         event.statusCode,
+        attemptId,
       );
+      legacy.provider = event.provider;
       logApiError(config, legacy);
     },
   };

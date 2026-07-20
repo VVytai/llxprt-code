@@ -7,8 +7,12 @@
 import { render } from 'ink-testing-library';
 import { describe, it, expect, vi } from 'vitest';
 import { ToolStatsDisplay } from './ToolStatsDisplay.js';
+import { ToolCallDecision } from '@vybestack/llxprt-code-core/telemetry/index.js';
 import * as SessionContext from '../contexts/SessionContext.js';
-import type { SessionMetrics } from '../contexts/SessionContext.js';
+import {
+  withTokenTracking,
+  type TestMetricsInput,
+} from './StatsDisplay.testHelpers.js';
 
 // Mock the context to provide controlled data for testing
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -21,17 +25,20 @@ vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
 
 const useSessionStatsMock = vi.mocked(SessionContext.useSessionStats);
 
-const renderWithMockedStats = (metrics: SessionMetrics) => {
+const renderWithMockedStats = (metrics: TestMetricsInput) => {
   useSessionStatsMock.mockReturnValue({
     stats: {
+      sessionId: 'test-session',
       sessionStartTime: new Date(),
-      metrics,
+      metrics: withTokenTracking(metrics),
       lastPromptTokenCount: 0,
+      historyTokenCount: 0,
       promptCount: 5,
     },
 
     getPromptCount: () => 5,
     startNewPrompt: vi.fn(),
+    updateHistoryTokenCount: vi.fn(),
   });
 
   return render(<ToolStatsDisplay />);
@@ -45,8 +52,9 @@ describe('<ToolStatsDisplay />', () => {
         totalCalls: 0,
         totalSuccess: 0,
         totalFail: 0,
+        totalCancelled: 0,
         totalDurationMs: 0,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {},
       },
     });
@@ -64,15 +72,17 @@ describe('<ToolStatsDisplay />', () => {
         totalCalls: 1,
         totalSuccess: 1,
         totalFail: 0,
+        totalCancelled: 0,
         totalDurationMs: 100,
-        totalDecisions: { accept: 1, reject: 0, modify: 0 },
+        totalDecisions: { accept: 1, reject: 0, modify: 0, auto_accept: 0 },
         byName: {
           'test-tool': {
             count: 1,
             success: 1,
             fail: 0,
+            cancelled: 0,
             durationMs: 100,
-            decisions: { accept: 1, reject: 0, modify: 0 },
+            decisions: { accept: 1, reject: 0, modify: 0, auto_accept: 0 },
           },
         },
       },
@@ -90,22 +100,25 @@ describe('<ToolStatsDisplay />', () => {
         totalCalls: 3,
         totalSuccess: 2,
         totalFail: 1,
+        totalCancelled: 0,
         totalDurationMs: 300,
-        totalDecisions: { accept: 1, reject: 1, modify: 1 },
+        totalDecisions: { accept: 1, reject: 1, modify: 1, auto_accept: 0 },
         byName: {
           'tool-a': {
             count: 2,
             success: 1,
             fail: 1,
+            cancelled: 0,
             durationMs: 200,
-            decisions: { accept: 1, reject: 1, modify: 0 },
+            decisions: { accept: 1, reject: 1, modify: 0, auto_accept: 0 },
           },
           'tool-b': {
             count: 1,
             success: 1,
             fail: 0,
+            cancelled: 0,
             durationMs: 100,
-            decisions: { accept: 0, reject: 0, modify: 1 },
+            decisions: { accept: 0, reject: 0, modify: 1, auto_accept: 0 },
           },
         },
       },
@@ -124,22 +137,26 @@ describe('<ToolStatsDisplay />', () => {
         totalCalls: 999999999,
         totalSuccess: 888888888,
         totalFail: 111111111,
+        totalCancelled: 0,
         totalDurationMs: 987654321,
         totalDecisions: {
           accept: 123456789,
           reject: 98765432,
           modify: 12345,
+          [ToolCallDecision.AUTO_ACCEPT]: 0,
         },
         byName: {
           'long-named-tool-for-testing-wrapping-and-such': {
             count: 999999999,
             success: 888888888,
             fail: 111111111,
+            cancelled: 0,
             durationMs: 987654321,
             decisions: {
               accept: 123456789,
               reject: 98765432,
               modify: 12345,
+              [ToolCallDecision.AUTO_ACCEPT]: 0,
             },
           },
         },
@@ -156,15 +173,17 @@ describe('<ToolStatsDisplay />', () => {
         totalCalls: 1,
         totalSuccess: 1,
         totalFail: 0,
+        totalCancelled: 0,
         totalDurationMs: 100,
-        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        totalDecisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
         byName: {
           'test-tool': {
             count: 1,
             success: 1,
             fail: 0,
+            cancelled: 0,
             durationMs: 100,
-            decisions: { accept: 0, reject: 0, modify: 0 },
+            decisions: { accept: 0, reject: 0, modify: 0, auto_accept: 0 },
           },
         },
       },

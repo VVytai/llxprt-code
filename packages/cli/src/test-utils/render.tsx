@@ -179,7 +179,7 @@ export const renderWithProviders = (
   );
 
 interface RenderHookResult<T> {
-  result: { current: T };
+  result: { current: T; all: T[] };
   rerender: (props?: unknown) => void;
   unmount: () => void;
 }
@@ -193,10 +193,14 @@ export function renderHook<T, P = undefined>(
   hook: (props: P) => T,
   options?: RenderHookOptions<P>,
 ): RenderHookResult<T> {
-  const result = { current: undefined as T };
+  // Render-history array. Tests read `result.all.length` for render-count
+  // assertions and index into `result.all[i]` for intermediate values.
+  const all: T[] = [];
+  const result = { current: undefined as T, all };
 
   function TestComponent({ hookProps }: { hookProps: P }) {
     result.current = hook(hookProps);
+    all.push(result.current);
     return null;
   }
 
