@@ -153,52 +153,60 @@ function useProfileLoader(
   setDefaultProfileName: React.Dispatch<React.SetStateAction<string | null>>,
   setActiveProfileName: React.Dispatch<React.SetStateAction<string | null>>,
 ) {
-  return useCallback(async () => {
-    setIsLoading(true);
-    setProfileError(null);
-
-    try {
-      const profileNames = await runtime.listSavedProfiles();
-      const profileItems = await fetchProfileItems(runtime, profileNames);
-      setProfiles(profileItems);
+  return useCallback(
+    async (options?: { showLoading?: boolean }) => {
+      const showLoading = options?.showLoading !== false;
+      if (showLoading) {
+        setIsLoading(true);
+      }
+      setProfileError(null);
 
       try {
-        const services = runtime.getCliRuntimeServices();
-        const defaultName = services.settingsService.get('defaultProfile') as
-          | string
-          | null;
-        setDefaultProfileName(defaultName ?? null);
-      } catch {
-        // Ignore errors getting default profile
-      }
+        const profileNames = await runtime.listSavedProfiles();
+        const profileItems = await fetchProfileItems(runtime, profileNames);
+        setProfiles(profileItems);
 
-      try {
-        const diagnostics = runtime.getRuntimeDiagnosticsSnapshot();
-        setActiveProfileName(diagnostics.profileName);
-      } catch {
-        // Ignore errors getting active profile
+        try {
+          const services = runtime.getCliRuntimeServices();
+          const defaultName = services.settingsService.get('defaultProfile') as
+            | string
+            | null;
+          setDefaultProfileName(defaultName ?? null);
+        } catch {
+          // Ignore errors getting default profile
+        }
+
+        try {
+          const diagnostics = runtime.getRuntimeDiagnosticsSnapshot();
+          setActiveProfileName(diagnostics.profileName);
+        } catch {
+          // Ignore errors getting active profile
+        }
+      } catch (error) {
+        setProfileError(
+          error instanceof Error ? error.message : 'Failed to load profiles',
+        );
+        addMessage({
+          type: MessageType.ERROR,
+          content: `Failed to load profiles: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date(),
+        });
+      } finally {
+        if (showLoading) {
+          setIsLoading(false);
+        }
       }
-    } catch (error) {
-      setProfileError(
-        error instanceof Error ? error.message : 'Failed to load profiles',
-      );
-      addMessage({
-        type: MessageType.ERROR,
-        content: `Failed to load profiles: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date(),
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    runtime,
-    addMessage,
-    setProfiles,
-    setIsLoading,
-    setProfileError,
-    setDefaultProfileName,
-    setActiveProfileName,
-  ]);
+    },
+    [
+      runtime,
+      addMessage,
+      setProfiles,
+      setIsLoading,
+      setProfileError,
+      setDefaultProfileName,
+      setActiveProfileName,
+    ],
+  );
 }
 
 function useListDialogActions(
@@ -330,10 +338,12 @@ function useLoadProfileAction(
 
 function useDeleteProfileAction(
   addMessage: AddMessageFn,
-  appDispatch: ReturnType<typeof useAppDispatch>,
+  appDispatch: ReturnType<typeof useAppDispatch> | null,
   runtime: ReturnType<typeof useRuntimeApi>,
-  loadProfiles: () => Promise<void>,
+  loadProfiles: (options?: { showLoading?: boolean }) => Promise<void>,
+  options?: { fromList?: boolean },
 ) {
+  const fromList = options?.fromList === true;
   return useCallback(
     async (profileName: string) => {
       try {
@@ -343,9 +353,14 @@ function useDeleteProfileAction(
           content: `Profile '${profileName}' deleted`,
           timestamp: new Date(),
         });
-        appDispatch({ type: 'CLOSE_DIALOG', payload: 'profileDetail' });
-        appDispatch({ type: 'OPEN_DIALOG', payload: 'profileList' });
-        await loadProfiles();
+        if (!fromList && appDispatch !== null) {
+          appDispatch({ type: 'CLOSE_DIALOG', payload: 'profileDetail' });
+          appDispatch({ type: 'OPEN_DIALOG', payload: 'profileList' });
+          await loadProfiles();
+        } else {
+          // Refresh in place without the loading flash so selection can clamp.
+          await loadProfiles({ showLoading: false });
+        }
       } catch (error) {
         addMessage({
           type: MessageType.ERROR,
@@ -354,7 +369,7 @@ function useDeleteProfileAction(
         });
       }
     },
-    [addMessage, appDispatch, runtime, loadProfiles],
+    [addMessage, appDispatch, runtime, loadProfiles, fromList],
   );
 }
 
@@ -509,7 +524,7 @@ function useProfileDispatchActions(
   addMessage: AddMessageFn,
   appDispatch: ReturnType<typeof useAppDispatch>,
   runtime: ReturnType<typeof useRuntimeApi>,
-  loadProfiles: () => Promise<void>,
+  loadProfiles: (options?: { showLoading?: boolean }) => Promise<void>,
   dataStates: ReturnType<typeof useProfileDataStates>,
   viewProfileDetail: (name: string, direct: boolean) => Promise<void>,
 ) {
@@ -524,6 +539,13 @@ function useProfileDispatchActions(
     appDispatch,
     runtime,
     loadProfiles,
+  );
+  const deleteProfileFromList = useDeleteProfileAction(
+    addMessage,
+    null,
+    runtime,
+    loadProfiles,
+    { fromList: true },
   );
   const setDefault = useSetDefaultAction(
     addMessage,
@@ -560,10 +582,29 @@ function useProfileDispatchActions(
   return {
     loadProfile,
     deleteProfile,
+    deleteProfileFromList,
     setDefault,
     openEditor,
     closeEditor,
     saveProfile,
+  };
+}
+
+function buildProfileManagementResult<TActions extends object>(
+  dialogStates: ReturnType<typeof useProfileDialogStates>,
+  dataStates: ReturnType<typeof useProfileDataStates>,
+  actions: TActions,
+) {
+  return {
+    ...dialogStates,
+    profiles: dataStates.profiles,
+    isLoading: dataStates.isLoading,
+    selectedProfileName: dataStates.selectedProfileName,
+    selectedProfile: dataStates.selectedProfile,
+    defaultProfileName: dataStates.defaultProfileName,
+    activeProfileName: dataStates.activeProfileName,
+    profileError: dataStates.profileError,
+    ...actions,
   };
 }
 
@@ -578,7 +619,6 @@ export const useProfileManagement = ({
   const dataStates = useProfileDataStates();
   const { setActiveProfileName } = dataStates;
 
-  // Initialize activeProfileName on mount from runtime diagnostics
   useEffect(() => {
     try {
       const diagnostics = runtime.getRuntimeDiagnosticsSnapshot();
@@ -615,14 +655,7 @@ export const useProfileManagement = ({
     dataStates.detailOpenedDirectly,
     loadProfiles,
   );
-  const {
-    loadProfile,
-    deleteProfile,
-    setDefault,
-    openEditor,
-    closeEditor,
-    saveProfile,
-  } = useProfileDispatchActions(
+  const dispatchActions = useProfileDispatchActions(
     addMessage,
     appDispatch,
     runtime,
@@ -631,33 +664,11 @@ export const useProfileManagement = ({
     viewProfileDetail,
   );
 
-  return {
-    // Dialog states
-    ...dialogStates,
-
-    // Data
-    profiles: dataStates.profiles,
-    isLoading: dataStates.isLoading,
-    selectedProfileName: dataStates.selectedProfileName,
-    selectedProfile: dataStates.selectedProfile,
-    defaultProfileName: dataStates.defaultProfileName,
-    activeProfileName: dataStates.activeProfileName,
-    profileError: dataStates.profileError,
-
-    // List dialog actions
+  return buildProfileManagementResult(dialogStates, dataStates, {
     openListDialog,
     closeListDialog,
-
-    // Detail dialog actions
     viewProfileDetail,
     closeDetailDialog,
-    loadProfile,
-    deleteProfile,
-    setDefault,
-
-    // Editor actions
-    openEditor,
-    closeEditor,
-    saveProfile,
-  };
+    ...dispatchActions,
+  });
 };

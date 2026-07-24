@@ -27,6 +27,7 @@ interface ProfileListDialogProps {
   onSelect: (profileName: string) => void;
   onClose: () => void;
   onViewDetail: (profileName: string) => void;
+  onDelete: (profileName: string) => void;
   isLoading?: boolean;
   defaultProfileName?: string;
   activeProfileName?: string;
@@ -102,7 +103,6 @@ const ProfileItem: React.FC<{
 
 function handleSearchModeKeys(
   key: { name?: string; sequence?: string; ctrl?: boolean; meta?: boolean },
-  isNarrow: boolean,
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>,
   setIsSearching: React.Dispatch<React.SetStateAction<boolean>>,
   onViewDetail: (name: string) => void,
@@ -111,15 +111,11 @@ function handleSearchModeKeys(
 ): void {
   if (key.name === 'return') {
     if (filteredProfiles.length > 0) {
-      if (isNarrow) {
-        onViewDetail(filteredProfiles[selectedIndex].name);
-        return;
-      }
-      setIsSearching(false);
+      onViewDetail(filteredProfiles[selectedIndex].name);
     }
     return;
   }
-  if (key.name === 'tab' && !isNarrow) {
+  if (key.name === 'tab') {
     setIsSearching(false);
     return;
   }
@@ -151,6 +147,7 @@ function handleNavModeKeys(
   onViewDetail: (name: string) => void,
   onSelect: (name: string) => void,
   setIsSearching: React.Dispatch<React.SetStateAction<boolean>>,
+  requestDelete: (name: string) => void,
   columns: number,
 ): void {
   if (key.name === 'return' && filteredProfiles.length > 0) {
@@ -162,8 +159,12 @@ function handleNavModeKeys(
     return;
   }
   if (filteredProfiles.length === 0) return;
-  if (key.sequence === 'l' && filteredProfiles.length > 0) {
+  if (key.sequence === 'l') {
     onSelect(filteredProfiles[index].name);
+    return;
+  }
+  if (key.sequence === 'd') {
+    requestDelete(filteredProfiles[index].name);
     return;
   }
   if (key.name === 'left') move(-1);
@@ -175,11 +176,49 @@ function handleNavModeKeys(
   else if (key.sequence === 'h') move(-1);
 }
 
+const DeleteConfirmationBanner: React.FC<{
+  confirmDeleteName: string | null;
+  activeProfileName?: string;
+  defaultProfileName?: string;
+}> = ({ confirmDeleteName, activeProfileName, defaultProfileName }) => {
+  if (!confirmDeleteName) {
+    return null;
+  }
+
+  const isActive = confirmDeleteName === activeProfileName;
+  const isDefault = confirmDeleteName === defaultProfileName;
+  const qualifiers = [
+    isActive ? 'active' : null,
+    isDefault ? 'default' : null,
+  ].filter(Boolean);
+  const qualifierText =
+    qualifiers.length > 0 ? ` (${qualifiers.join(', ')})` : '';
+
+  return (
+    <Box marginTop={1}>
+      <Text color={SemanticColors.status.warning}>
+        Delete profile &apos;{confirmDeleteName}&apos;{qualifierText}? Press y
+        to confirm, n or Esc to cancel.
+      </Text>
+    </Box>
+  );
+};
+
 const NarrowContent: React.FC<{
   searchTerm: string;
   filteredProfiles: ProfileListItem[];
   grid: React.ReactNode[];
-}> = ({ searchTerm, filteredProfiles, grid }) => (
+  confirmDeleteName: string | null;
+  activeProfileName?: string;
+  defaultProfileName?: string;
+}> = ({
+  searchTerm,
+  filteredProfiles,
+  grid,
+  confirmDeleteName,
+  activeProfileName,
+  defaultProfileName,
+}) => (
   <Box flexDirection="column">
     <Text bold color={SemanticColors.text.primary}>
       Profiles
@@ -193,7 +232,8 @@ const NarrowContent: React.FC<{
     </Box>
 
     <Text color={SemanticColors.text.secondary}>
-      Type to filter, Enter for details, Esc to cancel
+      Type to filter, Tab to navigate ([d] Delete), Enter for details, Esc to
+      cancel
     </Text>
 
     <Text color={SemanticColors.text.secondary}>
@@ -209,6 +249,12 @@ const NarrowContent: React.FC<{
         </Text>
       </Box>
     )}
+
+    <DeleteConfirmationBanner
+      confirmDeleteName={confirmDeleteName}
+      activeProfileName={activeProfileName}
+      defaultProfileName={defaultProfileName}
+    />
   </Box>
 );
 
@@ -241,19 +287,20 @@ const WideSelectionDetail: React.FC<{
   index: number;
   isSearching: boolean;
 }> = ({ filteredProfiles, index, isSearching }) => {
-  if (filteredProfiles.length === 0 || isSearching) return null;
+  if (isSearching || index < 0 || index >= filteredProfiles.length) {
+    return null;
+  }
+  const selected = filteredProfiles[index];
 
   return (
     <Box marginTop={1}>
       <Text color={SemanticColors.text.secondary}>
-        Selected: {filteredProfiles[index].name}
-        {filteredProfiles[index].provider != null && (
+        Selected: {selected.name}
+        {selected.provider != null && (
           <Text color={SemanticColors.text.secondary}>
             {' '}
-            ({filteredProfiles[index].provider}
-            {filteredProfiles[index].model != null &&
-              ` / ${filteredProfiles[index].model}`}
-            )
+            ({selected.provider}
+            {selected.model != null && ` / ${selected.model}`})
           </Text>
         )}
       </Text>
@@ -267,7 +314,19 @@ const WideContent: React.FC<{
   filteredProfiles: ProfileListItem[];
   index: number;
   grid: React.ReactNode[];
-}> = ({ isSearching, searchTerm, filteredProfiles, index, grid }) => (
+  confirmDeleteName: string | null;
+  activeProfileName?: string;
+  defaultProfileName?: string;
+}> = ({
+  isSearching,
+  searchTerm,
+  filteredProfiles,
+  index,
+  grid,
+  confirmDeleteName,
+  activeProfileName,
+  defaultProfileName,
+}) => (
   <Box flexDirection="column">
     <Text bold color={SemanticColors.text.primary}>
       Profile List
@@ -301,10 +360,16 @@ const WideContent: React.FC<{
       </Text>
     </Box>
 
+    <DeleteConfirmationBanner
+      confirmDeleteName={confirmDeleteName}
+      activeProfileName={activeProfileName}
+      defaultProfileName={defaultProfileName}
+    />
+
     <Box marginTop={1} />
 
     <Text color={SemanticColors.text.secondary}>
-      Controls: ↑↓←→ Navigate [Enter] Details [l] Load [Esc] Close
+      Controls: ↑↓←→ Navigate [Enter] Details [l] Load [d] Delete [Esc] Close
     </Text>
   </Box>
 );
@@ -374,9 +439,28 @@ const EmptyState: React.FC = () => (
   </Box>
 );
 
+function handleDeleteConfirmKeys(
+  key: { name?: string; sequence?: string },
+  confirmDeleteName: string,
+  setConfirmDeleteName: React.Dispatch<React.SetStateAction<string | null>>,
+  onDelete: (name: string) => void,
+): void {
+  if (key.name === 'escape') {
+    setConfirmDeleteName(null);
+    return;
+  }
+  if (key.sequence === 'y' || key.sequence === 'Y') {
+    setConfirmDeleteName(null);
+    onDelete(confirmDeleteName);
+    return;
+  }
+  if (key.sequence === 'n' || key.sequence === 'N') {
+    setConfirmDeleteName(null);
+  }
+}
+
 function useListKeypress(
   isSearching: boolean,
-  isNarrow: boolean,
   searchTerm: string,
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>,
   setIsSearching: React.Dispatch<React.SetStateAction<boolean>>,
@@ -385,12 +469,25 @@ function useListKeypress(
   filteredProfiles: ProfileListItem[],
   move: (delta: number) => void,
   onSelect: (name: string) => void,
+  onDelete: (name: string) => void,
   columns: number,
   onClose: () => void,
   isLoading: boolean,
+  confirmDeleteName: string | null,
+  setConfirmDeleteName: React.Dispatch<React.SetStateAction<string | null>>,
 ) {
   const handleKeypress = useCallback(
     (key: Parameters<Parameters<typeof useKeypress>[0]>[0]) => {
+      if (confirmDeleteName !== null) {
+        handleDeleteConfirmKeys(
+          key,
+          confirmDeleteName,
+          setConfirmDeleteName,
+          onDelete,
+        );
+        return;
+      }
+
       if (key.name === 'escape') {
         if (isSearching && searchTerm.length > 0) {
           setSearchTerm('');
@@ -399,10 +496,9 @@ function useListKeypress(
         }
         return;
       }
-      if (isSearching || isNarrow) {
+      if (isSearching) {
         handleSearchModeKeys(
           key,
-          isNarrow,
           setSearchTerm,
           setIsSearching,
           onViewDetail,
@@ -418,16 +514,19 @@ function useListKeypress(
           onViewDetail,
           onSelect,
           setIsSearching,
+          setConfirmDeleteName,
           columns,
         );
       }
     },
     [
+      confirmDeleteName,
+      setConfirmDeleteName,
+      onDelete,
       isSearching,
       searchTerm,
       setSearchTerm,
       onClose,
-      isNarrow,
       setIsSearching,
       onViewDetail,
       index,
@@ -489,6 +588,9 @@ const ProfileListBody: React.FC<{
   filteredProfiles: ProfileListItem[];
   index: number;
   grid: React.ReactNode[];
+  confirmDeleteName: string | null;
+  activeProfileName?: string;
+  defaultProfileName?: string;
 }> = ({
   isNarrow,
   width,
@@ -497,6 +599,9 @@ const ProfileListBody: React.FC<{
   filteredProfiles,
   index,
   grid,
+  confirmDeleteName,
+  activeProfileName,
+  defaultProfileName,
 }) => {
   if (isNarrow) {
     return (
@@ -505,6 +610,9 @@ const ProfileListBody: React.FC<{
           searchTerm={searchTerm}
           filteredProfiles={filteredProfiles}
           grid={grid}
+          confirmDeleteName={confirmDeleteName}
+          activeProfileName={activeProfileName}
+          defaultProfileName={defaultProfileName}
         />
       </Box>
     );
@@ -524,31 +632,73 @@ const ProfileListBody: React.FC<{
         filteredProfiles={filteredProfiles}
         index={index}
         grid={grid}
+        confirmDeleteName={confirmDeleteName}
+        activeProfileName={activeProfileName}
+        defaultProfileName={defaultProfileName}
       />
     </Box>
   );
 };
 
-export const ProfileListDialog: React.FC<ProfileListDialogProps> = ({
-  profiles,
-  onSelect,
-  onClose,
-  onViewDetail,
-  isLoading = false,
-  defaultProfileName,
-  activeProfileName,
-}) => {
+function useConfirmDeleteClear(
+  confirmDeleteName: string | null,
+  filteredProfiles: ProfileListItem[],
+  setConfirmDeleteName: React.Dispatch<React.SetStateAction<string | null>>,
+): void {
+  useEffect(() => {
+    if (
+      confirmDeleteName !== null &&
+      !filteredProfiles.some((profile) => profile.name === confirmDeleteName)
+    ) {
+      setConfirmDeleteName(null);
+    }
+  }, [confirmDeleteName, filteredProfiles, setConfirmDeleteName]);
+}
+
+function useProfileListMove(
+  index: number,
+  filteredLength: number,
+  setIndex: React.Dispatch<React.SetStateAction<number>>,
+) {
+  return useCallback(
+    (delta: number) => {
+      if (filteredLength === 0) {
+        setIndex(0);
+        return;
+      }
+      let next = index + delta;
+      if (next < 0) next = 0;
+      if (next >= filteredLength) next = filteredLength - 1;
+      setIndex(next);
+    },
+    [index, filteredLength, setIndex],
+  );
+}
+
+function useProfileListController(opts: {
+  profiles: ProfileListItem[];
+  onSelect: (profileName: string) => void;
+  onClose: () => void;
+  onViewDetail: (profileName: string) => void;
+  onDelete: (profileName: string) => void;
+  isLoading: boolean;
+  activeProfileName?: string;
+  defaultProfileName?: string;
+}) {
   const { isNarrow, isWide, width } = useResponsive();
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(true);
   const [index, setIndex] = useState(0);
+  const [confirmDeleteName, setConfirmDeleteName] = useState<string | null>(
+    null,
+  );
 
   const filteredProfiles = useMemo(
     () =>
-      profiles.filter((p) =>
+      opts.profiles.filter((p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()),
       ),
-    [profiles, searchTerm],
+    [opts.profiles, searchTerm],
   );
 
   const { columns, colWidth, rows } = useListLayout(
@@ -558,62 +708,82 @@ export const ProfileListDialog: React.FC<ProfileListDialogProps> = ({
   );
 
   useProfileListIndexBounds(searchTerm, filteredProfiles, setIndex);
-
-  const move = useCallback(
-    (delta: number) => {
-      if (filteredProfiles.length === 0) {
-        setIndex(0);
-        return;
-      }
-      let next = index + delta;
-      if (next < 0) next = 0;
-      if (next >= filteredProfiles.length) next = filteredProfiles.length - 1;
-      setIndex(next);
-    },
-    [index, filteredProfiles.length],
+  useConfirmDeleteClear(
+    confirmDeleteName,
+    filteredProfiles,
+    setConfirmDeleteName,
   );
+
+  const move = useProfileListMove(index, filteredProfiles.length, setIndex);
 
   useListKeypress(
     isSearching,
-    isNarrow,
     searchTerm,
     setSearchTerm,
     setIsSearching,
-    onViewDetail,
+    opts.onViewDetail,
     index,
     filteredProfiles,
     move,
-    onSelect,
+    opts.onSelect,
+    opts.onDelete,
     columns,
-    onClose,
-    isLoading,
+    opts.onClose,
+    opts.isLoading,
+    confirmDeleteName,
+    setConfirmDeleteName,
   );
 
-  const grid = buildGrid(
-    filteredProfiles,
-    rows,
-    columns,
-    index,
-    isSearching,
+  return {
     isNarrow,
-    isWide,
-    activeProfileName,
-    defaultProfileName,
-    colWidth,
-  );
+    width,
+    isSearching,
+    searchTerm,
+    filteredProfiles,
+    index,
+    confirmDeleteName,
+    grid: buildGrid(
+      filteredProfiles,
+      rows,
+      columns,
+      index,
+      isSearching,
+      isNarrow,
+      isWide,
+      opts.activeProfileName,
+      opts.defaultProfileName,
+      colWidth,
+    ),
+  };
+}
 
-  if (isLoading) return <LoadingState />;
-  if (profiles.length === 0) return <EmptyState />;
+export const ProfileListDialog: React.FC<ProfileListDialogProps> = (props) => {
+  const controller = useProfileListController({
+    profiles: props.profiles,
+    onSelect: props.onSelect,
+    onClose: props.onClose,
+    onViewDetail: props.onViewDetail,
+    onDelete: props.onDelete,
+    isLoading: props.isLoading === true,
+    activeProfileName: props.activeProfileName,
+    defaultProfileName: props.defaultProfileName,
+  });
+
+  if (props.isLoading === true) return <LoadingState />;
+  if (props.profiles.length === 0) return <EmptyState />;
 
   return (
     <ProfileListBody
-      isNarrow={isNarrow}
-      width={width}
-      isSearching={isSearching}
-      searchTerm={searchTerm}
-      filteredProfiles={filteredProfiles}
-      index={index}
-      grid={grid}
+      isNarrow={controller.isNarrow}
+      width={controller.width}
+      isSearching={controller.isSearching}
+      searchTerm={controller.searchTerm}
+      filteredProfiles={controller.filteredProfiles}
+      index={controller.index}
+      grid={controller.grid}
+      confirmDeleteName={controller.confirmDeleteName}
+      activeProfileName={props.activeProfileName}
+      defaultProfileName={props.defaultProfileName}
     />
   );
 };
